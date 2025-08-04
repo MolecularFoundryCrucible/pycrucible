@@ -1,102 +1,155 @@
 import os
 import requests
-from typing import Optional, List
+from typing import Optional, List, Dict, Union, Any
 from utils import get_tz_isoformat, run_shell, checkhash
 
-def list_crucible_projects(crucible_api_url, apikey):
-    auth_header = {"Authorization":f"Bearer {apikey}"}
-    endpt = f"{crucible_api_url}/projects"
-
-    prop = requests.get(url=endpt, headers=auth_header).json()
-    return(prop)
-
-
-def get_crucible_project(project_id, crucible_api_url, apikey):
-    auth_header = {"Authorization":f"Bearer {apikey}"}
-    endpt = f"{crucible_api_url}/projects/{project_id}"
-
-    prop = requests.get(url=endpt, headers=auth_header).json()
-    return(prop)
-
-
-def get_crucible_user(orcid, crucible_api_url, apikey):
-    auth_header = {"Authorization":f"Bearer {apikey}"}
-    endpt = f"{crucible_api_url}/users/{orcid}"
-
-    user = requests.get(url=endpt, headers=auth_header).json()
-    return(user)
-
-def get_crucible_user_by_email(email, crucible_api_url, apikey):
-    auth_header = {"Authorization":f"Bearer {apikey}"}
-    endpt = f"{crucible_api_url}/users"
-
-    found_user = requests.get(url=endpt, params={"email": email}, headers=auth_header).json()
-    if found_user: 
-        return(found_user)
-    else:
-        found_user = requests.get(url=endpt, params={"lbl_email": email}, headers=auth_header).json()
-
-    return(found_user)
-
-
-def get_users_on_project(project_id, crucible_api_url, apikey):
-    auth_header = {"Authorization":f"Bearer {apikey}"}
-    endpt = f"{crucible_api_url}/projects/{project_id}/users"
-
-    users_on_prop = requests.get(url=endpt, headers=auth_header).json()
-    return(users_on_prop)
-
-
-def list_datasets(crucible_api_url, apikey, **kwargs):
-    auth_header = {"Authorization": f"Bearer {apikey}"}
-    endpt = f"{crucible_api_url}/datasets"
-    datasets = requests.get(url=endpt, headers = auth_header, params = kwargs)
-    return datasets
-
-
-def request_ingestion(crucible_api_url, apikey, dsid, ingestor):
-    auth_header = {"Authorization": f"Bearer {apikey}"}
-    endpt = f"{crucible_api_url}/datasets/{dsid}/ingest"
-    ingest_req = requests.post(url = endpt,
-                               params = {"ingestion_class": ingestor},
-                               headers = auth_header)
-    return ingest_req
-    
-
-def get_dataset_info(crucible_api_url, apikey, dsid, return_scimd = False):
-
-    auth_header = {"Authorization": f"Bearer {apikey}"}
-    endpt = f"{crucible_api_url}/datasets/{dsid}"
-
-    found_dataset = requests.get(url=endpt, headers = auth_header).json()
-    
-    if found_dataset and return_scimd:
-        endpt = f"{crucible_api_url}/datasets/{dsid}/scientific_metadata"
-        scimd = requests.get(url= endpt, headers = auth_header)
+class CrucibleClient:
+    def __init__(self, api_url: str, api_key: str):
+        """Initialize the Crucible API client.
         
-        if scimd:
-            found_dataset['scientific_metadata'] = scimd.json()   
-        else:
-            found_dataset['scientific_metadata'] = {}
+        Args:
+            api_url: Base URL for the Crucible API
+            api_key: API key for authentication
+        """
+        self.api_url = api_url.rstrip('/')
+        self.api_key = api_key
+        self.headers = {"Authorization": f"Bearer {api_key}"}
+    
+    def _request(self, method: str, endpoint: str, **kwargs) -> Any:
+        """Make an HTTP request to the API.
+        
+        Args:
+            method: HTTP method (get, post, put, delete)
+            endpoint: API endpoint path
+            **kwargs: Additional arguments to pass to requests
+        
+        Returns:
+            Parsed JSON response
+        """
+        url = f"{self.api_url}/{endpoint.lstrip('/')}"
+        kwargs['headers'] = {**kwargs.get('headers', {}), **self.headers}
+        response = requests.request(method, url, **kwargs)
+        response.raise_for_status()
+        return response.json() if response.content else None
 
-    return found_dataset
-
-
-def get_dataset_access_groups(crucible_api_url, apikey, dsid):
-    auth_header = {"Authorization": f"Bearer {apikey}"}
-    endpt = f"{crucible_api_url}/datasets/{dsid}/access_groups"
-
-    access_groups = requests.get(url=endpt, headers = auth_header).json()
-    access_group_names = [ag['group_name'] for ag in access_groups]
-    return(access_group_names)
-
-
-def get_dataset_keywords(dsid, crucible_api_url, apikey):
-    auth_header = {"Authorization": f"Bearer {apikey}"}
-    endpt = f"{crucible_api_url}/datasets/{dsid}/keywords"
-
-    keywords = requests.get(url=endpt, headers = auth_header).json()
-    return(keywords)
+    def list_projects(self) -> List[Dict]:
+        """List all accessible projects."""
+        return self._request('get', '/projects')
+    
+    def get_project(self, project_id: str) -> Dict:
+        """Get details of a specific project."""
+        return self._request('get', f'/projects/{project_id}')
+    
+    def get_user(self, orcid: str) -> Dict:
+        """Get user details by ORCID."""
+        return self._request('get', f'/users/{orcid}')
+    
+    def get_user_by_email(self, email: str) -> Dict:
+        """Get user details by email."""
+        params = {"email": email}
+        result = self._request('get', '/users', params=params)
+        if not result:
+            params = {"lbl_email": email}
+            result = self._request('get', '/users', params=params)
+        return result
+    
+    def get_project_users(self, project_id: str) -> List[Dict]:
+        """Get users associated with a project."""
+        return self._request('get', f'/projects/{project_id}/users')
+    
+    def list_datasets(self, **kwargs) -> List[Dict]:
+        """List datasets with optional filtering."""
+        return self._request('get', '/datasets', params=kwargs)
+    
+    def get_dataset(self, dsid: str, include_metadata: bool = False) -> Dict:
+        """Get dataset details, optionally including scientific metadata."""
+        dataset = self._request('get', f'/datasets/{dsid}')
+        if dataset and include_metadata:
+            try:
+                metadata = self._request('get', f'/datasets/{dsid}/scientific_metadata')
+                dataset['scientific_metadata'] = metadata or {}
+            except requests.exceptions.RequestException:
+                dataset['scientific_metadata'] = {}
+        return dataset
+    
+    def upload_dataset(self, dsid: str, file_path: str) -> Dict:
+        """Upload a file to a dataset."""
+        with open(file_path, 'rb') as f:
+            files = {'file': f}
+            return self._request('post', f'/datasets/{dsid}/upload', files=files)
+    
+    def download_dataset(self, dsid: str, file_name: str, output_path: str) -> None:
+        """Download a dataset file.
+        TODO:  I think we want this to not require a file_name, but just download all files or have option for main vs. associated.
+        """
+        url = f"{self.api_url}/datasets/{dsid}/download/{file_name}"
+        response = requests.get(url, headers=self.headers, stream=True)
+        response.raise_for_status()
+        with open(output_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+    
+    def request_ingestion(self, dsid: str, ingestor: str) -> Dict:
+        """Request dataset ingestion."""
+        params = {"ingestion_class": ingestor}
+        return self._request('post', f'/datasets/{dsid}/ingest', params=params)
+    
+    def get_dataset_access_groups(self, dsid: str) -> List[str]:
+        """Get access groups for a dataset."""
+        groups = self._request('get', f'/datasets/{dsid}/access_groups')
+        return [group['group_name'] for group in groups]
+    
+    def get_dataset_keywords(self, dsid: str) -> List[Dict]:
+        """Get keywords associated with a dataset."""
+        return self._request('get', f'/datasets/{dsid}/keywords')
+    
+    def add_dataset_keyword(self, dsid: str, keyword: str) -> Dict:
+        """Add a keyword to a dataset."""
+        data = {"keyword": keyword}
+        return self._request('post', f'/datasets/{dsid}/keywords', json=data)
+    
+    def get_scientific_metadata(self, dsid: str) -> Dict:
+        """Get scientific metadata for a dataset."""
+        return self._request('get', f'/datasets/{dsid}/scientific_metadata')
+    
+    def update_scientific_metadata(self, dsid: str, metadata: Dict) -> Dict:
+        """Update scientific metadata for a dataset."""
+        return self._request('post', f'/datasets/{dsid}/scientific_metadata', json=metadata)
+    
+    def get_thumbnails(self, dsid: str) -> List[Dict]:
+        """Get thumbnails for a dataset."""
+        return self._request('get', f'/datasets/{dsid}/thumbnails')
+    
+    def add_thumbnail(self, dsid: str, file_path: str, description: str = None) -> Dict:
+        """Add a thumbnail to a dataset."""
+        with open(file_path, 'rb') as f:
+            files = {'file': f}
+            data = {'description': description} if description else {}
+            return self._request('post', f'/datasets/{dsid}/thumbnails', files=files, data=data)
+    
+    def get_associated_files(self, dsid: str) -> List[Dict]:
+        """Get associated files for a dataset."""
+        return self._request('get', f'/datasets/{dsid}/associated_files')
+    
+    def add_associated_file(self, dsid: str, file_path: str, description: str = None) -> Dict:
+        """Add an associated file to a dataset."""
+        with open(file_path, 'rb') as f:
+            files = {'file': f}
+            data = {'description': description} if description else {}
+            return self._request('post', f'/datasets/{dsid}/associated_files', files=files, data=data)
+    
+    def request_google_drive_transfer(self, dsid: str, folder_id: str) -> Dict:
+        """Request transfer of dataset to Google Drive."""
+        data = {"folder_id": folder_id}
+        return self._request('post', f'/datasets/{dsid}/google_drive_transfer', json=data)
+    
+    def request_scicat_update(self, dsid: str) -> Dict:
+        """Request SciCat update for a dataset."""
+        return self._request('post', f'/datasets/{dsid}/scicat_update')
+    
+    def delete_dataset(self, dsid: str) -> Dict:
+        """Delete a dataset."""
+        return self._request('delete', f'/datasets/{dsid}')
 
 
 def get_thumbnails_for_dataset(dsid, crucible_api_url, apikey):
@@ -352,101 +405,98 @@ def get_or_add_crucible_project(crucible_project_id, get_project_info_func, cruc
 
 
 # ==== Main utility for instrument integration
-def build_new_dataset_from_json(crucible_api_url, 
-                                apikey, 
-                                dataset_name: Optional[str] = None,
-                                unique_id: Optional[str] = None, 
-                                public: Optional[str] = False,
-                                owner_orcid: Optional[str] = None,
-                                owner_user_id: Optional[int] = None,
-                                project_id: Optional[str] = None,
-                                instrument_name: Optional[str] = None,
-                                instrument_id: Optional[int] = None,
-                                measurement: Optional[str] = None, 
-                                session_name: Optional[str] = None,
-                                creation_time:Optional[str] = None,
-                                data_format: Optional[str] = None, 
-                                scientific_metadata: Optional[dict] = None,
-                                comments: Optional[str] = None,
-                                keywords=[], 
-                                get_user_info_function = None, 
-                                **kwargs):
-    # get owner_id if orcid provided
-    if owner_orcid is not None:
-        owner = get_or_add_user(owner_orcid, get_user_info_function, crucible_api_url, apikey, **kwargs)
-        owner_user_id = owner['id']
-    
-    # get instrument_id if instrument_name provided
-    if instrument_name is not None:
-        instrument = get_or_add_instrument(crucible_api_url, apikey, instrument_name)
-        instrument_id = instrument['id']
-
-    # create the dataset with available metadata
-    dataset = { "unique_id": unique_id,
-                "dataset_name": dataset_name,
-                "public": public,
-                "owner_user_id": owner_user_id,
-                "owner_orcid": owner_orcid,
-                "project_id": project_id,
-                "instrument_id": instrument_id,
-                "measurement,": measurement, 
-                "session_name": session_name,
-                "creation_time": creation_time,
-                "data_format": data_format}
-    
-    clean_dataset = {k: v for k, v in dataset.items() if v is not None}
-
-
-    endpt = f"{crucible_api_url}/datasets"
-    auth_header = {"Authorization":f"Bearer {apikey}"}
-    new_ds_record = requests.post(url=endpt, 
-                           json = clean_dataset, 
-                           headers = auth_header)
-    if new_ds_record:
-        new_ds_record = new_ds_record.json()
+    def create_dataset(self, 
+                      dataset_name: Optional[str] = None,
+                      unique_id: Optional[str] = None, 
+                      public: bool = False,
+                      owner_orcid: Optional[str] = None,
+                      owner_user_id: Optional[int] = None,
+                      project_id: Optional[str] = None,
+                      instrument_name: Optional[str] = None,
+                      instrument_id: Optional[int] = None,
+                      measurement: Optional[str] = None, 
+                      session_name: Optional[str] = None,
+                      creation_time: Optional[str] = None,
+                      data_format: Optional[str] = None, 
+                      scientific_metadata: Optional[dict] = None,
+                      keywords: List[str] = None) -> Dict:
+        """Create a new dataset with metadata.
         
-    dsid = new_ds_record['unique_id']
-    print(f"{dsid=}")
-    
-    # add scimd
-    if scimd is not None:
-        endpt = f"{crucible_api_url}/datasets/{dsid}/scientific_metadata"
-        scimd = requests.post(url = endpt, 
-                           json = scimd, 
-                           headers = auth_header).json()
-    else:
-        scimd = None
+        Args:
+            dataset_name: Name of the dataset
+            unique_id: Unique identifier for the dataset
+            public: Whether the dataset is public
+            owner_orcid: ORCID of the dataset owner
+            owner_user_id: User ID of the dataset owner
+            project_id: ID of the project this dataset belongs to
+            instrument_name: Name of the instrument used
+            instrument_id: ID of the instrument used
+            measurement: Type of measurement
+            session_name: Name of the measurement session
+            creation_time: Time of dataset creation
+            data_format: Format of the dataset
+            scientific_metadata: Additional scientific metadata
+            keywords: List of keywords to associate with the dataset
+            
+        Returns:
+            Dictionary containing the created dataset record and metadata
+        """
+        # Handle instrument if name is provided
+        if instrument_name and not instrument_id:
+            instrument = self._request('get', '/instruments', params={'name': instrument_name})
+            if not instrument:
+                instrument = self._request('post', '/instruments', json={'name': instrument_name})
+            instrument_id = instrument['id']
+
+        # Create dataset
+        dataset = {
+            "unique_id": unique_id,
+            "dataset_name": dataset_name,
+            "public": public,
+            "owner_user_id": owner_user_id,
+            "owner_orcid": owner_orcid,
+            "project_id": project_id,
+            "instrument_id": instrument_id,
+            "measurement": measurement,
+            "session_name": session_name,
+            "creation_time": creation_time,
+            "data_format": data_format
+        }
+        clean_dataset = {k: v for k, v in dataset.items() if v is not None}
         
-    # add tags as keywords
-    endpt = f"{crucible_api_url}/datasets/{dsid}/keywords"
-    for kw in keywords:
-        resp = requests.post(url = endpt, 
-                    params = {"keyword":kw}, 
-                    headers = auth_header).json()
-
-    return {"created_record": new_ds_record,
-            "scientific_metadata_record": scimd,
-            "ingestion_request": ingest_req}
-
+        new_dataset = self._request('post', '/datasets', json=clean_dataset)
+        dsid = new_dataset['unique_id']
+        
+        # Add scientific metadata if provided
+        if scientific_metadata:
+            self._request('post', f'/datasets/{dsid}/scientific_metadata', json=scientific_metadata)
+            
+        # Add keywords if provided
+        if keywords:
+            for keyword in keywords:
+                self._request('post', f'/datasets/{dsid}/keywords', params={'keyword': keyword})
+                
+        return new_dataset
     
-def build_new_dataset_from_file(crucible_api_url,
-                                apikey,
-                                files_to_upload: List[str], 
-                                dataset_name: Optional[str] = None,
-                                unique_id: Optional[str] = None, 
-                                public: Optional[str] = False,
-                                owner_orcid: Optional[str] = None,
-                                owner_user_id: Optional[int] = None,
-                                project_id: Optional[str] = None,
-                                instrument_name: Optional[str] = None,
-                                instrument_id: Optional[int] = None,
-                                measurement: Optional[str] = None, 
-                                session_name: Optional[str] = None,
-                                creation_time:Optional[str] = None,
-                                data_format: Optional[str] = None, 
-                                source_folder: Optional[str] = None,
-                                scientific_metadata: Optional[dict] = None,
-                                keywords=[], 
+    def create_dataset_from_files(self,
+                                files: List[str],
+                                **kwargs) -> Dict:
+        """Create a new dataset and upload files to it.
+        
+        Args:
+            files: List of file paths to upload
+            **kwargs: Additional arguments passed to create_dataset
+            
+        Returns:
+            Dictionary containing the created dataset record
+        """
+        dataset = self.create_dataset(**kwargs)
+        dsid = dataset['unique_id']
+        
+        for file_path in files:
+            self.upload_dataset(dsid, file_path)
+            
+        return dataset
                                 get_user_info_function = None, 
                                 ingestor = None,
                                 **kwargs):
