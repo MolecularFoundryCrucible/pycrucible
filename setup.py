@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
@@ -13,9 +13,9 @@ setup(
     license="BSD",
     url = "",
     
-    package_dir = {'pycrucible':'.'},
-    packages=['pycrucible'],
-
+    #package_dir = {'pycrucible':'.'},
+    #packages=['pycrucible'],
+    packages = find_packages(exclude=["tests", "tests.*"]),
     python_requires=">=3.8",
     install_requires=[
         "requests>=2.25.0",
