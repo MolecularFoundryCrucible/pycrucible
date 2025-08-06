@@ -28,6 +28,8 @@ class CrucibleClient:
         """
         url = f"{self.api_url}/{endpoint.lstrip('/')}"
         kwargs['headers'] = {**kwargs.get('headers', {}), **self.headers}
+        print(f"{self.headers=}")
+        print(f"{kwargs=}")
         response = requests.request(method, url, **kwargs)
         response.raise_for_status()
         return response.json() if response.content else None
