@@ -113,7 +113,8 @@ class CrucibleClient:
     def get_scientific_metadata(self, dsid: str) -> Dict:
         """Get scientific metadata for a dataset."""
         return self._request('get', f'/datasets/{dsid}/scientific_metadata')
-    
+
+    # post vs. patch
     def update_scientific_metadata(self, dsid: str, metadata: Dict) -> Dict:
         """Update scientific metadata for a dataset."""
         return self._request('post', f'/datasets/{dsid}/scientific_metadata', json=metadata)
@@ -121,7 +122,8 @@ class CrucibleClient:
     def get_thumbnails(self, dsid: str) -> List[Dict]:
         """Get thumbnails for a dataset."""
         return self._request('get', f'/datasets/{dsid}/thumbnails')
-    
+
+    # this is not the right payload - should be bytes and caption
     def add_thumbnail(self, dsid: str, file_path: str, description: str = None) -> Dict:
         """Add a thumbnail to a dataset."""
         with open(file_path, 'rb') as f:
@@ -132,7 +134,8 @@ class CrucibleClient:
     def get_associated_files(self, dsid: str) -> List[Dict]:
         """Get associated files for a dataset."""
         return self._request('get', f'/datasets/{dsid}/associated_files')
-    
+
+    # files is not the arg here - we need path, size, hash
     def add_associated_file(self, dsid: str, file_path: str, description: str = None) -> Dict:
         """Add an associated file to a dataset."""
         with open(file_path, 'rb') as f:
