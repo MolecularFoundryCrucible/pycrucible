@@ -263,17 +263,22 @@ class CrucibleClient:
         return response
         
 
-    def add_sample(self, sample_name, sample_description, sample_creation_date=None, sample_owner_orcid=None, owner_id=None):
+    def add_sample(self, unique_id = None, sample_name = None, sample_description=None, sample_creation_date=None, sample_owner_orcid=None, owner_id=None, parents = [], children = []):
         sample_info = {"sample_name": sample_name, 
                       "owner_orcid": sample_owner_orcid,
                       "owner_user_id": owner_id,
                       "description": sample_description,
-                      "date_created": sample_creation_date}
+                      "date_created": sample_creation_date,
+                      "parents": parents, 
+                      "children": children}
         
+        if unique_id is not None:
+            sample_info['unique_id'] = unique_id
+            
         new_samp = requests.post(f"{self.api_url}/samples", headers=self.headers, json=sample_info)
         return new_samp
 
-    def add_dataset_to_sample(self, sample_id, dataset_id):
+    def add_sample_to_dataset(self, sample_id, dataset_id):
         new_link = requests.post(f"{self.api_url}/datasets/{dataset_id}/samples/{sample_id}", headers=self.headers)
         return new_link
 
