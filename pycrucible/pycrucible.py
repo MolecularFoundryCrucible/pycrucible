@@ -156,10 +156,6 @@ class CrucibleClient:
         """Delete a dataset."""
         return self._request('delete', f'/datasets/{dsid}')
 
-
-
-
-
     def get_current_google_drive_info(self, dsid):
         return self._request('get', f'/datasets/{dsid}/drive_location')
 
@@ -269,8 +265,8 @@ class CrucibleClient:
                       "owner_user_id": owner_id,
                       "description": sample_description,
                       "date_created": sample_creation_date,
-                      "parents": parents, 
-                      "children": children}
+                      "parents": [{'unique_id':p} for p in parents], 
+                      "children": [{'unique_id':chd} for chd in children]}
         
         if unique_id is not None:
             sample_info['unique_id'] = unique_id
@@ -278,10 +274,10 @@ class CrucibleClient:
         new_samp = requests.post(f"{self.api_url}/samples", headers=self.headers, json=sample_info)
         return new_samp
 
+    
     def add_sample_to_dataset(self, sample_id, dataset_id):
         new_link = requests.post(f"{self.api_url}/datasets/{dataset_id}/samples/{sample_id}", headers=self.headers)
         return new_link
-
 
 
     def add_project(self, project_info):
