@@ -104,6 +104,10 @@ class CrucibleClient:
         """Get keywords associated with a dataset."""
         return self._request('get', f'/datasets/{dsid}/keywords')
     
+    def add_dataset_keyword(self, dsid: str, keyword: str) -> Dict:
+        """Add a keyword to a dataset."""
+        return self._request('post', f'/datasets/{dsid}/keywords', params={'keyword': keyword})
+    
     def get_scientific_metadata(self, dsid: str) -> Dict:
         """Get scientific metadata for a dataset."""
         return self._request('get', f'/datasets/{dsid}/scientific_metadata')
