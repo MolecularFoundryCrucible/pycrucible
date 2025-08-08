@@ -257,20 +257,24 @@ class CrucibleClient:
         
 
     def add_sample(self, unique_id = None, sample_name = None, description=None, creation_date=None, owner_orcid=None, owner_id=None, parents = [], children = []):
-        sample_info = {"sample_name": sample_name, 
-                      "owner_orcid": owner_orcid,
-                      "owner_user_id": owner_id,
-                      "description": description,
-                      "date_created": creation_date,
+        sample_info = {"S": { "unique_id": unique_id,
+                              "sample_name": sample_name, 
+                              "owner_orcid": owner_orcid,
+                              "owner_user_id": owner_id,
+                              "description": description,
+                              "date_created": creation_date
+                              },
                       "parents": [{'unique_id':p} for p in parents], 
                       "children": [{'unique_id':chd} for chd in children]}
-        
-        if unique_id is not None:
-            sample_info['unique_id'] = unique_id
             
         new_samp = self._request('post', "/samples", json=sample_info)
         return new_samp
 
+    def add_sample_metadata(self, sample_id, table, metadata):
+        ''' upload metadata to table and link to provided sample_id; 
+            sample_id should be the sample's crucible_id '''
+        #TODO
+        pass
     
     def add_sample_to_dataset(self, dataset_id, sample_id):
         print(f"/datasets/{dataset_id}/samples/{sample_id}")
