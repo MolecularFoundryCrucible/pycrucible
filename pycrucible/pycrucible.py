@@ -83,7 +83,7 @@ class CrucibleClient:
         TODO:  I think we want this to not require a file_name, but just download all files or have option for main vs. associated.
         """
         url = f"{self.api_url}/datasets/{dsid}/download/{file_name}"
-        response = requests.get(url, headers=self.headers, stream=True)
+        response = self._request('get', url, stream=True)
         response.raise_for_status()
         with open(output_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
@@ -248,11 +248,11 @@ class CrucibleClient:
 
 
     def get_sample(self, sample_id):
-        response = requests.get(f"{self.api_url}/samples/{sample_id}", headers=self.headers)
+        response = self._request('get', f"{self.api_url}/samples/{sample_id}")
         return response
 
     def list_samples(self, **kwargs):
-        response = requests.get(f"{self.api_url}/samples", headers=self.headers, params=kwargs)
+        response = self._request('get', f"{self.api_url}/samples", params=kwargs)
         return response
         
 
@@ -268,25 +268,24 @@ class CrucibleClient:
         if unique_id is not None:
             sample_info['unique_id'] = unique_id
             
-        new_samp = requests.post(f"{self.api_url}/samples", headers=self.headers, json=sample_info)
+        new_samp = self._request('post', f"{self.api_url}/samples", json=sample_info)
         return new_samp
 
     
     def add_sample_to_dataset(self, sample_id, dataset_id):
-        new_link = requests.post(f"{self.api_url}/datasets/{dataset_id}/samples/{sample_id}", headers=self.headers)
+        new_link = self._request('post', f"{self.api_url}/datasets/{dataset_id}/samples/{sample_id}")
         return new_link
 
 
     def add_project(self, project_info):
-        new_prop = requests.post(f"{self.api_url}/projects", headers=self.headers, json=project_info)
+        new_prop = self._request('post', f"{self.api_url}/projects", json=project_info)
         return new_prop
 
 
     def add_user(self, user_info):
         user_projects = user_info.pop("projects")
         
-        new_user = requests.post(f"{self.api_url}/users", 
-                                headers=self.headers, 
+        new_user = self._request('post', f"{self.api_url}/users", 
                                 json={"user_info": user_info,
                                       "project_ids": user_projects})
         return new_user
@@ -558,9 +557,7 @@ class CrucibleClient:
         if use_upload_endpoint:
             for f in files_to_upload:
                 file_payload = [self.create_file_payload(f) for f in files_to_upload]
-                upload_req = requests.post(f"{self.api_url}/datasets/{dsid}/upload", 
-                                         headers=self.headers,
-                                         files=file_payload)
+                upload_req = self._request('post', f"{self.api_url}/datasets/{dsid}/upload", files=file_payload)
 
             associated_files = files_to_upload.copy()
             associated_files.pop(0)
@@ -569,8 +566,7 @@ class CrucibleClient:
                 af = {"filename": os.path.join("api-uploads", afp), 
                      "size": os.path.getsize(afp),
                      "sha256_hash": checkhash(afp)}
-                response = requests.post(f"{self.api_url}/datasets/{dsid}/associated_files", 
-                                       json=af, headers=self.headers)
+                response = self._request('post', f"{self.api_url}/datasets/{dsid}/associated_files", json=af)
                 print(f"add af out {response}")
 
             main_file_path = os.path.join("api-uploads", main_file)
@@ -592,8 +588,7 @@ class CrucibleClient:
                      "size": os.path.getsize(afp),
                      "sha256_hash": checkhash(afp)}
                 
-                requests.post(f"{self.api_url}/datasets/{dsid}/associated_files", 
-                            json=af, headers=self.headers)
+                self._request('post', f"{self.api_url}/datasets/{dsid}/associated_files", json=af)
 
             main_file_path = os.path.join("large-files/", main_file)
 
@@ -604,10 +599,7 @@ class CrucibleClient:
 
     
     def ingest_dataset(self, dsid, file_to_upload = None, ingestion_class = None):
-            ingest_req = requests.post(f"{self.api_url}/datasets/{dsid}/ingest",
-                                     params={"file_to_upload": file_to_upload,
-                                             "ingestion_class": ingestion_class},
-                                     headers=self.headers)
+            ingest_req = self._request('post', f"{self.api_url}/datasets/{dsid}/ingest", params={"file_to_upload": file_to_upload, "ingestion_class": ingestion_class})
             try:
                 ingest_req_info = ingest_req.json()
             except:
