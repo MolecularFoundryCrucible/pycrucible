@@ -273,6 +273,7 @@ class CrucibleClient:
 
     
     def add_sample_to_dataset(self, sample_id, dataset_id):
+        print(f"{self.api_url}/datasets/{dataset_id}/samples/{sample_id}")
         new_link = self._request('post', f"{self.api_url}/datasets/{dataset_id}/samples/{sample_id}")
         return new_link
 
