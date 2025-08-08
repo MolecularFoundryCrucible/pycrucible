@@ -176,8 +176,8 @@ class CrucibleClient:
             patch_json = {"id": reqid,
                         "status": status}
             
-        url = f"/datasets/{dsid}/ingest/{reqid}"
-        response = self._request("patch", url, json=patch_json, headers=self.headers)
+        url = f"{self.api_url}/datasets/{dsid}/ingest/{reqid}"
+        response = requests.request("patch", url, json=patch_json, headers=self.headers)
         return response
 
     def update_scicat_upload_status(self, dsid, reqid, status, timezone = "America/Los_Angeles"):
@@ -190,8 +190,8 @@ class CrucibleClient:
             patch_json = {"id": reqid,
                         "status": status}
             
-        url = f"/datasets/{dsid}/scicat_update/{reqid}"
-        response = self._request("patch", url, json=patch_json, headers=self.headers)
+        url = f"{self.api_url}/datasets/{dsid}/ingest/{reqid}"
+        response = requests.request("patch", url, json=patch_json, headers=self.headers)
         return response
 
     def update_transfer_status(self, dsid, reqid, status, timezone = "America/Los_Angeles"):
@@ -204,8 +204,8 @@ class CrucibleClient:
             patch_json = {"id": reqid,
                         "status": status}
             
-        url = f"{self.api_url}/datasets/{dsid}/google_drive_transfer/{reqid}"
-        response = self._request("patch", url, json=patch_json, headers=self.headers)
+        url = f"{self.api_url}/datasets/{dsid}/ingest/{reqid}"
+        response = requests.request("patch", url, json=patch_json, headers=self.headers)
         return response
 
 
@@ -601,12 +601,7 @@ class CrucibleClient:
     
     def ingest_dataset(self, dsid, file_to_upload = None, ingestion_class = None):
             ingest_req = self._request('post', f"/datasets/{dsid}/ingest", params={"file_to_upload": file_to_upload, "ingestion_class": ingestion_class})
-            try:
-                ingest_req_info = ingest_req.json()
-            except:
-                ingest_req_info = ingest_req.content()
-                
-            return(ingest_req_info)
+            return(ingest_req)
         
 
 
