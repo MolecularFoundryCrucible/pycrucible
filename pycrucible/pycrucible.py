@@ -94,6 +94,18 @@ class CrucibleClient:
         params = {"ingestion_class": ingestor}
         return self._request('post', f'/datasets/{dsid}/ingest', params=params)
     
+    def get_ingestion_status(self, dsid: str, reqid: str) -> Dict:
+        """Get the status of an ingestion request.
+        
+        Args:
+            dsid (str): Dataset ID
+            reqid (str): Request ID for the ingestion
+            
+        Returns:
+            dict: Ingestion request status information including status, timestamps, and other details
+        """
+        return self._request('get', f'/datasets/{dsid}/ingest/{reqid}')
+    
     def get_dataset_access_groups(self, dsid: str) -> List[str]:
         """Get access groups for a dataset."""
         groups = self._request('get', f'/datasets/{dsid}/access_groups')
@@ -154,19 +166,55 @@ class CrucibleClient:
         return self._request('delete', f'/datasets/{dsid}')
 
     def get_current_google_drive_info(self, dsid):
+        """Get current Google Drive location information for a dataset.
+        
+        Args:
+            dsid (str): Dataset ID
+            
+        Returns:
+            dict: Google Drive location information
+        """
         return self._request('get', f'/datasets/{dsid}/drive_location')
 
     def get_organized_google_drive_info(self, dsid):
+        """Get organized Google Drive folder information for a dataset.
+        
+        Args:
+            dsid (str): Dataset ID
+            
+        Returns:
+            list: List of organized Google Drive folder information
+        """
         drive_info = self.get_current_google_drive_info(dsid)
         org_google_drive_info = [x for x in drive_info if 'Organized' in x['folder_path_in_drive']]
         return org_google_drive_info
 
     def add_drive_location_for_dataset(self, dsid, drive_info: dict):
+        """Add drive location information for a dataset.
+        
+        Args:
+            dsid (str): Dataset ID
+            drive_info (dict): Drive location information to add
+            
+        Note:
+            This method is not yet implemented.
+        """
         #TODO define this
         pass
 
 
     def update_ingestion_status(self, dsid, reqid, status, timezone = "America/Los_Angeles"):
+        """Update the status of a dataset ingestion request.
+        
+        Args:
+            dsid (str): Dataset ID
+            reqid (str): Request ID for the ingestion
+            status (str): New status (e.g., 'complete', 'in_progress', 'failed')
+            timezone (str): Timezone for completion time (default: "America/Los_Angeles")
+            
+        Returns:
+            requests.Response: HTTP response from the update request
+        """
         if status == "complete":
             completion_time = get_tz_isoformat(timezone)
             patch_json = {"id": reqid,
@@ -181,6 +229,17 @@ class CrucibleClient:
         return response
 
     def update_scicat_upload_status(self, dsid, reqid, status, timezone = "America/Los_Angeles"):
+        """Update the status of a SciCat upload request.
+        
+        Args:
+            dsid (str): Dataset ID
+            reqid (str): Request ID for the SciCat upload
+            status (str): New status (e.g., 'complete', 'in_progress', 'failed')
+            timezone (str): Timezone for completion time (default: "America/Los_Angeles")
+            
+        Returns:
+            requests.Response: HTTP response from the update request
+        """
         if status == "complete":
             completion_time = get_tz_isoformat(timezone)
             patch_json = {"id": reqid,
@@ -195,6 +254,17 @@ class CrucibleClient:
         return response
 
     def update_transfer_status(self, dsid, reqid, status, timezone = "America/Los_Angeles"):
+        """Update the status of a dataset transfer request.
+        
+        Args:
+            dsid (str): Dataset ID
+            reqid (str): Request ID for the transfer
+            status (str): New status (e.g., 'complete', 'in_progress', 'failed')
+            timezone (str): Timezone for completion time (default: "America/Los_Angeles")
+            
+        Returns:
+            requests.Response: HTTP response from the update request
+        """
         if status == "complete":
             completion_time = get_tz_isoformat(timezone)
             patch_json = {"id": reqid,
@@ -210,6 +280,18 @@ class CrucibleClient:
 
 
     def get_instrument(self, instrument_name=None, instrument_id=None):
+        """Get instrument information by name or ID.
+        
+        Args:
+            instrument_name (str, optional): Name of the instrument
+            instrument_id (int, optional): ID of the instrument
+            
+        Returns:
+            dict or None: Instrument information if found, None otherwise
+            
+        Raises:
+            ValueError: If neither instrument_name nor instrument_id is provided
+        """
         if not instrument_name and not instrument_id:
             raise ValueError("Either instrument_name or instrument_id must be provided")
         
@@ -228,6 +310,16 @@ class CrucibleClient:
 
 
     def get_or_add_instrument(self, instrument_name, creation_location=None, instrument_owner=None):
+        """Get an existing instrument or create a new one if it doesn't exist.
+        
+        Args:
+            instrument_name (str): Name of the instrument
+            creation_location (str, optional): Location where instrument was created
+            instrument_owner (str, optional): Owner of the instrument (defaults to "undefined")
+            
+        Returns:
+            dict: Instrument information (existing or newly created)
+        """
         found_inst = self.get_instrument(instrument_name)
         
         if found_inst:
@@ -248,15 +340,46 @@ class CrucibleClient:
 
 
     def get_sample(self, sample_id):
+        """Get sample information by ID.
+        
+        Args:
+            sample_id (str): Sample ID
+            
+        Returns:
+            dict: Sample information
+        """
         response = self._request('get', f"/samples/{sample_id}")
         return response
 
     def list_samples(self, **kwargs):
+        """List samples with optional filtering.
+        
+        Args:
+            **kwargs: Query parameters for filtering samples
+            
+        Returns:
+            list: List of sample information
+        """
         response = self._request('get', f"/samples", params=kwargs)
         return response
         
 
     def add_sample(self, unique_id = None, sample_name = None, description=None, creation_date=None, owner_orcid=None, owner_id=None, parents = [], children = []):
+        """Add a new sample to the system.
+        
+        Args:
+            unique_id (str, optional): Unique identifier for the sample
+            sample_name (str, optional): Name of the sample
+            description (str, optional): Description of the sample
+            creation_date (str, optional): Date when sample was created
+            owner_orcid (str, optional): ORCID of the sample owner
+            owner_id (int, optional): User ID of the sample owner
+            parents (list): List of parent sample unique IDs (default: [])
+            children (list): List of child sample unique IDs (default: [])
+            
+        Returns:
+            dict: Information about the newly created sample
+        """
         sample_info = {"sample_name": sample_name, 
                       "owner_orcid": owner_orcid,
                       "owner_user_id": owner_id,
@@ -273,17 +396,42 @@ class CrucibleClient:
 
     
     def add_sample_to_dataset(self, dataset_id, sample_id):
+        """Link a sample to a dataset.
+        
+        Args:
+            dataset_id (str): Dataset ID
+            sample_id (str): Sample ID
+            
+        Returns:
+            dict: Information about the created link
+        """
         print(f"/datasets/{dataset_id}/samples/{sample_id}")
         new_link = self._request('post', f"/datasets/{dataset_id}/samples/{sample_id}")
         return new_link
 
 
     def add_project(self, project_info):
+        """Add a new project to the system.
+        
+        Args:
+            project_info (dict): Project information to create
+            
+        Returns:
+            dict: Information about the newly created project
+        """
         new_prop = self._request('post', "/projects", json=project_info)
         return new_prop
 
 
     def add_user(self, user_info):
+        """Add a new user to the system.
+        
+        Args:
+            user_info (dict): User information including 'projects' key
+            
+        Returns:
+            dict: Information about the newly created user
+        """
         user_projects = user_info.pop("projects")
         
         new_user = self._request('post', "/users", 
@@ -293,6 +441,19 @@ class CrucibleClient:
 
 
     def get_or_add_user(self, orcid, get_user_info_function, **kwargs):
+        """Get an existing user or create a new one if they don't exist.
+        
+        Args:
+            orcid (str): ORCID of the user
+            get_user_info_function (callable): Function to retrieve user info if not found
+            **kwargs: Additional arguments to pass to get_user_info_function
+            
+        Returns:
+            dict: User information (existing or newly created)
+            
+        Raises:
+            ValueError: If user info cannot be found or created
+        """
         user = self.get_user(orcid)
         if user:
             return user
@@ -306,6 +467,19 @@ class CrucibleClient:
 
 
     def get_or_add_crucible_project(self, crucible_project_id, get_project_info_func, **kwargs):
+        """Get an existing project or create a new one if it doesn't exist.
+        
+        Args:
+            crucible_project_id (str): ID of the Crucible project
+            get_project_info_func (callable): Function to retrieve project info if not found
+            **kwargs: Additional arguments to pass to get_project_info_func
+            
+        Returns:
+            dict: Project information (existing or newly created)
+            
+        Raises:
+            ValueError: If project info cannot be found or created
+        """
         proj = self.get_project(crucible_project_id)
         if proj:
             return proj
@@ -472,6 +646,29 @@ class CrucibleClient:
                                 keywords: List[str] = None, 
                                 get_user_info_function = None, 
                                 **kwargs):
+        """Build a new dataset from JSON metadata without file upload.
+        
+        Args:
+            dataset_name (str, optional): Name of the dataset
+            unique_id (str, optional): Unique identifier for the dataset
+            public (bool): Whether the dataset is public (default: False)
+            owner_orcid (str, optional): ORCID of the dataset owner
+            owner_user_id (int, optional): User ID of the dataset owner
+            project_id (str, optional): ID of the project this dataset belongs to
+            instrument_name (str, optional): Name of the instrument used
+            instrument_id (int, optional): ID of the instrument used
+            measurement (str, optional): Type of measurement
+            session_name (str, optional): Name of the measurement session
+            creation_time (str, optional): Time of dataset creation
+            data_format (str, optional): Format of the dataset
+            scientific_metadata (dict, optional): Additional scientific metadata
+            keywords (list, optional): List of keywords to associate with the dataset
+            get_user_info_function (callable, optional): Function to get user info if needed
+            **kwargs: Additional arguments
+            
+        Returns:
+            dict: Dictionary containing created_record and scientific_metadata_record
+        """
         result = self._create_dataset_with_metadata(
             dataset_name=dataset_name,
             unique_id=unique_id,
@@ -515,6 +712,32 @@ class CrucibleClient:
                                 get_user_info_function = None, 
                                 ingestor = None,
                                 **kwargs):
+        """Build a new dataset with file upload and ingestion.
+        
+        Args:
+            files_to_upload (List[str]): List of file paths to upload
+            dataset_name (str, optional): Name of the dataset
+            unique_id (str, optional): Unique identifier for the dataset
+            public (bool): Whether the dataset is public (default: False)
+            owner_orcid (str, optional): ORCID of the dataset owner
+            owner_user_id (int, optional): User ID of the dataset owner
+            project_id (str, optional): ID of the project this dataset belongs to
+            instrument_name (str, optional): Name of the instrument used
+            instrument_id (int, optional): ID of the instrument used
+            measurement (str, optional): Type of measurement
+            session_name (str, optional): Name of the measurement session
+            creation_time (str, optional): Time of dataset creation
+            data_format (str, optional): Format of the dataset
+            source_folder (str, optional): Source folder path
+            scientific_metadata (dict, optional): Additional scientific metadata
+            keywords (list, optional): List of keywords to associate with the dataset
+            get_user_info_function (callable, optional): Function to get user info if needed
+            ingestor (str, optional): Ingestion class to use
+            **kwargs: Additional arguments
+            
+        Returns:
+            dict: Dictionary containing created_record, scientific_metadata_record, and ingestion_request
+        """
         # Create dataset using shared helper with file-specific fields
         main_file = files_to_upload[0]
         extra_fields = {
@@ -600,15 +823,33 @@ class CrucibleClient:
 
     
     def ingest_dataset(self, dsid, file_to_upload = None, ingestion_class = None):
-            ingest_req = self._request('post', 
-                                       f"/datasets/{dsid}/ingest",
-                                       params={"file_to_upload": file_to_upload, "ingestion_class": ingestion_class})
-            return(ingest_req)
+        """Request ingestion of a dataset file.
+        
+        Args:
+            dsid (str): Dataset ID
+            file_to_upload (str, optional): Path to the file to ingest
+            ingestion_class (str, optional): Class to use for ingestion
+            
+        Returns:
+            dict: Ingestion request information
+        """
+        ingest_req = self._request('post', 
+                                   f"/datasets/{dsid}/ingest",
+                                   params={"file_to_upload": file_to_upload, "ingestion_class": ingestion_class})
+        return(ingest_req)
         
 
 
     @staticmethod
     def create_file_payload(file_to_upload):
+        """Create a file payload for upload.
+        
+        Args:
+            file_to_upload (str): Path to the file to upload
+            
+        Returns:
+            tuple: File payload tuple for requests
+        """
         file_obj = ('files', (file_to_upload, open(file_to_upload, 'rb'), 'text/plain'))
         return file_obj
 
