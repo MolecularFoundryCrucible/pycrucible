@@ -444,7 +444,7 @@ class CrucibleClient:
         dataset.update(extra_fields)
         
         clean_dataset = {k: v for k, v in dataset.items() if v is not None}
-
+        print(clean_dataset)
         new_ds_record = self._request('post', '/datasets', json=clean_dataset)
         dsid = new_ds_record['unique_id']
         
@@ -577,13 +577,8 @@ class CrucibleClient:
                                        json=af, headers=self.headers)
                 print(f"add af out {response}")
 
-            if ingestor:
-                ingest_req = requests.post(f"{self.api_url}/datasets/{dsid}/ingest",
-                                         params={"file_to_upload": os.path.join("api-uploads", main_file),
-                                                "ingestion_class": ingestor},
-                                         headers=self.headers)
-            else:
-                ingest_req = None
+            main_file_path = os.path.join("api-uploads", main_file)
+            
         else:
             try:
                 for f in files_to_upload:
@@ -600,21 +595,30 @@ class CrucibleClient:
                 af = {"filename": os.path.join("large-files", afp), 
                      "size": os.path.getsize(afp),
                      "sha256_hash": checkhash(afp)}
+                
                 requests.post(f"{self.api_url}/datasets/{dsid}/associated_files", 
                             json=af, headers=self.headers)
 
-            if ingestor:
-                main_file_path = os.path.join("large-files/", main_file)
-                ingest_req = requests.post(f"{self.api_url}/datasets/{dsid}/ingest",
-                                         params={"file_to_upload": main_file_path, "ingestion_class": ingestor},
-                                         headers=self.headers)
-            else:
-                ingest_req = None
+            main_file_path = os.path.join("large-files/", main_file)
 
+        ingest_req_info = self.ingest_dataset(dsid, main_file_path, ingestor)
         return {"created_record": new_ds_record,
                 "scientific_metadata_record": scimd,
-                "ingestion_request": ingest_req}
+                "ingestion_request": ingest_req_info}
 
+    
+    def ingest_dataset(self, dsid, file_to_upload = None, ingestion_class = None):
+            ingest_req = requests.post(f"{self.api_url}/datasets/{dsid}/ingest",
+                                     params={"file_to_upload": file_to_upload,
+                                             "ingestion_class": ingestion_class},
+                                     headers=self.headers)
+            try:
+                ingest_req_info = ingest_req.json()
+            except:
+                ingest_req_info = ingest_req.content()
+                
+            return(ingest_req_info)
+        
 
 
     @staticmethod
