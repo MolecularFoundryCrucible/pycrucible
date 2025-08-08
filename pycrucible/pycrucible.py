@@ -28,7 +28,6 @@ class CrucibleClient:
         """
         url = f"{self.api_url}/{endpoint.lstrip('/')}"
         kwargs['headers'] = {**kwargs.get('headers', {}), **self.headers}
-        print(f"{self.headers=}")
         print(f"{kwargs=}")
         response = requests.request(method, url, **kwargs)
         response.raise_for_status()
@@ -104,11 +103,6 @@ class CrucibleClient:
     def get_dataset_keywords(self, dsid: str) -> List[Dict]:
         """Get keywords associated with a dataset."""
         return self._request('get', f'/datasets/{dsid}/keywords')
-    
-    def add_dataset_keyword(self, dsid: str, keyword: str) -> Dict:
-        """Add a keyword to a dataset."""
-        data = {"keyword": keyword}
-        return self._request('post', f'/datasets/{dsid}/keywords', json=data)
     
     def get_scientific_metadata(self, dsid: str) -> Dict:
         """Get scientific metadata for a dataset."""
@@ -455,6 +449,7 @@ class CrucibleClient:
             
         # add keywords
         for kw in keywords:
+            print(f"requesting to add {kw} to keywords")
             self._request('post', f'/datasets/{dsid}/keywords', params={"keyword": kw})
 
         return {"created_record": new_ds_record, "scientific_metadata_record": scimd, "dsid": dsid}
