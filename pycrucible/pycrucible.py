@@ -28,7 +28,6 @@ class CrucibleClient:
         """
         url = f"{self.api_url}/{endpoint.lstrip('/')}"
         kwargs['headers'] = {**kwargs.get('headers', {}), **self.headers}
-        print(f"{kwargs=}")
         response = requests.request(method, url, **kwargs)
         response.raise_for_status()
         return response.json() if response.content else None
@@ -442,7 +441,6 @@ class CrucibleClient:
         dataset.update(extra_fields)
         
         clean_dataset = {k: v for k, v in dataset.items() if v is not None}
-        print(clean_dataset)
         new_ds_record = self._request('post', '/datasets', json=clean_dataset)
         dsid = new_ds_record['unique_id']
         
@@ -453,8 +451,7 @@ class CrucibleClient:
             
         # add keywords
         for kw in keywords:
-            print(f"requesting to add {kw} to keywords")
-            self._request('post', f'/datasets/{dsid}/keywords', params={"keyword": kw})
+            self.add_dataset_keyword(dsid, kw)
 
         return {"created_record": new_ds_record, "scientific_metadata_record": scimd, "dsid": dsid}
 
