@@ -390,7 +390,7 @@ class CrucibleClient:
             # Add keywords if provided
             if keywords:
                 for keyword in keywords:
-                    self._request('post', f'/datasets/{dsid}/keywords', params={'keyword': keyword})
+                    self.add_dataset_keyword(dsid, keyword)
                     
             return new_dataset
 
