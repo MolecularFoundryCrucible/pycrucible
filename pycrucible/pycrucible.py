@@ -365,34 +365,33 @@ class CrucibleClient:
         
 
     def add_sample(self, unique_id = None, sample_name = None, description=None, creation_date=None, owner_orcid=None, owner_id=None, parents = [], children = []):
-        """Add a new sample to the system.
-        
-        Args:
-            unique_id (str, optional): Unique identifier for the sample
-            sample_name (str, optional): Name of the sample
-            description (str, optional): Description of the sample
-            creation_date (str, optional): Date when sample was created
-            owner_orcid (str, optional): ORCID of the sample owner
-            owner_id (int, optional): User ID of the sample owner
-            parents (list): List of parent sample unique IDs (default: [])
-            children (list): List of child sample unique IDs (default: [])
-            
-        Returns:
-            dict: Information about the newly created sample
-        """
-        sample_info = {"sample_name": sample_name, 
-                      "owner_orcid": owner_orcid,
-                      "owner_user_id": owner_id,
-                      "description": description,
-                      "date_created": creation_date,
-                      "parents": [{'unique_id':p} for p in parents], 
-                      "children": [{'unique_id':chd} for chd in children]}
-        
-        if unique_id is not None:
-            sample_info['unique_id'] = unique_id
-            
+        sample_info = {   "unique_id": unique_id,
+                          "sample_name": sample_name, 
+                          "owner_orcid": owner_orcid,
+                          "owner_user_id": owner_id,
+                          "description": description,
+                          "date_created": creation_date
+                        }
+
         new_samp = self._request('post', "/samples", json=sample_info)
+        for p in parents:
+            parent_id = p['unique_id']
+            child_id = new_samp['unique_id']
+            self._request('post', f"/samples/{parent_id}/children/{child_id}")
+
+        for chd in children:
+            parent_id = new_samp['unique_id']
+            child_id = chd['unique_id']
+            self._request('post', f"/samples/{parent_id}/children/{child_id}")
+            
         return new_samp
+
+    
+    def add_sample_metadata(self, sample_id, table, metadata):
+        ''' upload metadata to table and link to provided sample_id; 
+            sample_id should be the sample's crucible_id '''
+        #TODO
+        pass
 
     
     def add_sample_to_dataset(self, dataset_id, sample_id):
