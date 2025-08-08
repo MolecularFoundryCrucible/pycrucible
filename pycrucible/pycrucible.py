@@ -256,12 +256,12 @@ class CrucibleClient:
         return response
         
 
-    def add_sample(self, unique_id = None, sample_name = None, sample_description=None, sample_creation_date=None, sample_owner_orcid=None, owner_id=None, parents = [], children = []):
+    def add_sample(self, unique_id = None, sample_name = None, description=None, creation_date=None, owner_orcid=None, owner_id=None, parents = [], children = []):
         sample_info = {"sample_name": sample_name, 
-                      "owner_orcid": sample_owner_orcid,
+                      "owner_orcid": owner_orcid,
                       "owner_user_id": owner_id,
-                      "description": sample_description,
-                      "date_created": sample_creation_date,
+                      "description": description,
+                      "date_created": creation_date,
                       "parents": [{'unique_id':p} for p in parents], 
                       "children": [{'unique_id':chd} for chd in children]}
         
