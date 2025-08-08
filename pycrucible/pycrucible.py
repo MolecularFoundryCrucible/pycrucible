@@ -177,7 +177,7 @@ class CrucibleClient:
                         "status": status}
             
         url = f"/datasets/{dsid}/ingest/{reqid}"
-        response = requests.request("patch", url, json=patch_json, headers=self.headers)
+        response = self._request("patch", url, json=patch_json, headers=self.headers)
         return response
 
     def update_scicat_upload_status(self, dsid, reqid, status, timezone = "America/Los_Angeles"):
@@ -191,7 +191,7 @@ class CrucibleClient:
                         "status": status}
             
         url = f"/datasets/{dsid}/scicat_update/{reqid}"
-        response = requests.request("patch", url, json=patch_json, headers=self.headers)
+        response = self._request("patch", url, json=patch_json, headers=self.headers)
         return response
 
     def update_transfer_status(self, dsid, reqid, status, timezone = "America/Los_Angeles"):
@@ -205,7 +205,7 @@ class CrucibleClient:
                         "status": status}
             
         url = f"{self.api_url}/datasets/{dsid}/google_drive_transfer/{reqid}"
-        response = requests.request("patch", url, json=patch_json, headers=self.headers)
+        response = self._request("patch", url, json=patch_json, headers=self.headers)
         return response
 
 
