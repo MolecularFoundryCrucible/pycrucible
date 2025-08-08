@@ -272,7 +272,7 @@ class CrucibleClient:
         return new_samp
 
     
-    def add_sample_to_dataset(self, sample_id, dataset_id):
+    def add_sample_to_dataset(self, dataset_id, sample_id):
         print(f"/datasets/{dataset_id}/samples/{sample_id}")
         new_link = self._request('post', f"/datasets/{dataset_id}/samples/{sample_id}")
         return new_link
@@ -600,7 +600,9 @@ class CrucibleClient:
 
     
     def ingest_dataset(self, dsid, file_to_upload = None, ingestion_class = None):
-            ingest_req = self._request('post', f"/datasets/{dsid}/ingest", params={"file_to_upload": file_to_upload, "ingestion_class": ingestion_class})
+            ingest_req = self._request('post', 
+                                       f"/datasets/{dsid}/ingest",
+                                       params={"file_to_upload": file_to_upload, "ingestion_class": ingestion_class})
             return(ingest_req)
         
 
