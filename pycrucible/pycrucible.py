@@ -88,10 +88,32 @@ class CrucibleClient:
             files = {'file': f}
             return self._request('post', f'/datasets/{dsid}/upload', files=files)
     
-    def download_dataset(self, dsid: str, file_name: str, output_path: str) -> None:
+    def download_dataset(self, dsid: str, file_name: Optional[str] = None, output_path: Optional[str] = None) -> None:
         """Download a dataset file.
-        TODO:  I think we want this to not require a file_name, but just download all files or have option for main vs. associated.
+        
+        Args:
+            dsid: Dataset ID
+            file_name: Name of file to download. If not provided, uses dataset's file_to_upload field
+            output_path: Local path to save file. If not provided, uses the file_name in current directory
         """
+        # If no file_name specified, get it from the dataset's file_to_upload field
+        if file_name is None:
+            dataset = self.get_dataset(dsid)
+            if 'file_to_upload' not in dataset or not dataset['file_to_upload']:
+                raise ValueError(f"No file_name specified and dataset {dsid} has no file_to_upload field")
+            file_to_upload = dataset['file_to_upload']
+            # Extract just the filename from the path (remove api-uploads/ or large-files/ prefix)
+            file_name = os.path.basename(file_to_upload)
+        
+        # Set default output path if not provided
+        if output_path is None:
+            output_path = file_name
+        
+        # Check if file already exists (caching)
+        if os.path.exists(output_path):
+            print(f"File {output_path} already exists, skipping download")
+            return
+        
         url = f"/datasets/{dsid}/download/{file_name}"
         response = self._request('get', url, stream=True)
         response.raise_for_status()
