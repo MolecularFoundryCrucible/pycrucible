@@ -57,8 +57,18 @@ class CrucibleClient:
         """Get users associated with a project."""
         return self._request('get', f'/projects/{project_id}/users')
     
-    def list_datasets(self, **kwargs) -> List[Dict]:
-        """List datasets with optional filtering."""
+    def list_datasets(self, sample_id: Optional[str] = None, **kwargs) -> List[Dict]:
+        """List datasets with optional filtering.
+        
+        Args:
+            sample_id: If provided, returns datasets associated with this sample ID
+            **kwargs: Additional query parameters for filtering datasets
+            
+        Returns:
+            List of dataset dictionaries
+        """
+        if sample_id:
+            return self._request('get', f'/samples/{sample_id}/datasets', params=kwargs)
         return self._request('get', '/datasets', params=kwargs)
     
     def get_dataset(self, dsid: str, include_metadata: bool = False) -> Dict:
