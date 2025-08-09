@@ -372,8 +372,10 @@ class CrucibleClient:
                           "description": description,
                           "date_created": creation_date
                         }
-
+        print(sample_info)
         new_samp = self._request('post', "/samples", json=sample_info)
+        print(f"{new_samp=}")
+        
         for p in parents:
             parent_id = p['unique_id']
             child_id = new_samp['unique_id']
@@ -582,6 +584,7 @@ class CrucibleClient:
                                      scientific_metadata: Optional[dict] = None,
                                      keywords: List[str] = None,
                                      get_user_info_function = None,
+                                     verbose = False,
                                      **extra_fields) -> Dict:
         """Shared helper method to create a dataset with metadata."""
         if keywords is None:
@@ -614,14 +617,20 @@ class CrucibleClient:
         dataset.update(extra_fields)
         
         clean_dataset = {k: v for k, v in dataset.items() if v is not None}
+        if verbose:
+            print('creating new dataset record...')
         new_ds_record = self._request('post', '/datasets', json=clean_dataset)
         dsid = new_ds_record['unique_id']
         
         # add scientific metadata
         scimd = None
         if scientific_metadata is not None:
+            if verbose:
+                print(f'adding scientific metadata record for {dsid}')
             scimd = self._request('post', f'/datasets/{dsid}/scientific_metadata', json=scientific_metadata)
-            
+            if verbose:
+                print('metadata addition complete')
+                print(f'adding keywords to dataset {dsid}: {keywords}')
         # add keywords
         for kw in keywords:
             self.add_dataset_keyword(dsid, kw)
@@ -683,7 +692,8 @@ class CrucibleClient:
             data_format=data_format,
             scientific_metadata=scientific_metadata,
             keywords=keywords,
-            get_user_info_function=get_user_info_function
+            get_user_info_function=get_user_info_function,
+            verbose = verbose
         )
         
         print(f"dsid={result['dsid']}")
@@ -710,6 +720,8 @@ class CrucibleClient:
                                 keywords: List[str] = None, 
                                 get_user_info_function = None, 
                                 ingestor = None,
+                                verbose = False,
+                                wait_for_ingestion_response = True,
                                 **kwargs):
         """Build a new dataset with file upload and ingestion.
         
@@ -766,7 +778,7 @@ class CrucibleClient:
         new_ds_record = result["created_record"]
         scimd = result["scientific_metadata_record"]
         dsid = result["dsid"]
-        print(f"{dsid=}")
+        print(f"created dataset record with {dsid=}")
             
         # Send the file as bytes if small enough
         use_upload_endpoint = True
@@ -779,43 +791,66 @@ class CrucibleClient:
                 
         if use_upload_endpoint:
             for f in files_to_upload:
+                if verbose:
+                    print(f"uploading file {f}...")
                 file_payload = [self.create_file_payload(f) for f in files_to_upload]
                 upload_req = self._request('post', f"/datasets/{dsid}/upload", files=file_payload)
-
+                if verbose:
+                    print(f"upload complete.")
+                
             associated_files = files_to_upload.copy()
             associated_files.pop(0)
-            print(f"{associated_files=}")
+            if verbose: 
+                print("adding associated files to dataset record")
             for afp in associated_files:
                 af = {"filename": os.path.join("api-uploads", afp), 
                      "size": os.path.getsize(afp),
                      "sha256_hash": checkhash(afp)}
                 response = self._request('post', f"/datasets/{dsid}/associated_files", json=af)
-                print(f"add af out {response}")
+                if verbose:
+                    print(f"added {afp}")
 
             main_file_path = os.path.join("api-uploads", main_file)
             
         else:
             try:
                 for f in files_to_upload:
-                    print(f"rclone copy '{f}' mf-cloud-storage-upload:/crucible-uploads/large-files/")
+                    if verbose:
+                        print(f"uploading file {f}...")
+                        print(f"rclone copy '{f}' mf-cloud-storage-upload:/crucible-uploads/large-files/")
                     xx = run_shell(f"rclone copy '{f}' mf-cloud-storage-upload:/crucible-uploads/large-files/")
-                    print(f"{xx.stdout=}")
-                    print(f"{xx.stderr=}")
+                    if verbose:
+                        print(f"{xx.stdout=}")
+                        print(f"{xx.stderr=}")
+                        print(f"upload complete.")
             except:
                 raise Exception("Files too large for transfer by http")
                 
             associated_files = files_to_upload.copy()
             associated_files.pop(0)
+            if verbose:
+                print("adding associated files to dataset record")
             for afp in associated_files:
                 af = {"filename": os.path.join("large-files", afp), 
                      "size": os.path.getsize(afp),
                      "sha256_hash": checkhash(afp)}
                 
                 self._request('post', f"/datasets/{dsid}/associated_files", json=af)
-
+                if verbose:
+                    print(f"added {afp}")
+                
             main_file_path = os.path.join("large-files/", main_file)
-
+        if verbose:
+            print(f"submitting {dsid} to be ingested from file {main_file_path} using the class {ingestor}")
         ingest_req_info = self.ingest_dataset(dsid, main_file_path, ingestor)
+        print(f"ingestion request {ingest_req_info['id']} is added to the queue")
+        if wait_for_ingestion_response:
+            print(f"wait for ingestion response set to True ... process will complete when ingestion process completes")
+            while ing_req_info['status'] in ['requested','started']:
+                time.sleep(5)
+                ing_req_info = self.get_ingestion_status(dsid, ingest_req_info['id'])
+                print(f"current status: {ing_req_info['status']}")
+
         return {"created_record": new_ds_record,
                 "scientific_metadata_record": scimd,
                 "ingestion_request": ingest_req_info}
