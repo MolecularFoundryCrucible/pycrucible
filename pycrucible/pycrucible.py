@@ -432,8 +432,18 @@ class CrucibleClient:
         """Add a new project to the system.
         
         Args:
-            project_info (dict): Project information to create
+            project_info (dict): Project information to create.  
             
+            Requires fields: 
+                project_id: str 
+                organization: str 
+                project_lead_email: str
+                    
+            May also include:
+                status: Optional[str]
+                title: Optional[str]
+                project_lead_name: Optional[str]
+
         Returns:
             dict: Information about the newly created project
         """
@@ -889,10 +899,10 @@ class CrucibleClient:
         print(f"ingestion request {ingest_req_info['id']} is added to the queue")
         if wait_for_ingestion_response:
             print(f"wait for ingestion response set to True ... process will complete when ingestion process completes")
-            while ing_req_info['status'] in ['requested','started']:
+            while ingest_req_info['status'] in ['requested','started']:
                 time.sleep(5)
-                ing_req_info = self.get_ingestion_status(dsid, ingest_req_info['id'])
-                print(f"current status: {ing_req_info['status']}")
+                ingest_req_info = self.get_ingestion_status(dsid, ingest_req_info['id'])
+                print(f"current status: {ingest_req_info['status']}")
 
         return {"created_record": new_ds_record,
                 "scientific_metadata_record": scimd,
