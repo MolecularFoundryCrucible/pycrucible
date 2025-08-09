@@ -351,16 +351,23 @@ class CrucibleClient:
         response = self._request('get', f"/samples/{sample_id}")
         return response
 
-    def list_samples(self, **kwargs):
+    def list_samples(self, dataset_id=None, parent_id=None, **kwargs):
         """List samples with optional filtering.
         
         Args:
+            dataset_id (str, optional): Dataset ID to get samples from /datasets/dsid/samples
+            parent_id (str, optional): Parent sample ID to get children from /samples/parent_id/children
             **kwargs: Query parameters for filtering samples
             
         Returns:
             list: List of sample information
         """
-        response = self._request('get', f"/samples", params=kwargs)
+        if dataset_id:
+            response = self._request('get', f"/datasets/{dataset_id}/samples", params=kwargs)
+        elif parent_id:
+            response = self._request('get', f"/samples/{parent_id}/children", params=kwargs)
+        else:
+            response = self._request('get', f"/samples", params=kwargs)
         return response
         
 
