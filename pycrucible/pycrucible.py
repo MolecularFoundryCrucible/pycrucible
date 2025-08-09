@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 from typing import Optional, List, Dict, Union, Any
 from .utils import get_tz_isoformat, run_shell, checkhash
@@ -30,7 +31,15 @@ class CrucibleClient:
         kwargs['headers'] = {**kwargs.get('headers', {}), **self.headers}
         response = requests.request(method, url, **kwargs)
         response.raise_for_status()
-        return response.json() if response.content else None
+        try:
+            if response.content:
+                return response.json()
+            else:
+                return None
+        except:
+            return response
+
+        #return response.json() if response.content else None
 
     def list_projects(self) -> List[Dict]:
         """List all accessible projects."""
@@ -192,7 +201,7 @@ class CrucibleClient:
         data = {"folder_id": folder_id}
         return self._request('post', f'/datasets/{dsid}/google_drive_transfer', json=data)
     
-    def request_scicat_update(self, dsid: str) -> Dict:
+    def send_to_scicat(self, dsid: str) -> Dict:
         """Request SciCat update for a dataset."""
         return self._request('post', f'/datasets/{dsid}/scicat_update')
     
