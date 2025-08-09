@@ -1,6 +1,7 @@
 import os
 import time
 import requests
+import time
 from typing import Optional, List, Dict, Union, Any
 from .utils import get_tz_isoformat, run_shell, checkhash
 
@@ -150,6 +151,60 @@ class CrucibleClient:
         """
         return self._request('get', f'/datasets/{dsid}/ingest/{reqid}')
     
+    def get_scicat_status(self, dsid: str, reqid: str) -> Dict:
+        """Get the status of a SciCat request.
+        
+        Args:
+            dsid (str): Dataset ID
+            reqid (str): Request ID for the SciCat operation
+            
+        Returns:
+            dict: SciCat request status information including status, timestamps, and other details
+        """
+        return self._request('get', f'/datasets/{dsid}/scicat_update/{reqid}')
+    
+    def get_request_status(self, dsid: str, reqid: str, request_type: str) -> Dict:
+        """Get the status of any type of request (ingestion, scicat, etc).
+        
+        Args:
+            dsid (str): Dataset ID
+            reqid (str): Request ID
+            request_type (str): Type of request ('ingest' or 'scicat_update')
+            
+        Returns:
+            dict: Request status information including status, timestamps, and other details
+        """
+        if request_type == 'ingest':
+            return self.get_ingestion_status(dsid, reqid)
+        elif request_type == 'scicat_update':
+            return self.get_scicat_status(dsid, reqid)
+        else:
+            raise ValueError(f"Unsupported request_type: {request_type}")
+    
+    def wait_for_request_completion(self, dsid: str, reqid: str, request_type: str, 
+                                  sleep_interval: int = 5) -> Dict:
+        """Wait for a request to complete by polling its status.
+        
+        Args:
+            dsid (str): Dataset ID
+            reqid (str): Request ID
+            request_type (str): Type of request ('ingest' or 'scicat_update')
+            sleep_interval (int): Seconds to wait between status checks
+            
+        Returns:
+            dict: Final request status information
+        """
+        req_info = self.get_request_status(dsid, reqid, request_type)
+        print(f"Waiting for {request_type} request to complete...")
+        
+        while req_info['status'] in ['requested', 'started']:
+            time.sleep(sleep_interval)
+            req_info = self.get_request_status(dsid, reqid, request_type)
+            print(f"Current status: {req_info['status']}")
+        
+        print(f"Request completed with status: {req_info['status']}")
+        return req_info
+    
     def get_dataset_access_groups(self, dsid: str) -> List[str]:
         """Get access groups for a dataset."""
         groups = self._request('get', f'/datasets/{dsid}/access_groups')
@@ -201,10 +256,23 @@ class CrucibleClient:
         data = {"folder_id": folder_id}
         return self._request('post', f'/datasets/{dsid}/google_drive_transfer', json=data)
     
-    def send_to_scicat(self, dsid: str) -> Dict:
-        """Request SciCat update for a dataset."""
-        return self._request('post', f'/datasets/{dsid}/scicat_update')
-    
+    def send_to_scicat(self, dsid: str, wait_for_scicat_response: bool = False) -> Dict:
+        """Request SciCat update for a dataset.
+        
+        Args:
+            dsid (str): Dataset ID
+            wait_for_scicat_response (bool): Whether to wait for the scicat consumer response
+            
+        Returns:
+            dict: SciCat update request information
+        """
+        scicat_req_info = self._request('post', f'/datasets/{dsid}/scicat_update')
+        
+        if wait_for_scicat_response:
+            scicat_req_info = self.wait_for_request_completion(dsid, scicat_req_info['id'], 'scicat_update')
+        
+        return scicat_req_info
+
     def delete_dataset(self, dsid: str) -> Dict:
         """Delete a dataset."""
         return self._request('delete', f'/datasets/{dsid}')
@@ -932,11 +1000,7 @@ class CrucibleClient:
         ingest_req_info = self.ingest_dataset(dsid, main_file_path, ingestor)
         print(f"ingestion request {ingest_req_info['id']} is added to the queue")
         if wait_for_ingestion_response:
-            print(f"wait for ingestion response set to True ... process will complete when ingestion process completes")
-            while ingest_req_info['status'] in ['requested','started']:
-                time.sleep(5)
-                ingest_req_info = self.get_ingestion_status(dsid, ingest_req_info['id'])
-                print(f"current status: {ingest_req_info['status']}")
+            ingest_req_info = self.wait_for_request_completion(dsid, ingest_req_info['id'], 'ingest')
 
         return {"created_record": new_ds_record,
                 "scientific_metadata_record": scimd,
