@@ -693,7 +693,20 @@ class CrucibleClient:
             
         Returns:
             dict: Dictionary containing created_record and scientific_metadata_record
+            
+        Raises:
+            ValueError: If project_id is provided but the project does not exist in the database
         """
+        # Validate project exists before making any database changes
+        if project_id is not None:
+            try:
+                self.get_project(project_id)
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 404:
+                    raise ValueError(f"Project with ID '{project_id}' does not exist in the database. "
+                                   f"Please create the project first or use a valid project ID.")
+                else:
+                    raise
         result = self._create_dataset_with_metadata(
             dataset_name=dataset_name,
             unique_id=unique_id,
@@ -765,7 +778,20 @@ class CrucibleClient:
             
         Returns:
             dict: Dictionary containing created_record, scientific_metadata_record, and ingestion_request
+            
+        Raises:
+            ValueError: If project_id is provided but the project does not exist in the database
         """
+        # Validate project exists before making any database changes
+        if project_id is not None:
+            try:
+                self.get_project(project_id)
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 404:
+                    raise ValueError(f"Project with ID '{project_id}' does not exist in the database. "
+                                   f"Please create the project first or use a valid project ID.")
+                else:
+                    raise
         # Create dataset using shared helper with file-specific fields
         main_file = files_to_upload[0]
         extra_fields = {
