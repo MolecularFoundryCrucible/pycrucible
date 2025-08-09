@@ -107,7 +107,8 @@ class CrucibleClient:
         
         # Set default output path if not provided
         if output_path is None:
-            output_path = file_name
+            output_path = os.path.join('crucible-downloads', file_name)
+            os.makedirs('crucible-downloads', exist_ok = True)
         
         # Check if file already exists (caching)
         if os.path.exists(output_path):
@@ -120,11 +121,13 @@ class CrucibleClient:
         with open(output_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
+
     
     def request_ingestion(self, dsid: str, ingestor: str) -> Dict:
         """Request dataset ingestion."""
         params = {"ingestion_class": ingestor}
         return self._request('post', f'/datasets/{dsid}/ingest', params=params)
+
     
     def get_ingestion_status(self, dsid: str, reqid: str) -> Dict:
         """Get the status of an ingestion request.
