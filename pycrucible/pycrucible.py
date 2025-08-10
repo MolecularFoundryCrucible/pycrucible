@@ -209,6 +209,7 @@ class CrucibleClient:
         """Get access groups for a dataset."""
         groups = self._request('get', f'/datasets/{dsid}/access_groups')
         return [group['group_name'] for group in groups]
+        
     
     def get_dataset_keywords(self, dsid: str) -> List[Dict]:
         """Get keywords associated with a dataset."""
@@ -361,7 +362,7 @@ class CrucibleClient:
             patch_json = {"id": reqid,
                         "status": status}
             
-        url = f"{self.api_url}/datasets/{dsid}/ingest/{reqid}"
+        url = f"{self.api_url}/datasets/{dsid}/scicat_update/{reqid}"
         response = requests.request("patch", url, json=patch_json, headers=self.headers)
         return response
 
