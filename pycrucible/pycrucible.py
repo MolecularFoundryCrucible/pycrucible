@@ -516,6 +516,10 @@ class CrucibleClient:
         response = self._request('post', f"/samples/{sample_id}/metadata/{sample_type}", json = kwargs)
         return response
 
+    def get_sample_metadata(self, sample_id):
+        response = self._request('get', f"/samples/{sample_id}/metadata/")
+        return response
+
     
     def add_sample_to_dataset(self, dataset_id, sample_id):
         """Link a sample to a dataset.
