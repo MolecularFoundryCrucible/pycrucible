@@ -516,8 +516,8 @@ class CrucibleClient:
         response = self._request('post', f"/samples/{sample_id}/metadata/{sample_type}", json = kwargs)
         return response
 
-    def get_sample_metadata(self, sample_id):
-        response = self._request('get', f"/samples/{sample_id}/metadata/")
+    def get_sample_metadata(self, sample_id, sample_type):
+        response = self._request('get', f"/samples/{sample_id}/metadata/{sample_type}")
         return response
 
     
