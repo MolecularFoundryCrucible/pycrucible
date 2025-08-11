@@ -509,11 +509,12 @@ class CrucibleClient:
         return new_samp
 
     
-    def add_sample_metadata(self, sample_id, table, metadata):
+    def add_sample_metadata(self, sample_id, sample_type, **kwargs):
         ''' upload metadata to table and link to provided sample_id; 
             sample_id should be the sample's crucible_id '''
-        #TODO
-        pass
+
+        response = self._request('post', f"/samples/{sample_id}/metadata/{sample_type}", json = kwargs)
+        return response
 
     
     def add_sample_to_dataset(self, dataset_id, sample_id):
@@ -530,7 +531,8 @@ class CrucibleClient:
         new_link = self._request('post', f"/datasets/{dataset_id}/samples/{sample_id}")
         return new_link
 
-
+    add_dataset_to_sample = add_sample_to_dataset
+    
     def add_project(self, project_info):
         """Add a new project to the system.
         
@@ -596,8 +598,7 @@ class CrucibleClient:
         else:
             raise ValueError(f"User info for {orcid} not found in database or using the get_user_info_func")
 
-
-    def get_or_add_crucible_project(self, crucible_project_id, get_project_info_func, **kwargs):
+    def get_or_add_crucible_project(self, crucible_project_id, get_project_info_func = None, **kwargs):
         """Get an existing project or create a new one if it doesn't exist.
         
         Args:
@@ -614,14 +615,16 @@ class CrucibleClient:
         proj = self.get_project(crucible_project_id)
         if proj:
             return proj
-        
-        proj_info = get_project_info_func(crucible_project_id, **kwargs)
-        if proj_info:
-            proj = self.add_project(proj_info)
+
+        project_info = get_project_info_func(crucible_project_id, **kwargs)
+            
+        if project_info:
+            proj = self.add_project(project_info)
             return proj
         else:
             raise ValueError(f"Project info for {crucible_project_id} not found in database or using the provided get_project_info_func")
 
+    get_or_add_project = get_or_add_crucible_project
 
     # ==== Main utility for instrument integration
     def create_dataset(self, 
