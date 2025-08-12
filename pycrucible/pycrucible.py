@@ -1046,8 +1046,59 @@ class CrucibleClient:
         file_obj = ('files', (file_to_upload, open(file_to_upload, 'rb'), 'text/plain'))
         return file_obj
 
+# ========== this should probably go somewhere else but for now.. here so people can use it 
+import ipywidgets as widgets
+from IPython.display import display, clear_output
+import os
 
-
+class SecureInput:
+    def __init__(self, description="Enter secret:"):
+        self.description = description
+        self.secret = None
+        self.create_widget()
+    
+    def create_widget(self):
+        self.password_widget = widgets.Password(
+            placeholder='Enter secret here',
+            description='',
+            style={'description_width': 'initial'}
+        )
+        
+        self.submit_button = widgets.Button(
+            description='Store Secret',
+            button_style='success',
+            icon='lock'
+        )
+        
+        self.output = widgets.Output()
+        
+        self.submit_button.on_click(self.on_submit)
+        
+        self.container = widgets.VBox([
+            widgets.HTML(f"<b>{self.description}</b>"),
+            self.password_widget,
+            self.submit_button,
+            self.output
+        ])
+        
+        display(self.container)
+    
+    def on_submit(self, button):
+        with self.output:
+            clear_output()
+            if self.password_widget.value:
+                self.secret = self.password_widget.value
+                # Optionally store in environment
+                os.environ['TEMP_SECRET'] = self.secret
+                print("✓ Secret stored securely")
+                # Clear the widget
+                self.password_widget.value = ""
+                # Hide the input form
+                self.password_widget.layout.display = 'none'
+                self.submit_button.layout.display = 'none'
+            else:
+                print("❌ Please enter a value")
+    
 
 
 
