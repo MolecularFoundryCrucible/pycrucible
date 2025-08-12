@@ -1052,8 +1052,9 @@ from IPython.display import display, clear_output
 import os
 
 class SecureInput:
-    def __init__(self, description="Enter secret:"):
+    def __init__(self, description="Enter secret:", var_name = "TEMP_SECRET"):
         self.description = description
+        self.var_name = var_name
         self.secret = None
         self.create_widget()
     
@@ -1089,7 +1090,7 @@ class SecureInput:
             if self.password_widget.value:
                 self.secret = self.password_widget.value
                 # Optionally store in environment
-                os.environ['TEMP_SECRET'] = self.secret
+                os.environ[self.var_name] = self.secret
                 print("✓ Secret stored securely")
                 # Clear the widget
                 self.password_widget.value = ""
