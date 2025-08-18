@@ -20,6 +20,7 @@ setup(
     install_requires=[
         "requests>=2.25.0",
         "pytz>=2021.1",
+        "ipywidgets",
     ],
     extras_require={
         "dev": [
