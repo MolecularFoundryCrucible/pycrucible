@@ -138,7 +138,7 @@ class CrucibleClient:
     
     def request_ingestion(self, dsid: str, file_to_upload: str = None, ingestor: str = None) -> Dict:
         """Request dataset ingestion."""
-        params = {"ingestion_class": ingestor}
+        params = {"ingestion_class": ingestor, "file_to_upload": file_to_upload}
         return self._request('post', f'/datasets/{dsid}/ingest', params=params)
 
     
