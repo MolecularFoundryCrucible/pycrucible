@@ -107,8 +107,8 @@ class CrucibleClient:
             output_path: Local path to save file. If not provided, uses the file_name in current directory
         """
         # If no file_name specified, get it from the dataset's file_to_upload field
+        dataset = self.get_dataset(dsid)
         if file_name is None:
-            dataset = self.get_dataset(dsid)
             if 'file_to_upload' not in dataset or not dataset['file_to_upload']:
                 raise ValueError(f"No file_name specified and dataset {dsid} has no file_to_upload field")
             file_to_upload = dataset['file_to_upload']
@@ -122,16 +122,18 @@ class CrucibleClient:
         
         # Check if file already exists (caching)
         if os.path.exists(output_path):
-            print(f"File {output_path} already exists, skipping download")
-            return
+            curr_hash = checkhash(output_path)
+            if curr_hash == dataset['sha256_hash']:
+                print(f"File {output_path} already exists, skipping download")
+                return
+            else:
+                url = f"/datasets/{dsid}/download/{file_name}"
+                response = self._request('get', url, stream=True)
+                response.raise_for_status()
+                with open(output_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
         
-        url = f"/datasets/{dsid}/download/{file_name}"
-        response = self._request('get', url, stream=True)
-        response.raise_for_status()
-        with open(output_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-
     
     def request_ingestion(self, dsid: str, ingestor: str) -> Dict:
         """Request dataset ingestion."""
@@ -391,6 +393,10 @@ class CrucibleClient:
         response = requests.request("patch", url, json=patch_json, headers=self.headers)
         return response
 
+
+    def list_instruments(self) -> List[Dict]:
+        """List all available instruments."""
+        return self._request('get', '/instruments')
 
     def get_instrument(self, instrument_name=None, instrument_id=None):
         """Get instrument information by name or ID.
