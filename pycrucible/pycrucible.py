@@ -136,7 +136,7 @@ class CrucibleClient:
                 return(f"download complete for file {output_path}")
         
     
-    def request_ingestion(self, dsid: str, ingestor: str) -> Dict:
+    def request_ingestion(self, dsid: str, file_to_upload: str = None, ingestor: str = None) -> Dict:
         """Request dataset ingestion."""
         params = {"ingestion_class": ingestor}
         return self._request('post', f'/datasets/{dsid}/ingest', params=params)
