@@ -46,11 +46,11 @@ class CrucibleClient:
         """List all accessible projects."""
         return self._request('get', '/projects')
     
-    def get_project(self, project_id: str) -> Dict:
+    def _get_project(self, project_id: str) -> Dict:
         """Get details of a specific project."""
         return self._request('get', f'/projects/{project_id}')
     
-    def get_user(self, orcid: str) -> Dict:
+    def _get_user(self, orcid: str) -> Dict:
         """Get user details by ORCID."""
         return self._request('get', f'/users/{orcid}')
     
@@ -81,7 +81,7 @@ class CrucibleClient:
             return self._request('get', f'/samples/{sample_id}/datasets', params=kwargs)
         return self._request('get', '/datasets', params=kwargs)
     
-    def get_dataset(self, dsid: str, include_metadata: bool = False) -> Dict:
+    def _get_dataset(self, dsid: str, include_metadata: bool = False) -> Dict:
         """Get dataset details, optionally including scientific metadata."""
         dataset = self._request('get', f'/datasets/{dsid}')
         if dataset and include_metadata:
@@ -92,6 +92,11 @@ class CrucibleClient:
                 dataset['scientific_metadata'] = {}
         return dataset
     
+
+    def get_dataset(self, dsid:str, include_metadata:bool=False) -> Dict:
+        return self._get_dataset(self, dsid, include_metadata)
+    
+
     def upload_dataset(self, dsid: str, file_path: str) -> Dict:
         """Upload a file to a dataset."""
         with open(file_path, 'rb') as f:
@@ -107,7 +112,7 @@ class CrucibleClient:
             output_path: Local path to save file. If not provided, uses the file_name in current directory
         """
         # If no file_name specified, get it from the dataset's file_to_upload field
-        dataset = self.get_dataset(dsid)
+        dataset = self._get_dataset(dsid)
         if file_name is None:
             if 'file_to_upload' not in dataset or not dataset['file_to_upload']:
                 raise ValueError(f"No file_name specified and dataset {dsid} has no file_to_upload field")
@@ -142,7 +147,7 @@ class CrucibleClient:
         return self._request('post', f'/datasets/{dsid}/ingest', params=params)
 
     
-    def get_ingestion_status(self, dsid: str, reqid: str) -> Dict:
+    def _get_ingestion_status(self, dsid: str, reqid: str) -> Dict:
         """Get the status of an ingestion request.
         
         Args:
@@ -154,7 +159,7 @@ class CrucibleClient:
         """
         return self._request('get', f'/datasets/{dsid}/ingest/{reqid}')
     
-    def get_scicat_status(self, dsid: str, reqid: str) -> Dict:
+    def _get_scicat_status(self, dsid: str, reqid: str) -> Dict:
         """Get the status of a SciCat request.
         
         Args:
@@ -178,13 +183,13 @@ class CrucibleClient:
             dict: Request status information including status, timestamps, and other details
         """
         if request_type == 'ingest':
-            return self.get_ingestion_status(dsid, reqid)
+            return self._get_ingestion_status(dsid, reqid)
         elif request_type == 'scicat_update':
-            return self.get_scicat_status(dsid, reqid)
+            return self._get_scicat_status(dsid, reqid)
         else:
             raise ValueError(f"Unsupported request_type: {request_type}")
     
-    def wait_for_request_completion(self, dsid: str, reqid: str, request_type: str, 
+    def _wait_for_request_completion(self, dsid: str, reqid: str, request_type: str, 
                                   sleep_interval: int = 5) -> Dict:
         """Wait for a request to complete by polling its status.
         
@@ -208,6 +213,7 @@ class CrucibleClient:
         print(f"Request completed with status: {req_info['status']}")
         return req_info
     
+
     def get_dataset_access_groups(self, dsid: str) -> List[str]:
         """Get access groups for a dataset."""
         groups = self._request('get', f'/datasets/{dsid}/access_groups')
@@ -218,10 +224,14 @@ class CrucibleClient:
         """Get keywords associated with a dataset."""
         return self._request('get', f'/datasets/{dsid}/keywords')
     
-    def add_dataset_keyword(self, dsid: str, keyword: str) -> Dict:
+    def _add_dataset_keyword(self, dsid: str, keyword: str) -> Dict:
         """Add a keyword to a dataset."""
         return self._request('post', f'/datasets/{dsid}/keywords', params={'keyword': keyword})
     
+    def add_dataset_keyword(self, dsid:str, keyword:str) -> Dict:
+        return self._add_dataset_keyword(dsid, keyword)
+
+
     def get_scientific_metadata(self, dsid: str) -> Dict:
         """Get scientific metadata for a dataset."""
         return self._request('get', f'/datasets/{dsid}/scientific_metadata')
@@ -273,7 +283,7 @@ class CrucibleClient:
         scicat_req_info = self._request('post', f'/datasets/{dsid}/scicat_update')
         
         if wait_for_scicat_response:
-            scicat_req_info = self.wait_for_request_completion(dsid, scicat_req_info['id'], 'scicat_update')
+            scicat_req_info = self._wait_for_request_completion(dsid, scicat_req_info['id'], 'scicat_update')
         
         return scicat_req_info
 
@@ -281,7 +291,7 @@ class CrucibleClient:
         """Delete a dataset."""
         return self._request('delete', f'/datasets/{dsid}')
 
-    def get_current_google_drive_info(self, dsid):
+    def _get_current_google_drive_info(self, dsid):
         """Get current Google Drive location information for a dataset.
         
         Args:
@@ -301,7 +311,7 @@ class CrucibleClient:
         Returns:
             list: List of organized Google Drive folder information
         """
-        drive_info = self.get_current_google_drive_info(dsid)
+        drive_info = self._get_current_google_drive_info(dsid)
         org_google_drive_info = [x for x in drive_info if 'Organized' in x['folder_path_in_drive']]
         return org_google_drive_info
 
@@ -399,7 +409,7 @@ class CrucibleClient:
         """List all available instruments."""
         return self._request('get', '/instruments')
 
-    def get_instrument(self, instrument_name=None, instrument_id=None):
+    def _get_instrument(self, instrument_name=None, instrument_id=None):
         """Get instrument information by name or ID.
         
         Args:
@@ -440,7 +450,7 @@ class CrucibleClient:
         Returns:
             dict: Instrument information (existing or newly created)
         """
-        found_inst = self.get_instrument(instrument_name)
+        found_inst = self._get_instrument(instrument_name)
         
         if found_inst:
             return found_inst
@@ -544,7 +554,7 @@ class CrucibleClient:
 
     add_dataset_to_sample = add_sample_to_dataset
     
-    def add_project(self, project_info):
+    def _add_project(self, project_info):
         """Add a new project to the system.
         
         Args:
@@ -583,7 +593,7 @@ class CrucibleClient:
                                       "project_ids": user_projects})
         return new_user
 
-
+    # maybe problematic
     def get_or_add_user(self, orcid, get_user_info_function, **kwargs):
         """Get an existing user or create a new one if they don't exist.
         
@@ -598,13 +608,13 @@ class CrucibleClient:
         Raises:
             ValueError: If user info cannot be found or created
         """
-        user = self.get_user(orcid)
+        user = self._get_user(orcid)
         if user:
             return user
         
         user_info = get_user_info_function(orcid, **kwargs)
         if user_info:
-            user = self.add_user(user_info)
+            user = self._add_user(user_info)
             return user
         else:
             raise ValueError(f"User info for {orcid} not found in database or using the get_user_info_func")
@@ -623,14 +633,14 @@ class CrucibleClient:
         Raises:
             ValueError: If project info cannot be found or created
         """
-        proj = self.get_project(crucible_project_id)
+        proj = self._get_project(crucible_project_id)
         if proj:
             return proj
 
         project_info = get_project_info_func(crucible_project_id, **kwargs)
             
         if project_info:
-            proj = self.add_project(project_info)
+            proj = self._add_project(project_info)
             return proj
         else:
             raise ValueError(f"Project info for {crucible_project_id} not found in database or using the provided get_project_info_func")
@@ -708,7 +718,7 @@ class CrucibleClient:
             # Add keywords if provided
             if keywords:
                 for keyword in keywords:
-                    self.add_dataset_keyword(dsid, keyword)
+                    self._add_dataset_keyword(dsid, keyword)
                     
             return new_dataset
 
@@ -777,7 +787,7 @@ class CrucibleClient:
                 print(f'adding keywords to dataset {dsid}: {keywords}')
         # add keywords
         for kw in keywords:
-            self.add_dataset_keyword(dsid, kw)
+            self._add_dataset_keyword(dsid, kw)
 
         return {"created_record": new_ds_record, "scientific_metadata_record": scimd, "dsid": dsid}
 
@@ -797,6 +807,7 @@ class CrucibleClient:
                                 scientific_metadata: Optional[dict] = None,
                                 keywords: List[str] = None, 
                                 get_user_info_function = None, 
+                                verbose = False,
                                 **kwargs):
         """Build a new dataset from JSON metadata without file upload.
         
@@ -827,7 +838,7 @@ class CrucibleClient:
         # Validate project exists before making any database changes
         if project_id is not None:
             try:
-                self.get_project(project_id)
+                self._get_project(project_id)
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code == 404:
                     raise ValueError(f"Project with ID '{project_id}' does not exist in the database. "
@@ -850,7 +861,7 @@ class CrucibleClient:
             scientific_metadata=scientific_metadata,
             keywords=keywords,
             get_user_info_function=get_user_info_function,
-            verbose = verbose
+            verbose=verbose
         )
         
         print(f"dsid={result['dsid']}")
@@ -912,7 +923,7 @@ class CrucibleClient:
         # Validate project exists before making any database changes
         if project_id is not None:
             try:
-                self.get_project(project_id)
+                self._get_project(project_id)
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code == 404:
                     raise ValueError(f"Project with ID '{project_id}' does not exist in the database. "
@@ -963,7 +974,7 @@ class CrucibleClient:
             for f in files_to_upload:
                 if verbose:
                     print(f"uploading file {f}...")
-                file_payload = [self.create_file_payload(f) for f in files_to_upload]
+                file_payload = [self._create_file_payload(f) for f in files_to_upload]
                 upload_req = self._request('post', f"/datasets/{dsid}/upload", files=file_payload)
                 if verbose:
                     print(f"upload complete.")
@@ -1015,13 +1026,13 @@ class CrucibleClient:
         ingest_req_info = self.ingest_dataset(dsid, main_file_path, ingestor)
         print(f"ingestion request {ingest_req_info['id']} is added to the queue")
         if wait_for_ingestion_response:
-            ingest_req_info = self.wait_for_request_completion(dsid, ingest_req_info['id'], 'ingest')
+            ingest_req_info = self._wait_for_request_completion(dsid, ingest_req_info['id'], 'ingest')
 
         return {"created_record": new_ds_record,
                 "scientific_metadata_record": scimd,
                 "ingestion_request": ingest_req_info}
 
-    
+    # problematic
     def ingest_dataset(self, dsid, file_to_upload = None, ingestion_class = None):
         """Request ingestion of a dataset file.
         
@@ -1041,7 +1052,7 @@ class CrucibleClient:
 
 
     @staticmethod
-    def create_file_payload(file_to_upload):
+    def _create_file_payload(file_to_upload):
         """Create a file payload for upload.
         
         Args:
