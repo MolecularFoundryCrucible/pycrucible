@@ -44,7 +44,17 @@ class CrucibleClient:
 
     def list_projects(self) -> List[Dict]:
         """List all accessible projects."""
-        return self._request('get', '/projects')
+        try:
+            projects = self._request('get', '/projects')
+        except:
+            acct = self.get_user_account_info()
+            if acct['user_info'] is not None:
+                user_orcid = acct['user_info']['orcid']
+            projects = self._request('get', '/users/{user_orcid}/projects')
+        return projects
+
+    def get_user_account_info(self) -> Dict:
+        return self._request('get', f'/account')
     
     def _get_project(self, project_id: str) -> Dict:
         """Get details of a specific project."""
