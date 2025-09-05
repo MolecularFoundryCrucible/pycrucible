@@ -58,14 +58,17 @@ class CrucibleClient:
     def get_user_account_info(self) -> Dict:
         return self._request('get', f'/account')
     
+
     def _get_project(self, project_id: str) -> Dict:
         """Get details of a specific project."""
         return self._request('get', f'/projects/{project_id}')
+    
     
     def _get_user(self, orcid: str) -> Dict:
         """Get user details by ORCID."""
         return self._request('get', f'/users/{orcid}')
     
+
     def get_user_by_email(self, email: str) -> Dict:
         """Get user details by email."""
         params = {"email": email}
@@ -75,10 +78,12 @@ class CrucibleClient:
             result = self._request('get', '/users', params=params)
         return result
     
+
     def get_project_users(self, project_id: str) -> List[Dict]:
         """Get users associated with a project."""
         return self._request('get', f'/projects/{project_id}/users')
     
+
     def list_datasets(self, sample_id: Optional[str] = None, **kwargs) -> List[Dict]:
         """List datasets with optional filtering.
         
