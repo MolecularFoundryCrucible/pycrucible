@@ -98,20 +98,30 @@ class CrucibleClient:
             return self._request('get', f'/samples/{sample_id}/datasets', params=kwargs)
         return self._request('get', '/datasets', params=kwargs)
     
-    def _get_dataset(self, dsid: str, include_metadata: bool = False) -> Dict:
-        """Get dataset details, optionally including scientific metadata."""
-        dataset = self._request('get', f'/datasets/{dsid}')
+    def _get_dataset(self, dsid: str = None, dshash: str = None, include_metadata: bool = False) -> Dict:
+        """Get dataset details by unique ID or file hash, optionally including scientific metadata."""
+        
+        if dsid is not None:
+            dataset = self._request('get', f'/datasets/{dsid}')
+        
+        elif dshash is not None:
+            dataset_by_hash = self._request('get', f'/datasets', sha256_hash=dshash)
+            if len(dataset_by_hash)> 0:
+                dataset = dataset_by_hash[0]
+            else:
+                dataset = None
+
         if dataset and include_metadata:
             try:
-                metadata = self._request('get', f'/datasets/{dsid}/scientific_metadata')
+                metadata = self._request('get', f'/datasets/{dataset['unique_id']}/scientific_metadata')
                 dataset['scientific_metadata'] = metadata or {}
             except requests.exceptions.RequestException:
                 dataset['scientific_metadata'] = {}
         return dataset
     
 
-    def get_dataset(self, dsid:str, include_metadata:bool=False) -> Dict:
-        return self._get_dataset(self, dsid, include_metadata)
+    def get_dataset(self, dsid:str=None, dshash:str=None, include_metadata:bool=False) -> Dict:
+        return self._get_dataset(self, dsid, dshash, include_metadata)
     
 
     def upload_dataset(self, dsid: str, file_path: str) -> Dict:
