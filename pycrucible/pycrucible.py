@@ -7,7 +7,12 @@ from .utils import get_tz_isoformat, run_shell, checkhash
 
 class CrucibleClient:
     def __init__(self, api_url: str, api_key: str):
-        """Initialize the Crucible API client.
+        """
+        Initialize the Crucible API client.  
+        This client provides access to the Molecular Foundry data lakehouse which contains
+        experimental synthesis and characterization data as well as information about the users, 
+        projects, and instruments involved in acquiring the data.  Any instrument settings or 
+        parameters should be saved in the scientific_metadata record associated with each dataset. 
         
         Args:
             api_url: Base URL for the Crucible API
