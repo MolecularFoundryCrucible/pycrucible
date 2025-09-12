@@ -160,7 +160,7 @@ class CrucibleClient:
             curr_hash = checkhash(output_path)
             if curr_hash == dataset['sha256_hash']:
                 print(f"File {output_path} already exists, skipping download")
-                return
+                return f"File {output_path} already exists, skipping download"
             else:
                 url = f"/datasets/{dsid}/download/{file_name}"
                 response = self._request('get', url, stream=True)
