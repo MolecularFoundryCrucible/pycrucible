@@ -130,7 +130,7 @@ class CrucibleClient:
             files = {'file': f}
             return self._request('post', f'/datasets/{dsid}/upload', files=files)
     
-    def download_dataset(self, dsid: str, file_name: Optional[str] = None, output_path: Optional[str] = None) -> None:
+    def download_dataset(self, dsid: str, file_name: Optional[str] = None, output_dir: Optional[str] = None) -> None:
         """Download a dataset file.
         
         Args:
@@ -148,10 +148,13 @@ class CrucibleClient:
             file_name = os.path.basename(file_to_upload)
         
         # Set default output path if not provided
-        if output_path is None:
+        if output_dir is None:
             output_path = os.path.join('crucible-downloads', file_name)
             os.makedirs('crucible-downloads', exist_ok = True)
-        
+        else:
+            output_path = os.path.join(output_path, file_name)
+            os.makedirs(output_path, exist_ok = True)
+
         # Check if file already exists (caching)
         if os.path.exists(output_path):
             curr_hash = checkhash(output_path)
