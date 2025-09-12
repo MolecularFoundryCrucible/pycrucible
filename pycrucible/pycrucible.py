@@ -161,14 +161,14 @@ class CrucibleClient:
             if curr_hash == dataset['sha256_hash']:
                 print(f"File {output_path} already exists, skipping download")
                 return f"File {output_path} already exists, skipping download"
-            else:
-                url = f"/datasets/{dsid}/download/{file_name}"
-                response = self._request('get', url, stream=True)
-                response.raise_for_status()
-                with open(output_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                return(f"download complete for file {output_path}")
+        else:
+            url = f"/datasets/{dsid}/download/{file_name}"
+            response = self._request('get', url, stream=True)
+            response.raise_for_status()
+            with open(output_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            return(f"download complete for file {output_path}")
         
     
     def request_ingestion(self, dsid: str, file_to_upload: str = None, ingestor: str = None) -> Dict:
