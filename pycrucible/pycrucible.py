@@ -106,7 +106,8 @@ class CrucibleClient:
             return self._request('post', f'/datasets/{dsid}/upload', files=files)
     
     def download_dataset(self, dsid: str, file_name: Optional[str] = None, output_path: Optional[str] = None) -> None:
-        """Download a dataset file.
+        """Download a dataset file. If the file exists and has the same hash then
+        the file is not downloaded.
         
         Args:
             dsid: Dataset ID
@@ -114,7 +115,7 @@ class CrucibleClient:
             output_path: Local path to save file. If not provided, uses the file_name in current directory
 
         Returns:
-            str: A message including the path to the downloaded file
+            str: A message including the path to the downloaded file. 
         """
         # If no file_name specified, get it from the dataset's file_to_upload field
         dataset = self.get_dataset(dsid)
@@ -140,20 +141,15 @@ class CrucibleClient:
             if checkhash(output_path) == dataset['sha256_hash']:
                 skip = True
         
-        # Check if file already exists (caching)
-        if os.path.exists(output_path):
-            curr_hash = checkhash(output_path)
-            if curr_hash == dataset['sha256_hash']:
-                print(f"File {output_path} already exists, skipping download")
-                return
-            else:
-                url = f"/datasets/{dsid}/download/{file_name}"
-                response = self._request('get', url, stream=True)
-                response.raise_for_status()
-                with open(output_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                return(f"download complete for file {output_path}")
+        if skip:
+            print(f"File {output_path} already exists, skipping download")
+        else:
+            url = f"/datasets/{dsid}/download/{file_name}"
+            response = self._request('get', url, stream=True)
+            response.raise_for_status()
+            with open(output_path, 'wb') as f:
+                f.write(response.content)
+            return f"download complete for file {output_path}"
         
     
     def request_ingestion(self, dsid: str, file_to_upload: str = None, ingestor: str = None) -> Dict:
