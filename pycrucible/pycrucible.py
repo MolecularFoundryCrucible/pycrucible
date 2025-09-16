@@ -133,6 +133,12 @@ class CrucibleClient:
             output_path = Path(output_path)
             if output_path.is_dir():
                 output_path = output_path / Path(file_name)
+
+        # Check if file already exists (caching)
+        skip = False
+        if output_path.exists() and 'sha256_hash' in dataset:
+            if checkhash(output_path) == dataset['sha256_hash']:
+                skip = True
         
         # Check if file already exists (caching)
         if os.path.exists(output_path):
