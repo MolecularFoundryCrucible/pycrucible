@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import os
 import time
 import requests
@@ -110,6 +112,9 @@ class CrucibleClient:
             dsid: Dataset ID
             file_name: Name of file to download. If not provided, uses dataset's file_to_upload field
             output_path: Local path to save file. If not provided, uses the file_name in current directory
+
+        Returns:
+            str: A message including the path to the downloaded file
         """
         # If no file_name specified, get it from the dataset's file_to_upload field
         dataset = self.get_dataset(dsid)
@@ -122,8 +127,12 @@ class CrucibleClient:
         
         # Set default output path if not provided
         if output_path is None:
-            output_path = os.path.join('crucible-downloads', file_name)
-            os.makedirs('crucible-downloads', exist_ok = True)
+            output_path = (Path('./crucible-downloads') / Path(file_name))
+            output_path.parent.mkdir(exist_ok=True)
+        elif isinstance(output_path, str):
+            output_path = Path(output_path)
+            if output_path.is_dir():
+                output_path = output_path / Path(file_name)
         
         # Check if file already exists (caching)
         if os.path.exists(output_path):
