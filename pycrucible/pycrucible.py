@@ -122,9 +122,9 @@ class CrucibleClient:
         if file_name is None:
             if 'file_to_upload' not in dataset or not dataset['file_to_upload']:
                 raise ValueError(f"No file_name specified and dataset {dsid} has no file_to_upload field")
-            file_to_upload = dataset['file_to_upload']
+            file_to_upload = Path(dataset['file_to_upload'])
             # Extract just the filename from the path (remove api-uploads/ or large-files/ prefix)
-            file_name = os.path.basename(file_to_upload)
+            file_name = file_to_upload.name
         
         # Set default output path if not provided
         if output_path is None:
