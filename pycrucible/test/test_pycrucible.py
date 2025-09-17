@@ -18,15 +18,10 @@ class Test:
     """
     Test pycrucible
     """
-
-    def test_api_key(self):
-        print(os.environ.get("CRUCIBLE_API_KEY"))
-        
     
     def test_download(self):
         """specific filename"""
-       # Initialize the client
-        print(API_KEY)
+        # Initialize the client
         client = CrucibleClient(API_URL, API_KEY)
 
         response = client.download_dataset(dataset0)
