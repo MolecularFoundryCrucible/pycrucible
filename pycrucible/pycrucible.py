@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import os
 import time
 import requests
@@ -104,41 +106,50 @@ class CrucibleClient:
             return self._request('post', f'/datasets/{dsid}/upload', files=files)
     
     def download_dataset(self, dsid: str, file_name: Optional[str] = None, output_path: Optional[str] = None) -> None:
-        """Download a dataset file.
+        """Download a dataset file. If the file exists and has the same hash then
+        the file is not downloaded.
         
         Args:
             dsid: Dataset ID
             file_name: Name of file to download. If not provided, uses dataset's file_to_upload field
             output_path: Local path to save file. If not provided, uses the file_name in current directory
+
+        Returns:
+            str: A message including the path to the downloaded file. 
         """
         # If no file_name specified, get it from the dataset's file_to_upload field
         dataset = self.get_dataset(dsid)
         if file_name is None:
             if 'file_to_upload' not in dataset or not dataset['file_to_upload']:
                 raise ValueError(f"No file_name specified and dataset {dsid} has no file_to_upload field")
-            file_to_upload = dataset['file_to_upload']
+            file_to_upload = Path(dataset['file_to_upload'])
             # Extract just the filename from the path (remove api-uploads/ or large-files/ prefix)
-            file_name = os.path.basename(file_to_upload)
+            file_name = file_to_upload.name
         
         # Set default output path if not provided
         if output_path is None:
-            output_path = os.path.join('crucible-downloads', file_name)
-            os.makedirs('crucible-downloads', exist_ok = True)
-        
+            output_path = (Path('./crucible-downloads') / Path(file_name))
+            output_path.parent.mkdir(exist_ok=True)
+        elif isinstance(output_path, str):
+            output_path = Path(output_path)
+            if output_path.is_dir():
+                output_path = output_path / Path(file_name)
+
         # Check if file already exists (caching)
-        if os.path.exists(output_path):
-            curr_hash = checkhash(output_path)
-            if curr_hash == dataset['sha256_hash']:
-                print(f"File {output_path} already exists, skipping download")
-                return
-            else:
-                url = f"/datasets/{dsid}/download/{file_name}"
-                response = self._request('get', url, stream=True)
-                response.raise_for_status()
-                with open(output_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                return(f"download complete for file {output_path}")
+        skip = False
+        if output_path.exists() and 'sha256_hash' in dataset:
+            if checkhash(output_path) == dataset['sha256_hash']:
+                skip = True
+        
+        if skip:
+            print(f"File {output_path} already exists, skipping download")
+        else:
+            url = f"/datasets/{dsid}/download/{file_name}"
+            response = self._request('get', url, stream=True)
+            response.raise_for_status()
+            with open(output_path, 'wb') as f:
+                f.write(response.content)
+            return f"download complete for file {output_path}"
         
     
     def request_ingestion(self, dsid: str, file_to_upload: str = None, ingestor: str = None) -> Dict:
