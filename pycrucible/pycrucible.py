@@ -48,19 +48,44 @@ class CrucibleClient:
         #return response.json() if response.content else None
 
     def list_projects(self) -> List[Dict]:
-        """List all accessible projects."""
+        """List all accessible projects.
+
+        Returns:
+            List[Dict]: Project metadata including project_id, project_name, description, project_lead_email
+        """
         return self._request('get', '/projects')
     
     def get_project(self, project_id: str) -> Dict:
-        """Get details of a specific project."""
+        """Get details of a specific project.
+
+        Args:
+            project_id (str): Unique project identifier
+
+        Returns:
+            Dict: Complete project information
+        """
         return self._request('get', f'/projects/{project_id}')
     
     def get_user(self, orcid: str) -> Dict:
-        """Get user details by ORCID."""
+        """Get user details by ORCID (admin access required).
+
+        Args:
+            orcid (str): ORCID identifier (format: 0000-0000-0000-000X)
+
+        Returns:
+            Dict: User profile with orcid, name, email, timestamps
+        """
         return self._request('get', f'/users/{orcid}')
     
     def get_user_by_email(self, email: str) -> Dict:
-        """Get user details by email."""
+        """Get user details by email address.
+
+        Args:
+            email (str): Email address to search for
+
+        Returns:
+            Dict: User information if found, searches both email and lbl_email fields
+        """
         params = {"email": email}
         result = self._request('get', '/users', params=params)
         if not result:
@@ -69,25 +94,40 @@ class CrucibleClient:
         return result
     
     def get_project_users(self, project_id: str) -> List[Dict]:
-        """Get users associated with a project."""
+        """Get users associated with a project (admin access required).
+
+        Args:
+            project_id (str): Unique project identifier
+
+        Returns:
+            List[Dict]: Project team members (excludes project lead)
+        """
         return self._request('get', f'/projects/{project_id}/users')
     
     def list_datasets(self, sample_id: Optional[str] = None, **kwargs) -> List[Dict]:
         """List datasets with optional filtering.
-        
+
         Args:
-            sample_id: If provided, returns datasets associated with this sample ID
-            **kwargs: Additional query parameters for filtering datasets
-            
+            sample_id (str, optional): If provided, returns datasets for this sample
+            **kwargs: Query parameters for filtering (keyword, owner_orcid, etc.)
+
         Returns:
-            List of dataset dictionaries
+            List[Dict]: Dataset objects matching filter criteria
         """
         if sample_id:
             return self._request('get', f'/samples/{sample_id}/datasets', params=kwargs)
         return self._request('get', '/datasets', params=kwargs)
     
     def get_dataset(self, dsid: str, include_metadata: bool = False) -> Dict:
-        """Get dataset details, optionally including scientific metadata."""
+        """Get dataset details, optionally including scientific metadata.
+
+        Args:
+            dsid (str): Dataset unique identifier
+            include_metadata (bool): Whether to include scientific metadata
+
+        Returns:
+            Dict: Dataset object with optional metadata
+        """
         dataset = self._request('get', f'/datasets/{dsid}')
         if dataset and include_metadata:
             try:
@@ -98,18 +138,26 @@ class CrucibleClient:
         return dataset
     
     def upload_dataset(self, dsid: str, file_path: str) -> Dict:
-        """Upload a file to a dataset."""
+        """Upload a file to a dataset.
+
+        Args:
+            dsid (str): Dataset unique identifier
+            file_path (str): Local path to file to upload
+
+        Returns:
+            Dict: Upload response with ingestion request info
+        """
         with open(file_path, 'rb') as f:
-            files = {'file': f}
+            files = [('files', (os.path.basename(file_path), f, 'application/octet-stream'))]
             return self._request('post', f'/datasets/{dsid}/upload', files=files)
     
     def download_dataset(self, dsid: str, file_name: Optional[str] = None, output_path: Optional[str] = None) -> None:
         """Download a dataset file.
-        
+
         Args:
-            dsid: Dataset ID
-            file_name: Name of file to download. If not provided, uses dataset's file_to_upload field
-            output_path: Local path to save file. If not provided, uses the file_name in current directory
+            dsid (str): Dataset ID
+            file_name (str, optional): File to download (uses dataset's file_to_upload if not provided)
+            output_path (str, optional): Local save path (saves to crucible-downloads/ if not provided)
         """
         # If no file_name specified, get it from the dataset's file_to_upload field
         dataset = self.get_dataset(dsid)
@@ -119,12 +167,12 @@ class CrucibleClient:
             file_to_upload = dataset['file_to_upload']
             # Extract just the filename from the path (remove api-uploads/ or large-files/ prefix)
             file_name = os.path.basename(file_to_upload)
-        
+
         # Set default output path if not provided
         if output_path is None:
             output_path = os.path.join('crucible-downloads', file_name)
             os.makedirs('crucible-downloads', exist_ok = True)
-        
+
         # Check if file already exists (caching)
         if os.path.exists(output_path):
             curr_hash = checkhash(output_path)
@@ -142,45 +190,54 @@ class CrucibleClient:
         
     
     def request_ingestion(self, dsid: str, file_to_upload: str = None, ingestor: str = None) -> Dict:
-        """Request dataset ingestion."""
+        """Request dataset ingestion.
+
+        Args:
+            dsid (str): Dataset ID
+            file_to_upload (str, optional): Path to file for ingestion
+            ingestor (str, optional): Ingestion class to use
+
+        Returns:
+            Dict: Ingestion request with id and status
+        """
         params = {"ingestion_class": ingestor, "file_to_upload": file_to_upload}
         return self._request('post', f'/datasets/{dsid}/ingest', params=params)
 
     
     def get_ingestion_status(self, dsid: str, reqid: str) -> Dict:
         """Get the status of an ingestion request.
-        
+
         Args:
             dsid (str): Dataset ID
             reqid (str): Request ID for the ingestion
-            
+
         Returns:
-            dict: Ingestion request status information including status, timestamps, and other details
+            Dict: Status, timestamps, and processing details
         """
         return self._request('get', f'/datasets/{dsid}/ingest/{reqid}')
     
     def get_scicat_status(self, dsid: str, reqid: str) -> Dict:
         """Get the status of a SciCat request.
-        
+
         Args:
             dsid (str): Dataset ID
             reqid (str): Request ID for the SciCat operation
-            
+
         Returns:
-            dict: SciCat request status information including status, timestamps, and other details
+            Dict: SciCat sync status and timestamps
         """
         return self._request('get', f'/datasets/{dsid}/scicat_update/{reqid}')
     
     def get_request_status(self, dsid: str, reqid: str, request_type: str) -> Dict:
-        """Get the status of any type of request (ingestion, scicat, etc).
-        
+        """Get the status of any type of request.
+
         Args:
             dsid (str): Dataset ID
             reqid (str): Request ID
             request_type (str): Type of request ('ingest' or 'scicat_update')
-            
+
         Returns:
-            dict: Request status information including status, timestamps, and other details
+            Dict: Request status information
         """
         if request_type == 'ingest':
             return self.get_ingestion_status(dsid, reqid)
@@ -189,150 +246,249 @@ class CrucibleClient:
         else:
             raise ValueError(f"Unsupported request_type: {request_type}")
     
-    def wait_for_request_completion(self, dsid: str, reqid: str, request_type: str, 
+    def wait_for_request_completion(self, dsid: str, reqid: str, request_type: str,
                                   sleep_interval: int = 5) -> Dict:
         """Wait for a request to complete by polling its status.
-        
+
         Args:
             dsid (str): Dataset ID
             reqid (str): Request ID
             request_type (str): Type of request ('ingest' or 'scicat_update')
-            sleep_interval (int): Seconds to wait between status checks
-            
+            sleep_interval (int): Seconds between status checks
+
         Returns:
-            dict: Final request status information
+            Dict: Final request status information
         """
         req_info = self.get_request_status(dsid, reqid, request_type)
         print(f"Waiting for {request_type} request to complete...")
-        
+
         while req_info['status'] in ['requested', 'started']:
             time.sleep(sleep_interval)
             req_info = self.get_request_status(dsid, reqid, request_type)
             print(f"Current status: {req_info['status']}")
-        
+
         print(f"Request completed with status: {req_info['status']}")
         return req_info
     
     def get_dataset_access_groups(self, dsid: str) -> List[str]:
-        """Get access groups for a dataset."""
+        """Get access groups for a dataset (admin access required).
+
+        Args:
+            dsid (str): Dataset ID
+
+        Returns:
+            List[str]: List of access group names with dataset permissions
+        """
         groups = self._request('get', f'/datasets/{dsid}/access_groups')
         return [group['group_name'] for group in groups]
         
     
     def get_dataset_keywords(self, dsid: str) -> List[Dict]:
-        """Get keywords associated with a dataset."""
+        """Get keywords associated with a dataset.
+
+        Args:
+            dsid (str): Dataset ID
+
+        Returns:
+            List[Dict]: Keyword objects with keyword text and usage counts
+        """
         return self._request('get', f'/datasets/{dsid}/keywords')
     
     def add_dataset_keyword(self, dsid: str, keyword: str) -> Dict:
-        """Add a keyword to a dataset."""
-        return self._request('post', f'/datasets/{dsid}/keywords', params={'keyword': keyword})
+        """Add a keyword to a dataset.
+
+        Args:
+            dsid (str): Dataset ID
+            keyword (str): Keyword/tag to associate with dataset
+
+        Returns:
+            Dict: Keyword object with updated usage count
+        """
+        return self._request('post', f'/datasets/{dsid}/keywords', data={'keyword': keyword})
     
     def get_scientific_metadata(self, dsid: str) -> Dict:
-        """Get scientific metadata for a dataset."""
+        """Get scientific metadata for a dataset.
+
+        Args:
+            dsid (str): Dataset ID
+
+        Returns:
+            Dict: Scientific metadata containing experimental parameters and settings
+        """
         return self._request('get', f'/datasets/{dsid}/scientific_metadata')
 
-    # post vs. patch
     def update_scientific_metadata(self, dsid: str, metadata: Dict) -> Dict:
-        """Update scientific metadata for a dataset."""
+        """Create or replace scientific metadata for a dataset.
+
+        Args:
+            dsid (str): Dataset ID
+            metadata (Dict): Scientific metadata dictionary
+
+        Returns:
+            Dict: Updated metadata object
+        """
         return self._request('post', f'/datasets/{dsid}/scientific_metadata', json=metadata)
     
     def get_thumbnails(self, dsid: str) -> List[Dict]:
-        """Get thumbnails for a dataset."""
-        return self._request('get', f'/datasets/{dsid}/thumbnails')
-
-    # this is not the right payload - should be bytes and caption
-    def add_thumbnail(self, dsid: str, file_path: str, b64_str: str) -> Dict:
-        """Add a thumbnail to a dataset."""
-        tn = {"thumbnail_name": file_path, 
-              "thumbnail_b64str": b64_str}
-        
-        return self._request('post', f'/datasets/{dsid}/thumbnails', json = tn)
-    
-    def get_associated_files(self, dsid: str) -> List[Dict]:
-        """Get associated files for a dataset."""
-        return self._request('get', f'/datasets/{dsid}/associated_files')
-
-    # files is not the arg here - we need path, size, hash
-    def add_associated_file(self, dsid: str, file_path: str, size: int, sha256_hash: str) -> Dict:
-        """Add an associated file to a dataset."""
-        af = {"filename": file_path, 
-              "size": size, 
-              "sha256_hash": sha256_hash}
-        return self._request('post', f'/datasets/{dsid}/associated_files', json = af)
-    
-    def request_google_drive_transfer(self, dsid: str, folder_id: str) -> Dict:
-        """Request transfer of dataset to Google Drive."""
-        data = {"folder_id": folder_id}
-        return self._request('post', f'/datasets/{dsid}/google_drive_transfer', json=data)
-    
-    def send_to_scicat(self, dsid: str, wait_for_scicat_response: bool = False) -> Dict:
-        """Request SciCat update for a dataset.
-        
+        """Get thumbnails for a dataset.
         Args:
             dsid (str): Dataset ID
-            wait_for_scicat_response (bool): Whether to wait for the scicat consumer response
-            
+
         Returns:
-            dict: SciCat update request information
+            List[Dict]: Thumbnail objects with base64-encoded images
         """
-        scicat_req_info = self._request('post', f'/datasets/{dsid}/scicat_update')
-        
+        return self._request('get', f'/datasets/{dsid}/thumbnails')
+
+    def add_thumbnail(self, dsid: str, file_path: str, thumbnail_name: str = None) -> Dict:
+        """Add a thumbnail to a dataset.
+
+        Args:
+            dsid (str): Dataset ID
+            file_path (str): Path to image file
+            thumbnail_name (str, optional): Display name (uses filename if not provided)
+
+        Returns:
+            Dict: Created thumbnail object
+        """
+        import base64
+
+        # Read file and encode to base64
+        with open(file_path, 'rb') as f:
+            file_content = f.read()
+            thumbnail_b64str = base64.b64encode(file_content).decode('utf-8')
+
+        # Use filename if no thumbnail_name provided
+        if thumbnail_name is None:
+            thumbnail_name = os.path.basename(file_path)
+
+        thumbnail_data = {
+            'thumbnail_name': thumbnail_name,
+            'thumbnail_b64str': thumbnail_b64str
+        }
+        return self._request('post', f'/datasets/{dsid}/thumbnails', json=thumbnail_data)
+    
+    def get_associated_files(self, dsid: str) -> List[Dict]:
+        """Get associated files for a dataset.
+
+        Args:
+            dsid (str): Dataset ID
+
+        Returns:
+            List[Dict]: File metadata with names, sizes, and hashes
+        """
+        return self._request('get', f'/datasets/{dsid}/associated_files')
+
+    def add_associated_file(self, dsid: str, file_path: str, filename: str = None) -> Dict:
+        """Add an associated file to a dataset.
+
+        Args:
+            dsid (str): Dataset ID
+            file_path (str): Path to file (for calculating metadata)
+            filename (str, optional): Filename to store (uses basename if not provided)
+
+        Returns:
+            Dict: Created associated file object
+        """
+        # Calculate file metadata
+        file_size = os.path.getsize(file_path)
+        file_hash = checkhash(file_path)
+
+        # Use basename if no filename provided
+        if filename is None:
+            filename = os.path.basename(file_path)
+
+        associated_file_data = {
+            'filename': filename,
+            'size': file_size,
+            'sha256_hash': file_hash
+        }
+        return self._request('post', f'/datasets/{dsid}/associated_files', json=associated_file_data)
+    
+    def request_google_drive_transfer(self, dsid: str) -> Dict:
+        """Request transfer of dataset to Google Drive.
+
+        Args:
+            dsid (str): Dataset ID
+
+        Returns:
+            Dict: Transfer request with id and status
+        """
+        return self._request('post', f'/datasets/{dsid}/google_drive_transfer')
+    
+    def send_to_scicat(self, dsid: str, wait_for_scicat_response: bool = False, overwrite_data: bool = False) -> Dict:
+        """Request SciCat update for a dataset.
+
+        Args:
+            dsid (str): Dataset ID
+            wait_for_scicat_response (bool): Whether to wait for completion
+            overwrite_data (bool): Whether to overwrite existing SciCat records
+
+        Returns:
+            Dict: SciCat update request information
+        """
+        params = {'overwrite_data': overwrite_data} if overwrite_data else None
+        scicat_req_info = self._request('post', f'/datasets/{dsid}/scicat_update', params=params)
+
         if wait_for_scicat_response:
             scicat_req_info = self.wait_for_request_completion(dsid, scicat_req_info['id'], 'scicat_update')
-        
+
         return scicat_req_info
 
     def delete_dataset(self, dsid: str) -> Dict:
-        """Delete a dataset."""
-        return self._request('delete', f'/datasets/{dsid}')
+        """Delete a dataset (not implemented in API).
 
-    def get_current_google_drive_info(self, dsid):
-        """Get current Google Drive location information for a dataset.
-        
         Args:
             dsid (str): Dataset ID
-            
+
         Returns:
-            dict: Google Drive location information
+            Dict: Deletion response
+        """
+        return self._request('delete', f'/datasets/{dsid}')
+
+    def get_current_google_drive_info(self, dsid: str) -> Dict:
+        """Get current Google Drive location information for a dataset.
+
+        Args:
+            dsid (str): Dataset ID
+
+        Returns:
+            Dict: Google Drive location information
         """
         return self._request('get', f'/datasets/{dsid}/drive_location')
 
-    def get_organized_google_drive_info(self, dsid):
+    def get_organized_google_drive_info(self, dsid: str) -> List[Dict]:
         """Get organized Google Drive folder information for a dataset.
-        
+
         Args:
             dsid (str): Dataset ID
-            
+
         Returns:
-            list: List of organized Google Drive folder information
+            List[Dict]: Organized Google Drive folder information
         """
         drive_info = self.get_current_google_drive_info(dsid)
         org_google_drive_info = [x for x in drive_info if 'Organized' in x['folder_path_in_drive']]
         return org_google_drive_info
 
-    def add_drive_location_for_dataset(self, dsid, drive_info: dict):
-        """Add drive location information for a dataset.
-        
+    def add_drive_location_for_dataset(self, dsid: str, drive_info: Dict) -> None:
+        """Add drive location information for a dataset (not implemented).
+
         Args:
             dsid (str): Dataset ID
-            drive_info (dict): Drive location information to add
-            
-        Note:
-            This method is not yet implemented.
+            drive_info (Dict): Drive location information to add
         """
         #TODO define this
         pass
 
 
-    def update_ingestion_status(self, dsid, reqid, status, timezone = "America/Los_Angeles"):
-        """Update the status of a dataset ingestion request.
-        
+    def update_ingestion_status(self, dsid: str, reqid: str, status: str, timezone: str = "America/Los_Angeles"):
+        """Update the status of a dataset ingestion request (admin use).
+
         Args:
             dsid (str): Dataset ID
             reqid (str): Request ID for the ingestion
-            status (str): New status (e.g., 'complete', 'in_progress', 'failed')
-            timezone (str): Timezone for completion time (default: "America/Los_Angeles")
-            
+            status (str): New status ('complete', 'in_progress', 'failed')
+            timezone (str): Timezone for completion time
+
         Returns:
             requests.Response: HTTP response from the update request
         """
@@ -344,20 +500,20 @@ class CrucibleClient:
         else:
             patch_json = {"id": reqid,
                         "status": status}
-            
+
         url = f"{self.api_url}/datasets/{dsid}/ingest/{reqid}"
         response = requests.request("patch", url, json=patch_json, headers=self.headers)
         return response
 
-    def update_scicat_upload_status(self, dsid, reqid, status, timezone = "America/Los_Angeles"):
-        """Update the status of a SciCat upload request.
-        
+    def update_scicat_upload_status(self, dsid: str, reqid: str, status: str, timezone: str = "America/Los_Angeles"):
+        """Update the status of a SciCat upload request (admin use).
+
         Args:
             dsid (str): Dataset ID
             reqid (str): Request ID for the SciCat upload
-            status (str): New status (e.g., 'complete', 'in_progress', 'failed')
-            timezone (str): Timezone for completion time (default: "America/Los_Angeles")
-            
+            status (str): New status ('complete', 'in_progress', 'failed')
+            timezone (str): Timezone for completion time
+
         Returns:
             requests.Response: HTTP response from the update request
         """
@@ -369,20 +525,20 @@ class CrucibleClient:
         else:
             patch_json = {"id": reqid,
                         "status": status}
-            
+
         url = f"{self.api_url}/datasets/{dsid}/scicat_update/{reqid}"
         response = requests.request("patch", url, json=patch_json, headers=self.headers)
         return response
 
-    def update_transfer_status(self, dsid, reqid, status, timezone = "America/Los_Angeles"):
-        """Update the status of a dataset transfer request.
-        
+    def update_transfer_status(self, dsid: str, reqid: str, status: str, timezone: str = "America/Los_Angeles"):
+        """Update the status of a dataset transfer request (admin use).
+
         Args:
             dsid (str): Dataset ID
             reqid (str): Request ID for the transfer
-            status (str): New status (e.g., 'complete', 'in_progress', 'failed')
-            timezone (str): Timezone for completion time (default: "America/Los_Angeles")
-            
+            status (str): New status ('complete', 'in_progress', 'failed')
+            timezone (str): Timezone for completion time
+
         Returns:
             requests.Response: HTTP response from the update request
         """
@@ -394,97 +550,102 @@ class CrucibleClient:
         else:
             patch_json = {"id": reqid,
                         "status": status}
-            
-        url = f"{self.api_url}/datasets/{dsid}/ingest/{reqid}"
+
+        url = f"{self.api_url}/datasets/{dsid}/google_drive_transfer/{reqid}"
         response = requests.request("patch", url, json=patch_json, headers=self.headers)
         return response
 
 
     def list_instruments(self) -> List[Dict]:
-        """List all available instruments."""
+        """List all available instruments.
+
+        Returns:
+            List[Dict]: Instrument objects with specifications and metadata
+        """
         return self._request('get', '/instruments')
 
-    def get_instrument(self, instrument_name=None, instrument_id=None):
+    def get_instrument(self, instrument_name: str = None, instrument_id: str = None) -> Dict:
         """Get instrument information by name or ID.
-        
+
         Args:
             instrument_name (str, optional): Name of the instrument
-            instrument_id (int, optional): ID of the instrument
-            
+            instrument_id (str, optional): Unique ID of the instrument
+
         Returns:
-            dict or None: Instrument information if found, None otherwise
-            
+            Dict or None: Instrument information if found, None otherwise
+
         Raises:
-            ValueError: If neither instrument_name nor instrument_id is provided
+            ValueError: If neither parameter is provided
         """
         if not instrument_name and not instrument_id:
             raise ValueError("Either instrument_name or instrument_id must be provided")
-        
+
         if instrument_id:
             print("Using Instrument ID to find Instrument")
-            params = {"id": instrument_id}
+            params = {"unique_id": instrument_id}
         else:
             params = {"instrument_name": instrument_name}
+
         found_inst = self._request('get', '/instruments', params=params)
-        
+
         if len(found_inst) > 0:
             return found_inst[-1]
         else:
             return None
 
 
-    def get_or_add_instrument(self, instrument_name, creation_location=None, instrument_owner=None):
+    def get_or_add_instrument(self, instrument_name: str, creation_location: str = None, instrument_owner: str = None) -> Dict:
         """Get an existing instrument or create a new one if it doesn't exist.
-        
+
         Args:
             instrument_name (str): Name of the instrument
             creation_location (str, optional): Location where instrument was created
-            instrument_owner (str, optional): Owner of the instrument (defaults to "undefined")
-            
+            instrument_owner (str, optional): Owner of the instrument
+
         Returns:
-            dict: Instrument information (existing or newly created)
+            Dict: Instrument information (existing or newly created)
         """
         found_inst = self.get_instrument(instrument_name)
-        
+
         if found_inst:
             return found_inst
-        
+
         if not instrument_owner:
             instrument_owner = "undefined"
-            
+
         if not creation_location:
             creation_location = ""
-            
+
         new_instrum = {"instrument_name": instrument_name,
                       "location": creation_location,
                       "owner": instrument_owner}
-        
+
         instrument = self._request('post', '/instruments', json=new_instrum)
         return instrument
 
 
-    def get_sample(self, sample_id):
+    def get_sample(self, sample_id: str) -> Dict:
         """Get sample information by ID.
-        
+
         Args:
-            sample_id (str): Sample ID
-            
+            sample_id (str): Sample unique identifier
+
         Returns:
-            dict: Sample information
+            Dict: Sample information with associated datasets
         """
         response = self._request('get', f"/samples/{sample_id}")
         return response
 
-    def list_samples(self, dataset_id=None, parent_id=None, **kwargs):
+    def list_samples(self, dataset_id: str = None, parent_id: str = None, **kwargs) -> List[Dict]:
         """List samples with optional filtering.
-        
+
         Args:
-            dataset_id (str, optional): Dataset ID to get samples from /datasets/dsid/samples
-            parent_id (str, optional): Parent sample ID to get children from /samples/parent_id/children
+            dataset_id (str, optional): Get samples from specific dataset
+            parent_id (str, optional): Get child samples from parent
             **kwargs: Query parameters for filtering samples
-            
+
         Returns:
-            list: List of sample information
+            List[Dict]: Sample information
         """
         if dataset_id:
             response = self._request('get', f"/datasets/{dataset_id}/samples", params=kwargs)
@@ -495,9 +656,26 @@ class CrucibleClient:
         return response
         
 
-    def add_sample(self, unique_id = None, sample_name = None, description=None, creation_date=None, owner_orcid=None, owner_id=None, parents = [], children = []):
+    def add_sample(self, unique_id: str = None, sample_name: str = None, description: str = None,
+                   creation_date: str = None, owner_orcid: str = None, owner_id: int = None,
+                   parents: List[Dict] = [], children: List[Dict] = []) -> Dict:
+        """Add a new sample with optional parent-child relationships.
+
+        Args:
+            unique_id (str, optional): Unique sample identifier
+            sample_name (str, optional): Human-readable sample name
+            description (str, optional): Sample description
+            creation_date (str, optional): Sample creation date
+            owner_orcid (str, optional): Owner's ORCID
+            owner_id (int, optional): Owner's user ID
+            parents (List[Dict], optional): Parent samples
+            children (List[Dict], optional): Child samples
+
+        Returns:
+            Dict: Created sample object
+        """
         sample_info = {   "unique_id": unique_id,
-                          "sample_name": sample_name, 
+                          "sample_name": sample_name,
                           "owner_orcid": owner_orcid,
                           "owner_user_id": owner_id,
                           "description": description,
@@ -509,7 +687,7 @@ class CrucibleClient:
             
         new_samp = self._request('post', "/samples", json=sample_info)
         print(f"{new_samp=}")
-        
+
         for p in parents:
             parent_id = p['unique_id']
             child_id = new_samp['unique_id']
@@ -519,31 +697,47 @@ class CrucibleClient:
             parent_id = new_samp['unique_id']
             child_id = chd['unique_id']
             self._request('post', f"/samples/{parent_id}/children/{child_id}")
-            
+
         return new_samp
 
     
-    def add_sample_metadata(self, sample_id, sample_type, **kwargs):
-        ''' upload metadata to table and link to provided sample_id; 
-            sample_id should be the sample's crucible_id '''
+    def add_sample_metadata(self, sample_id: str, sample_type: str, **kwargs) -> Dict:
+        """Upload metadata to table and link to provided sample.
 
+        Args:
+            sample_id (str): Sample's unique identifier
+            sample_type (str): Type of sample metadata (e.g., 'spinbot_batch')
+            **kwargs: Metadata fields
+
+        Returns:
+            Dict: Created metadata object
+        """
         response = self._request('post', f"/samples/{sample_id}/metadata/{sample_type}", json = kwargs)
         return response
 
-    def get_sample_metadata(self, sample_id, sample_type):
+    def get_sample_metadata(self, sample_id: str, sample_type: str) -> Dict:
+        """Get metadata for a sample by type.
+
+        Args:
+            sample_id (str): Sample's unique identifier
+            sample_type (str): Type of sample metadata
+
+        Returns:
+            Dict: Sample metadata object
+        """
         response = self._request('get', f"/samples/{sample_id}/metadata/{sample_type}")
         return response
 
     
-    def add_sample_to_dataset(self, dataset_id, sample_id):
+    def add_sample_to_dataset(self, dataset_id: str, sample_id: str) -> Dict:
         """Link a sample to a dataset.
-        
+
         Args:
             dataset_id (str): Dataset ID
             sample_id (str): Sample ID
-            
+
         Returns:
-            dict: Information about the created link
+            Dict: Information about the created link
         """
         print(f"/datasets/{dataset_id}/samples/{sample_id}")
         new_link = self._request('post', f"/datasets/{dataset_id}/samples/{sample_id}")
@@ -551,41 +745,19 @@ class CrucibleClient:
 
     add_dataset_to_sample = add_sample_to_dataset
     
-    def add_project(self, project_info):
-        """Add a new project to the system.
-        
+    
+    def add_user(self, user_info: Dict) -> Dict:
+        """Add a new user to the system (admin access required).
+
         Args:
-            project_info (dict): Project information to create.  
-            
-            Requires fields: 
-                project_id: str 
-                organization: str 
-                project_lead_email: str
-                    
-            May also include:
-                status: Optional[str]
-                title: Optional[str]
-                project_lead_name: Optional[str]
+            user_info (Dict): User information including 'projects' key
 
         Returns:
-            dict: Information about the newly created project
-        """
-        new_prop = self._request('post', "/projects", json=project_info)
-        return new_prop
-
-
-    def add_user(self, user_info):
-        """Add a new user to the system.
-        
-        Args:
-            user_info (dict): User information including 'projects' key
-            
-        Returns:
-            dict: Information about the newly created user
+            Dict: Created user object
         """
         user_projects = user_info.pop("projects")
-        
-        new_user = self._request('post', "/users", 
+
+        new_user = self._request('post', "/users",
                                 json={"user_info": user_info,
                                       "project_ids": user_projects})
         return new_user
@@ -637,55 +809,59 @@ class CrucibleClient:
         project_info = get_project_info_function(crucible_project_id, **kwargs)
             
         if project_info:
-            proj = self.add_project(project_info)
+            proj = self._request('post', "/projects", json=project_info)
             return proj
         else:
             raise ValueError(f"Project info for {crucible_project_id} not found in database or using the provided get_project_info_func")
 
     get_or_add_project = get_or_add_crucible_project
+    add_project = get_or_add_project
 
     # ==== Main utility for instrument integration
-    def create_dataset(self, 
+    def create_dataset(self,
                     dataset_name: Optional[str] = None,
-                    unique_id: Optional[str] = None, 
+                    unique_id: Optional[str] = None,
                     public: bool = False,
                     owner_orcid: Optional[str] = None,
                     owner_user_id: Optional[int] = None,
                     project_id: Optional[str] = None,
                     instrument_name: Optional[str] = None,
                     instrument_id: Optional[int] = None,
-                    measurement: Optional[str] = None, 
+                    measurement: Optional[str] = None,
                     session_name: Optional[str] = None,
                     creation_time: Optional[str] = None,
-                    data_format: Optional[str] = None, 
+                    data_format: Optional[str] = None,
                     scientific_metadata: Optional[dict] = None,
                     keywords: List[str] = None,
                     **kwargs) -> Dict:
-            
+
             """Create a new dataset with metadata.
-            
+
             Args:
-                dataset_name: Name of the dataset
-                unique_id: Unique identifier for the dataset
-                public: Whether the dataset is public
-                owner_orcid: ORCID of the dataset owner
-                owner_user_id: User ID of the dataset owner
-                project_id: ID of the project this dataset belongs to
-                instrument_name: Name of the instrument used
-                instrument_id: ID of the instrument used
-                measurement: Type of measurement
-                session_name: Name of the measurement session
-                creation_time: Time of dataset creation
-                data_format: Format of the dataset
-                scientific_metadata: Additional scientific metadata
-                keywords: List of keywords to associate with the dataset
-                
+                dataset_name (str, optional): Name of the dataset
+                unique_id (str, optional): Unique identifier
+                public (bool): Whether dataset is public
+                owner_orcid (str, optional): Owner's ORCID
+                owner_user_id (int, optional): Owner's user ID
+                project_id (str, optional): Associated project ID
+                instrument_name (str, optional): Instrument name
+                instrument_id (int, optional): Instrument ID
+                measurement (str, optional): Type of measurement
+                session_name (str, optional): Session name
+                creation_time (str, optional): Creation timestamp
+                data_format (str, optional): Data format
+                scientific_metadata (dict, optional): Scientific metadata
+                keywords (List[str], optional): Keywords to associate
+
             Returns:
-                Dictionary containing the created dataset record and metadata
+                Dict: Created dataset object
             """
             # Handle instrument if name is provided
             if instrument_name and not instrument_id:
-                instrument = self.get_or_add_instrument(instrument_name.lower())
+                instrument = self._request('get', '/instruments', params={'instrument_name': instrument_name})
+                if not instrument:
+                    instrument = self._request('post', '/instruments', json={'instrument_name': instrument_name})
+
                 instrument_id = instrument['id']
 
             # Create dataset
@@ -706,19 +882,19 @@ class CrucibleClient:
         
             dataset.update(**kwargs)
             clean_dataset = {k: v for k, v in dataset.items() if v is not None}
-            
+
             new_dataset = self._request('post', '/datasets', json=clean_dataset)
             dsid = new_dataset['unique_id']
-            
+
             # Add scientific metadata if provided
             if scientific_metadata:
                 self._request('post', f'/datasets/{dsid}/scientific_metadata', json=scientific_metadata)
-                
+
             # Add keywords if provided
             if keywords:
                 for keyword in keywords:
                     self.add_dataset_keyword(dsid, keyword)
-                    
+
             return new_dataset
 
     def _create_dataset_with_metadata(self, 
@@ -1032,18 +1208,18 @@ class CrucibleClient:
                 "ingestion_request": ingest_req_info}
 
     
-    def ingest_dataset(self, dsid, file_to_upload = None, ingestion_class = None):
+    def ingest_dataset(self, dsid: str, file_to_upload: str = None, ingestion_class: str = None) -> Dict:
         """Request ingestion of a dataset file.
-        
+
         Args:
             dsid (str): Dataset ID
             file_to_upload (str, optional): Path to the file to ingest
             ingestion_class (str, optional): Class to use for ingestion
-            
+
         Returns:
-            dict: Ingestion request information
+            Dict: Ingestion request information
         """
-        ingest_req = self._request('post', 
+        ingest_req = self._request('post',
                                    f"/datasets/{dsid}/ingest",
                                    params={"file_to_upload": file_to_upload, "ingestion_class": ingestion_class})
         return(ingest_req)
@@ -1051,71 +1227,18 @@ class CrucibleClient:
 
 
     @staticmethod
-    def create_file_payload(file_to_upload):
+    def create_file_payload(file_to_upload: str) -> tuple:
         """Create a file payload for upload.
-        
+
         Args:
             file_to_upload (str): Path to the file to upload
-            
+
         Returns:
             tuple: File payload tuple for requests
         """
         file_obj = ('files', (file_to_upload, open(file_to_upload, 'rb'), 'text/plain'))
         return file_obj
 
-# ========== this should probably go somewhere else but for now.. here so people can use it 
-import ipywidgets as widgets
-from IPython.display import display, clear_output
-import os
-
-class SecureInput:
-    def __init__(self, description="Enter secret:", var_name = "TEMP_SECRET"):
-        self.description = description
-        self.var_name = var_name
-        self.secret = None
-        self.create_widget()
-    
-    def create_widget(self):
-        self.password_widget = widgets.Password(
-            placeholder='Enter secret here',
-            description='',
-            style={'description_width': 'initial'}
-        )
-        
-        self.submit_button = widgets.Button(
-            description='Store Secret',
-            button_style='success',
-            icon='lock'
-        )
-        
-        self.output = widgets.Output()
-        
-        self.submit_button.on_click(self.on_submit)
-        
-        self.container = widgets.VBox([
-            widgets.HTML(f"<b>{self.description}</b>"),
-            self.password_widget,
-            self.submit_button,
-            self.output
-        ])
-        
-        display(self.container)
-    
-    def on_submit(self, button):
-        with self.output:
-            clear_output()
-            if self.password_widget.value:
-                self.secret = self.password_widget.value
-                # Optionally store in environment
-                os.environ[self.var_name] = self.secret
-                print("✓ Secret stored securely")
-                # Clear the widget
-                self.password_widget.value = ""
-                # Hide the input form
-                self.password_widget.layout.display = 'none'
-                self.submit_button.layout.display = 'none'
-            else:
-                print("❌ Please enter a value")
     
 
 
