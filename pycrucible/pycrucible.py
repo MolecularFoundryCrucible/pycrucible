@@ -136,7 +136,22 @@ class CrucibleClient:
             except requests.exceptions.RequestException:
                 dataset['scientific_metadata'] = {}
         return dataset
-    
+
+    def update_dataset(self, dsid: str, **updates) -> Dict:
+        """Update an existing dataset with new field values.
+
+        Args:
+            dsid (str): Dataset unique identifier
+            **updates: Field names and values to update (e.g., dataset_name="New Name", public=True)
+
+        Returns:
+            Dict: Updated dataset object
+
+        Example:
+            client.update_dataset("my-dataset-id", dataset_name="Updated Name", public=True)
+        """
+        return self._request('patch', f'/datasets/{dsid}', json=updates)
+
     def upload_dataset(self, dsid: str, file_path: str) -> Dict:
         """Upload a file to a dataset.
 
@@ -328,7 +343,25 @@ class CrucibleClient:
             Dict: Updated metadata object
         """
         return self._request('post', f'/datasets/{dsid}/scientific_metadata', json=metadata)
-    
+
+    def patch_scientific_metadata(self, dsid: str, metadata_updates: Dict) -> Dict:
+        """Partially update scientific metadata for a dataset.
+
+        This merges the provided updates with existing metadata rather than replacing it entirely.
+
+        Args:
+            dsid (str): Dataset ID
+            metadata_updates (Dict): Metadata fields to update (only these fields will be changed)
+
+        Returns:
+            Dict: Updated metadata object with all fields
+
+        Example:
+            # Only update the voltage field, leaving other metadata intact
+            client.patch_scientific_metadata("my-dataset-id", {"voltage": 200})
+        """
+        return self._request('patch', f'/datasets/{dsid}/scientific_metadata', json=metadata_updates)
+
     def get_thumbnails(self, dsid: str) -> List[Dict]:
         """Get thumbnails for a dataset.
         Args:
@@ -966,22 +999,23 @@ class CrucibleClient:
 
         return {"created_record": new_ds_record, "scientific_metadata_record": scimd, "dsid": dsid}
 
-    def build_new_dataset_from_json(self, 
+    def build_new_dataset_from_json(self,
                                 dataset_name: Optional[str] = None,
-                                unique_id: Optional[str] = None, 
+                                unique_id: Optional[str] = None,
                                 public: bool = False,
                                 owner_orcid: Optional[str] = None,
                                 owner_user_id: Optional[int] = None,
                                 project_id: Optional[str] = None,
                                 instrument_name: Optional[str] = None,
                                 instrument_id: Optional[int] = None,
-                                measurement: Optional[str] = None, 
+                                measurement: Optional[str] = None,
                                 session_name: Optional[str] = None,
                                 creation_time: Optional[str] = None,
-                                data_format: Optional[str] = None, 
+                                data_format: Optional[str] = None,
                                 scientific_metadata: Optional[dict] = None,
-                                keywords: List[str] = None, 
-                                get_user_info_function = None, 
+                                keywords: List[str] = None,
+                                get_user_info_function = None,
+                                verbose: bool = False,
                                 **kwargs):
         """Build a new dataset from JSON metadata without file upload.
         
