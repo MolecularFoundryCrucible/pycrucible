@@ -331,7 +331,6 @@ class CrucibleClient:
     
     def get_thumbnails(self, dsid: str) -> List[Dict]:
         """Get thumbnails for a dataset.
-
         Args:
             dsid (str): Dataset ID
 
@@ -683,6 +682,9 @@ class CrucibleClient:
                           "date_created": creation_date
                         }
         print(sample_info)
+        if unique_id is None and sample_name is None:
+            raise Exception('Please provide either a unique ID or a sample name for your sample')
+            
         new_samp = self._request('post', "/samples", json=sample_info)
         print(f"{new_samp=}")
 
@@ -786,7 +788,7 @@ class CrucibleClient:
         else:
             raise ValueError(f"User info for {orcid} not found in database or using the get_user_info_func")
 
-    def get_or_add_crucible_project(self, crucible_project_id, get_project_info_func = None, **kwargs):
+    def get_or_add_crucible_project(self, crucible_project_id, get_project_info_function = None, **kwargs):
         """Get an existing project or create a new one if it doesn't exist.
         
         Args:
@@ -801,10 +803,10 @@ class CrucibleClient:
             ValueError: If project info cannot be found or created
         """
         proj = self.get_project(crucible_project_id)
-        if proj:
+        if proj is not None:
             return proj
 
-        project_info = get_project_info_func(crucible_project_id, **kwargs)
+        project_info = get_project_info_function(crucible_project_id, **kwargs)
             
         if project_info:
             proj = self._request('post', "/projects", json=project_info)
@@ -830,7 +832,8 @@ class CrucibleClient:
                     creation_time: Optional[str] = None,
                     data_format: Optional[str] = None,
                     scientific_metadata: Optional[dict] = None,
-                    keywords: List[str] = None) -> Dict:
+                    keywords: List[str] = None,
+                    **kwargs) -> Dict:
 
             """Create a new dataset with metadata.
 
@@ -858,6 +861,7 @@ class CrucibleClient:
                 instrument = self._request('get', '/instruments', params={'instrument_name': instrument_name})
                 if not instrument:
                     instrument = self._request('post', '/instruments', json={'instrument_name': instrument_name})
+
                 instrument_id = instrument['id']
 
             # Create dataset
@@ -869,11 +873,14 @@ class CrucibleClient:
                 "owner_orcid": owner_orcid,
                 "project_id": project_id,
                 "instrument_id": instrument_id,
+                "instrument_name":instrument_name,
                 "measurement": measurement,
                 "session_name": session_name,
                 "creation_time": creation_time,
                 "data_format": data_format
             }
+        
+            dataset.update(**kwargs)
             clean_dataset = {k: v for k, v in dataset.items() if v is not None}
 
             new_dataset = self._request('post', '/datasets', json=clean_dataset)
@@ -1030,6 +1037,7 @@ class CrucibleClient:
             get_user_info_function=get_user_info_function,
             verbose = verbose
         )
+        
         
         print(f"dsid={result['dsid']}")
         return {"created_record": result["created_record"],
@@ -1231,59 +1239,6 @@ class CrucibleClient:
         file_obj = ('files', (file_to_upload, open(file_to_upload, 'rb'), 'text/plain'))
         return file_obj
 
-# ========== this should probably go somewhere else but for now.. here so people can use it 
-import ipywidgets as widgets
-from IPython.display import display, clear_output
-import os
-
-class SecureInput:
-    def __init__(self, description="Enter secret:", var_name = "TEMP_SECRET"):
-        self.description = description
-        self.var_name = var_name
-        self.secret = None
-        self.create_widget()
-    
-    def create_widget(self):
-        self.password_widget = widgets.Password(
-            placeholder='Enter secret here',
-            description='',
-            style={'description_width': 'initial'}
-        )
-        
-        self.submit_button = widgets.Button(
-            description='Store Secret',
-            button_style='success',
-            icon='lock'
-        )
-        
-        self.output = widgets.Output()
-        
-        self.submit_button.on_click(self.on_submit)
-        
-        self.container = widgets.VBox([
-            widgets.HTML(f"<b>{self.description}</b>"),
-            self.password_widget,
-            self.submit_button,
-            self.output
-        ])
-        
-        display(self.container)
-    
-    def on_submit(self, button):
-        with self.output:
-            clear_output()
-            if self.password_widget.value:
-                self.secret = self.password_widget.value
-                # Optionally store in environment
-                os.environ[self.var_name] = self.secret
-                print("✓ Secret stored securely")
-                # Clear the widget
-                self.password_widget.value = ""
-                # Hide the input form
-                self.password_widget.layout.display = 'none'
-                self.submit_button.layout.display = 'none'
-            else:
-                print("❌ Please enter a value")
     
 
 
