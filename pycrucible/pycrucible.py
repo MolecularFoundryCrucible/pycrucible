@@ -241,24 +241,24 @@ class CrucibleClient:
         return self._request('get', f'/datasets/{dsid}/thumbnails')
 
     # this is not the right payload - should be bytes and caption
-    def add_thumbnail(self, dsid: str, file_path: str, description: str = None) -> Dict:
+    def add_thumbnail(self, dsid: str, file_path: str, b64_str: str) -> Dict:
         """Add a thumbnail to a dataset."""
-        with open(file_path, 'rb') as f:
-            files = {'file': f}
-            data = {'description': description} if description else {}
-            return self._request('post', f'/datasets/{dsid}/thumbnails', files=files, data=data)
+        tn = {"thumbnail_name": file_path, 
+              "thumbnail_b64str": b64_str}
+        
+        return self._request('post', f'/datasets/{dsid}/thumbnails', json = tn)
     
     def get_associated_files(self, dsid: str) -> List[Dict]:
         """Get associated files for a dataset."""
         return self._request('get', f'/datasets/{dsid}/associated_files')
 
     # files is not the arg here - we need path, size, hash
-    def add_associated_file(self, dsid: str, file_path: str, description: str = None) -> Dict:
+    def add_associated_file(self, dsid: str, file_path: str, size: int, sha256_hash: str) -> Dict:
         """Add an associated file to a dataset."""
-        with open(file_path, 'rb') as f:
-            files = {'file': f}
-            data = {'description': description} if description else {}
-            return self._request('post', f'/datasets/{dsid}/associated_files', files=files, data=data)
+        af = {"filename": file_path, 
+              "size": size, 
+              "sha256_hash": sha256_hash}
+        return self._request('post', f'/datasets/{dsid}/associated_files', json = af)
     
     def request_google_drive_transfer(self, dsid: str, folder_id: str) -> Dict:
         """Request transfer of dataset to Google Drive."""
@@ -425,7 +425,6 @@ class CrucibleClient:
             params = {"id": instrument_id}
         else:
             params = {"instrument_name": instrument_name}
-            
         found_inst = self._request('get', '/instruments', params=params)
         
         if len(found_inst) > 0:
@@ -505,6 +504,9 @@ class CrucibleClient:
                           "date_created": creation_date
                         }
         print(sample_info)
+        if unique_id is None and sample_name is None:
+            raise Exception('Please provide either a unique ID or a sample name for your sample')
+            
         new_samp = self._request('post', "/samples", json=sample_info)
         print(f"{new_samp=}")
         
@@ -614,7 +616,7 @@ class CrucibleClient:
         else:
             raise ValueError(f"User info for {orcid} not found in database or using the get_user_info_func")
 
-    def get_or_add_crucible_project(self, crucible_project_id, get_project_info_func = None, **kwargs):
+    def get_or_add_crucible_project(self, crucible_project_id, get_project_info_function = None, **kwargs):
         """Get an existing project or create a new one if it doesn't exist.
         
         Args:
@@ -629,10 +631,10 @@ class CrucibleClient:
             ValueError: If project info cannot be found or created
         """
         proj = self.get_project(crucible_project_id)
-        if proj:
+        if proj is not None:
             return proj
 
-        project_info = get_project_info_func(crucible_project_id, **kwargs)
+        project_info = get_project_info_function(crucible_project_id, **kwargs)
             
         if project_info:
             proj = self.add_project(project_info)
@@ -657,7 +659,8 @@ class CrucibleClient:
                     creation_time: Optional[str] = None,
                     data_format: Optional[str] = None, 
                     scientific_metadata: Optional[dict] = None,
-                    keywords: List[str] = None) -> Dict:
+                    keywords: List[str] = None,
+                    **kwargs) -> Dict:
             
             """Create a new dataset with metadata.
             
@@ -682,9 +685,7 @@ class CrucibleClient:
             """
             # Handle instrument if name is provided
             if instrument_name and not instrument_id:
-                instrument = self._request('get', '/instruments', params={'name': instrument_name})
-                if not instrument:
-                    instrument = self._request('post', '/instruments', json={'name': instrument_name})
+                instrument = self.get_or_add_instrument(instrument_name.lower())
                 instrument_id = instrument['id']
 
             # Create dataset
@@ -696,11 +697,14 @@ class CrucibleClient:
                 "owner_orcid": owner_orcid,
                 "project_id": project_id,
                 "instrument_id": instrument_id,
+                "instrument_name":instrument_name,
                 "measurement": measurement,
                 "session_name": session_name,
                 "creation_time": creation_time,
                 "data_format": data_format
             }
+        
+            dataset.update(**kwargs)
             clean_dataset = {k: v for k, v in dataset.items() if v is not None}
             
             new_dataset = self._request('post', '/datasets', json=clean_dataset)
@@ -857,6 +861,7 @@ class CrucibleClient:
             get_user_info_function=get_user_info_function,
             verbose = verbose
         )
+        
         
         print(f"dsid={result['dsid']}")
         return {"created_record": result["created_record"],
