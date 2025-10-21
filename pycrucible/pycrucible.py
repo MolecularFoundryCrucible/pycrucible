@@ -47,13 +47,17 @@ class CrucibleClient:
 
         #return response.json() if response.content else None
 
-    def list_projects(self) -> List[Dict]:
+    def list_projects(self, limit: int = 100) -> List[Dict]:
         """List all accessible projects.
+
+        Args:
+            limit (int): Maximum number of results to return (default: 100)
 
         Returns:
             List[Dict]: Project metadata including project_id, project_name, description, project_lead_email
         """
-        return self._request('get', '/projects')
+        params = {'limit': limit}
+        return self._request('get', '/projects', params=params)
     
     def get_project(self, project_id: str) -> Dict:
         """Get details of a specific project.
@@ -93,30 +97,34 @@ class CrucibleClient:
             result = self._request('get', '/users', params=params)
         return result
     
-    def get_project_users(self, project_id: str) -> List[Dict]:
+    def get_project_users(self, project_id: str, limit: int = 100) -> List[Dict]:
         """Get users associated with a project (admin access required).
 
         Args:
             project_id (str): Unique project identifier
+            limit (int): Maximum number of results to return (default: 100)
 
         Returns:
             List[Dict]: Project team members (excludes project lead)
         """
-        return self._request('get', f'/projects/{project_id}/users')
+        params = {'limit': limit}
+        return self._request('get', f'/projects/{project_id}/users', params=params)
     
-    def list_datasets(self, sample_id: Optional[str] = None, **kwargs) -> List[Dict]:
+    def list_datasets(self, sample_id: Optional[str] = None, limit: int = 100, **kwargs) -> List[Dict]:
         """List datasets with optional filtering.
 
         Args:
             sample_id (str, optional): If provided, returns datasets for this sample
+            limit (int): Maximum number of results to return (default: 100)
             **kwargs: Query parameters for filtering (keyword, owner_orcid, etc.)
 
         Returns:
             List[Dict]: Dataset objects matching filter criteria
         """
+        params = {**kwargs, 'limit': limit}
         if sample_id:
-            return self._request('get', f'/samples/{sample_id}/datasets', params=kwargs)
-        return self._request('get', '/datasets', params=kwargs)
+            return self._request('get', f'/samples/{sample_id}/datasets', params=params)
+        return self._request('get', '/datasets', params=params)
     
     def get_dataset(self, dsid: str, include_metadata: bool = False) -> Dict:
         """Get dataset details, optionally including scientific metadata.
@@ -298,16 +306,18 @@ class CrucibleClient:
         return [group['group_name'] for group in groups]
         
     
-    def get_dataset_keywords(self, dsid: str) -> List[Dict]:
+    def get_dataset_keywords(self, dsid: str, limit: int = 100) -> List[Dict]:
         """Get keywords associated with a dataset.
 
         Args:
             dsid (str): Dataset ID
+            limit (int): Maximum number of results to return (default: 100)
 
         Returns:
             List[Dict]: Keyword objects with keyword text and usage counts
         """
-        return self._request('get', f'/datasets/{dsid}/keywords')
+        params = {'limit': limit}
+        return self._request('get', f'/datasets/{dsid}/keywords', params=params)
     
     def add_dataset_keyword(self, dsid: str, keyword: str) -> Dict:
         """Add a keyword to a dataset.
@@ -319,7 +329,7 @@ class CrucibleClient:
         Returns:
             Dict: Keyword object with updated usage count
         """
-        return self._request('post', f'/datasets/{dsid}/keywords', data={'keyword': keyword})
+        return self._request('post', f'/datasets/{dsid}/keywords', json={'keyword': keyword})
     
     def get_scientific_metadata(self, dsid: str) -> Dict:
         """Get scientific metadata for a dataset.
@@ -362,15 +372,17 @@ class CrucibleClient:
         """
         return self._request('patch', f'/datasets/{dsid}/scientific_metadata', json=metadata_updates)
 
-    def get_thumbnails(self, dsid: str) -> List[Dict]:
+    def get_thumbnails(self, dsid: str, limit: int = 100) -> List[Dict]:
         """Get thumbnails for a dataset.
         Args:
             dsid (str): Dataset ID
+            limit (int): Maximum number of results to return (default: 100)
 
         Returns:
             List[Dict]: Thumbnail objects with base64-encoded images
         """
-        return self._request('get', f'/datasets/{dsid}/thumbnails')
+        params = {'limit': limit}
+        return self._request('get', f'/datasets/{dsid}/thumbnails', params=params)
 
     def add_thumbnail(self, dsid: str, file_path: str, thumbnail_name: str = None) -> Dict:
         """Add a thumbnail to a dataset.
@@ -400,16 +412,18 @@ class CrucibleClient:
         }
         return self._request('post', f'/datasets/{dsid}/thumbnails', json=thumbnail_data)
     
-    def get_associated_files(self, dsid: str) -> List[Dict]:
+    def get_associated_files(self, dsid: str, limit: int = 100) -> List[Dict]:
         """Get associated files for a dataset.
 
         Args:
             dsid (str): Dataset ID
+            limit (int): Maximum number of results to return (default: 100)
 
         Returns:
             List[Dict]: File metadata with names, sizes, and hashes
         """
-        return self._request('get', f'/datasets/{dsid}/associated_files')
+        params = {'limit': limit}
+        return self._request('get', f'/datasets/{dsid}/associated_files', params=params)
 
     def add_associated_file(self, dsid: str, file_path: str, filename: str = None) -> Dict:
         """Add an associated file to a dataset.
@@ -489,18 +503,19 @@ class CrucibleClient:
         """
         return self._request('get', f'/datasets/{dsid}/drive_location')
 
-    def get_organized_google_drive_info(self, dsid: str) -> List[Dict]:
+    def get_organized_google_drive_info(self, dsid: str, limit: int = 100) -> List[Dict]:
         """Get organized Google Drive folder information for a dataset.
 
         Args:
             dsid (str): Dataset ID
+            limit (int): Maximum number of results to return (default: 100)
 
         Returns:
             List[Dict]: Organized Google Drive folder information
         """
         drive_info = self.get_current_google_drive_info(dsid)
         org_google_drive_info = [x for x in drive_info if 'Organized' in x['folder_path_in_drive']]
-        return org_google_drive_info
+        return org_google_drive_info[:limit]
 
     def add_drive_location_for_dataset(self, dsid: str, drive_info: Dict) -> None:
         """Add drive location information for a dataset (not implemented).
@@ -589,13 +604,17 @@ class CrucibleClient:
         return response
 
 
-    def list_instruments(self) -> List[Dict]:
+    def list_instruments(self, limit: int = 100) -> List[Dict]:
         """List all available instruments.
+
+        Args:
+            limit (int): Maximum number of results to return (default: 100)
 
         Returns:
             List[Dict]: Instrument objects with specifications and metadata
         """
-        return self._request('get', '/instruments')
+        params = {'limit': limit}
+        return self._request('get', '/instruments', params=params)
 
     def get_instrument(self, instrument_name: str = None, instrument_id: str = None) -> Dict:
         """Get instrument information by name or ID.
@@ -669,23 +688,25 @@ class CrucibleClient:
         response = self._request('get', f"/samples/{sample_id}")
         return response
 
-    def list_samples(self, dataset_id: str = None, parent_id: str = None, **kwargs) -> List[Dict]:
+    def list_samples(self, dataset_id: str = None, parent_id: str = None, limit: int = 100, **kwargs) -> List[Dict]:
         """List samples with optional filtering.
 
         Args:
             dataset_id (str, optional): Get samples from specific dataset
             parent_id (str, optional): Get child samples from parent
+            limit (int): Maximum number of results to return (default: 100)
             **kwargs: Query parameters for filtering samples
 
         Returns:
             List[Dict]: Sample information
         """
+        params = {**kwargs, 'limit': limit}
         if dataset_id:
-            response = self._request('get', f"/datasets/{dataset_id}/samples", params=kwargs)
+            response = self._request('get', f"/datasets/{dataset_id}/samples", params=params)
         elif parent_id:
-            response = self._request('get', f"/samples/{parent_id}/children", params=kwargs)
+            response = self._request('get', f"/samples/{parent_id}/children", params=params)
         else:
-            response = self._request('get', f"/samples", params=kwargs)
+            response = self._request('get', f"/samples", params=params)
         return response
         
 
