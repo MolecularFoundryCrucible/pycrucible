@@ -56,8 +56,8 @@ class CrucibleClient:
         Returns:
             List[Dict]: Project metadata including project_id, project_name, description, project_lead_email
         """
-        params = {'limit': limit}
-        return self._request('get', '/projects', params=params)
+        result = self._request('get', '/projects')
+        return result[:limit] if result else result
     
     def get_project(self, project_id: str) -> Dict:
         """Get details of a specific project.
@@ -81,7 +81,7 @@ class CrucibleClient:
         """
         return self._request('get', f'/users/{orcid}')
     
-    def get_user_by_email(self, email: str) -> Dict:
+    def get_user_by_email(self, email: str) -> List:
         """Get user details by email address.
 
         Args:
@@ -95,7 +95,10 @@ class CrucibleClient:
         if not result:
             params = {"lbl_email": email}
             result = self._request('get', '/users', params=params)
-        return result
+        if len(result) > 0:
+            return result[-1]
+        else:
+            return None
     
     def get_project_users(self, project_id: str, limit: int = 100) -> List[Dict]:
         """Get users associated with a project (admin access required).
@@ -107,8 +110,8 @@ class CrucibleClient:
         Returns:
             List[Dict]: Project team members (excludes project lead)
         """
-        params = {'limit': limit}
-        return self._request('get', f'/projects/{project_id}/users', params=params)
+        result = self._request('get', f'/projects/{project_id}/users')
+        return result[:limit] if result else result
     
     def list_datasets(self, sample_id: Optional[str] = None, limit: int = 100, **kwargs) -> List[Dict]:
         """List datasets with optional filtering.
@@ -121,10 +124,16 @@ class CrucibleClient:
         Returns:
             List[Dict]: Dataset objects matching filter criteria
         """
-        params = {**kwargs, 'limit': limit}
+        params = {**kwargs}
+        params['limit'] = limit
         if sample_id:
-            return self._request('get', f'/samples/{sample_id}/datasets', params=params)
-        return self._request('get', '/datasets', params=params)
+            result = self._request('get', f'/samples/{sample_id}/datasets', params=params)
+        else:
+            result = self._request('get', '/datasets', params=params)
+        print(len(result))
+        # first_100 = result[0:min(len(result), limit)]
+        # print(len(first_100))
+        return result
     
     def get_dataset(self, dsid: str, include_metadata: bool = False) -> Dict:
         """Get dataset details, optionally including scientific metadata.
@@ -316,8 +325,8 @@ class CrucibleClient:
         Returns:
             List[Dict]: Keyword objects with keyword text and usage counts
         """
-        params = {'limit': limit}
-        return self._request('get', f'/datasets/{dsid}/keywords', params=params)
+        result = self._request('get', f'/datasets/{dsid}/keywords')
+        return result[:limit] if result else result
     
     def add_dataset_keyword(self, dsid: str, keyword: str) -> Dict:
         """Add a keyword to a dataset.
@@ -329,7 +338,7 @@ class CrucibleClient:
         Returns:
             Dict: Keyword object with updated usage count
         """
-        return self._request('post', f'/datasets/{dsid}/keywords', json={'keyword': keyword})
+        return self._request('post', f'/datasets/{dsid}/keywords', data={'keyword': keyword})
     
     def get_scientific_metadata(self, dsid: str) -> Dict:
         """Get scientific metadata for a dataset.
@@ -342,7 +351,7 @@ class CrucibleClient:
         """
         return self._request('get', f'/datasets/{dsid}/scientific_metadata')
 
-    def update_scientific_metadata(self, dsid: str, metadata: Dict) -> Dict:
+    def update_scientific_metadata(self, dsid: str, metadata: Dict, overwrite = False) -> Dict:
         """Create or replace scientific metadata for a dataset.
 
         Args:
@@ -352,25 +361,10 @@ class CrucibleClient:
         Returns:
             Dict: Updated metadata object
         """
-        return self._request('post', f'/datasets/{dsid}/scientific_metadata', json=metadata)
-
-    def patch_scientific_metadata(self, dsid: str, metadata_updates: Dict) -> Dict:
-        """Partially update scientific metadata for a dataset.
-
-        This merges the provided updates with existing metadata rather than replacing it entirely.
-
-        Args:
-            dsid (str): Dataset ID
-            metadata_updates (Dict): Metadata fields to update (only these fields will be changed)
-
-        Returns:
-            Dict: Updated metadata object with all fields
-
-        Example:
-            # Only update the voltage field, leaving other metadata intact
-            client.patch_scientific_metadata("my-dataset-id", {"voltage": 200})
-        """
-        return self._request('patch', f'/datasets/{dsid}/scientific_metadata', json=metadata_updates)
+        if overwrite == True:
+            return self._request('post', f'/datasets/{dsid}/scientific_metadata', json=metadata)
+        else: 
+            return self._request('patch', f'/datasets/{dsid}/scientific_metadata', json=metadata)
 
     def get_thumbnails(self, dsid: str, limit: int = 100) -> List[Dict]:
         """Get thumbnails for a dataset.
@@ -381,8 +375,8 @@ class CrucibleClient:
         Returns:
             List[Dict]: Thumbnail objects with base64-encoded images
         """
-        params = {'limit': limit}
-        return self._request('get', f'/datasets/{dsid}/thumbnails', params=params)
+        result = self._request('get', f'/datasets/{dsid}/thumbnails')
+        return result[:limit] if result else result
 
     def add_thumbnail(self, dsid: str, file_path: str, thumbnail_name: str = None) -> Dict:
         """Add a thumbnail to a dataset.
@@ -422,8 +416,8 @@ class CrucibleClient:
         Returns:
             List[Dict]: File metadata with names, sizes, and hashes
         """
-        params = {'limit': limit}
-        return self._request('get', f'/datasets/{dsid}/associated_files', params=params)
+        result = self._request('get', f'/datasets/{dsid}/associated_files')
+        return result[:limit] if result else result
 
     def add_associated_file(self, dsid: str, file_path: str, filename: str = None) -> Dict:
         """Add an associated file to a dataset.
@@ -492,7 +486,7 @@ class CrucibleClient:
         """
         return self._request('delete', f'/datasets/{dsid}')
 
-    def get_current_google_drive_info(self, dsid: str) -> Dict:
+    def get_google_drive_info(self, dsid: str) -> List[Dict]:
         """Get current Google Drive location information for a dataset.
 
         Args:
@@ -513,7 +507,7 @@ class CrucibleClient:
         Returns:
             List[Dict]: Organized Google Drive folder information
         """
-        drive_info = self.get_current_google_drive_info(dsid)
+        drive_info = self.get_google_drive_info(dsid)
         org_google_drive_info = [x for x in drive_info if 'Organized' in x['folder_path_in_drive']]
         return org_google_drive_info[:limit]
 
@@ -613,8 +607,8 @@ class CrucibleClient:
         Returns:
             List[Dict]: Instrument objects with specifications and metadata
         """
-        params = {'limit': limit}
-        return self._request('get', '/instruments', params=params)
+        result = self._request('get', '/instruments')
+        return result[:limit] if result else result
 
     def get_instrument(self, instrument_name: str = None, instrument_id: str = None) -> Dict:
         """Get instrument information by name or ID.
@@ -646,7 +640,7 @@ class CrucibleClient:
             return None
 
 
-    def get_or_add_instrument(self, instrument_name: str, creation_location: str = None, instrument_owner: str = None) -> Dict:
+    def get_or_add_instrument(self, instrument_name: str, location: str = None, instrument_owner: str = None) -> Dict:
         """Get an existing instrument or create a new one if it doesn't exist.
 
         Args:
@@ -661,17 +655,11 @@ class CrucibleClient:
 
         if found_inst:
             return found_inst
-
-        if not instrument_owner:
-            instrument_owner = "undefined"
-
-        if not creation_location:
-            creation_location = ""
-
+        
         new_instrum = {"instrument_name": instrument_name,
-                      "location": creation_location,
+                      "location": location,
                       "owner": instrument_owner}
-
+        print(new_instrum)
         instrument = self._request('post', '/instruments', json=new_instrum)
         return instrument
 
@@ -700,14 +688,14 @@ class CrucibleClient:
         Returns:
             List[Dict]: Sample information
         """
-        params = {**kwargs, 'limit': limit}
+        params = {**kwargs}
         if dataset_id:
-            response = self._request('get', f"/datasets/{dataset_id}/samples", params=params)
+            result = self._request('get', f"/datasets/{dataset_id}/samples", params=params)
         elif parent_id:
-            response = self._request('get', f"/samples/{parent_id}/children", params=params)
+            result = self._request('get', f"/samples/{parent_id}/children", params=params)
         else:
-            response = self._request('get', f"/samples", params=params)
-        return response
+            result = self._request('get', f"/samples", params=params)
+        return result[:limit] if result else result
         
 
     def add_sample(self, unique_id: str = None, sample_name: str = None, description: str = None,
@@ -755,32 +743,32 @@ class CrucibleClient:
         return new_samp
 
     
-    def add_sample_metadata(self, sample_id: str, sample_type: str, **kwargs) -> Dict:
-        """Upload metadata to table and link to provided sample.
+    # def add_sample_metadata(self, sample_id: str, sample_type: str, **kwargs) -> Dict:
+    #     """Upload metadata to table and link to provided sample.
 
-        Args:
-            sample_id (str): Sample's unique identifier
-            sample_type (str): Type of sample metadata (e.g., 'spinbot_batch')
-            **kwargs: Metadata fields
+    #     Args:
+    #         sample_id (str): Sample's unique identifier
+    #         sample_type (str): Type of sample metadata (e.g., 'spinbot_batch')
+    #         **kwargs: Metadata fields
 
-        Returns:
-            Dict: Created metadata object
-        """
-        response = self._request('post', f"/samples/{sample_id}/metadata/{sample_type}", json = kwargs)
-        return response
+    #     Returns:
+    #         Dict: Created metadata object
+    #     """
+    #     response = self._request('post', f"/samples/{sample_id}/metadata/{sample_type}", json = kwargs)
+    #     return response
 
-    def get_sample_metadata(self, sample_id: str, sample_type: str) -> Dict:
-        """Get metadata for a sample by type.
+    # def get_sample_metadata(self, sample_id: str, sample_type: str) -> Dict:
+    #     """Get metadata for a sample by type.
 
-        Args:
-            sample_id (str): Sample's unique identifier
-            sample_type (str): Type of sample metadata
+    #     Args:
+    #         sample_id (str): Sample's unique identifier
+    #         sample_type (str): Type of sample metadata
 
-        Returns:
-            Dict: Sample metadata object
-        """
-        response = self._request('get', f"/samples/{sample_id}/metadata/{sample_type}")
-        return response
+    #     Returns:
+    #         Dict: Sample metadata object
+    #     """
+    #     response = self._request('get', f"/samples/{sample_id}/metadata/{sample_type}")
+    #     return response
 
     
     def add_sample_to_dataset(self, dataset_id: str, sample_id: str) -> Dict:
@@ -841,8 +829,13 @@ class CrucibleClient:
             return user
         else:
             raise ValueError(f"User info for {orcid} not found in database or using the get_user_info_func")
-
-    def get_or_add_crucible_project(self, crucible_project_id, get_project_info_function = None, **kwargs):
+    
+    def _build_project_from_args(self, project_id, organization, project_lead):
+        return({"project_id": project_id,
+                "organization": organization,
+                "project_lead": project_lead})
+    
+    def get_or_add_crucible_project(self, crucible_project_id, get_project_info_function = _build_project_from_args, **kwargs):
         """Get an existing project or create a new one if it doesn't exist.
         
         Args:
@@ -871,86 +864,6 @@ class CrucibleClient:
     get_or_add_project = get_or_add_crucible_project
     add_project = get_or_add_project
 
-    # ==== Main utility for instrument integration
-    def create_dataset(self,
-                    dataset_name: Optional[str] = None,
-                    unique_id: Optional[str] = None,
-                    public: bool = False,
-                    owner_orcid: Optional[str] = None,
-                    owner_user_id: Optional[int] = None,
-                    project_id: Optional[str] = None,
-                    instrument_name: Optional[str] = None,
-                    instrument_id: Optional[int] = None,
-                    measurement: Optional[str] = None,
-                    session_name: Optional[str] = None,
-                    creation_time: Optional[str] = None,
-                    data_format: Optional[str] = None,
-                    scientific_metadata: Optional[dict] = None,
-                    keywords: List[str] = None,
-                    **kwargs) -> Dict:
-
-            """Create a new dataset with metadata.
-
-            Args:
-                dataset_name (str, optional): Name of the dataset
-                unique_id (str, optional): Unique identifier
-                public (bool): Whether dataset is public
-                owner_orcid (str, optional): Owner's ORCID
-                owner_user_id (int, optional): Owner's user ID
-                project_id (str, optional): Associated project ID
-                instrument_name (str, optional): Instrument name
-                instrument_id (int, optional): Instrument ID
-                measurement (str, optional): Type of measurement
-                session_name (str, optional): Session name
-                creation_time (str, optional): Creation timestamp
-                data_format (str, optional): Data format
-                scientific_metadata (dict, optional): Scientific metadata
-                keywords (List[str], optional): Keywords to associate
-
-            Returns:
-                Dict: Created dataset object
-            """
-            # Handle instrument if name is provided
-            if instrument_name and not instrument_id:
-                instrument = self._request('get', '/instruments', params={'instrument_name': instrument_name})
-                if not instrument:
-                    instrument = self._request('post', '/instruments', json={'instrument_name': instrument_name})
-
-                instrument_id = instrument['id']
-
-            # Create dataset
-            dataset = {
-                "unique_id": unique_id,
-                "dataset_name": dataset_name,
-                "public": public,
-                "owner_user_id": owner_user_id,
-                "owner_orcid": owner_orcid,
-                "project_id": project_id,
-                "instrument_id": instrument_id,
-                "instrument_name":instrument_name,
-                "measurement": measurement,
-                "session_name": session_name,
-                "creation_time": creation_time,
-                "data_format": data_format
-            }
-        
-            dataset.update(**kwargs)
-            clean_dataset = {k: v for k, v in dataset.items() if v is not None}
-
-            new_dataset = self._request('post', '/datasets', json=clean_dataset)
-            dsid = new_dataset['unique_id']
-
-            # Add scientific metadata if provided
-            if scientific_metadata:
-                self._request('post', f'/datasets/{dsid}/scientific_metadata', json=scientific_metadata)
-
-            # Add keywords if provided
-            if keywords:
-                for keyword in keywords:
-                    self.add_dataset_keyword(dsid, keyword)
-
-            return new_dataset
-
     def _create_dataset_with_metadata(self, 
                                      dataset_name: Optional[str] = None,
                                      unique_id: Optional[str] = None, 
@@ -967,6 +880,7 @@ class CrucibleClient:
                                      scientific_metadata: Optional[dict] = None,
                                      keywords: List[str] = None,
                                      get_user_info_function = None,
+                                     get_project_info_function = None,
                                      verbose = False,
                                      **extra_fields) -> Dict:
         """Shared helper method to create a dataset with metadata."""
@@ -978,6 +892,11 @@ class CrucibleClient:
             owner = self.get_or_add_user(owner_orcid, get_user_info_function)
             owner_user_id = owner['id']
         
+        # get or add project
+        if project_id is not None:
+            project = self.get_or_add_project(project_id, get_project_info_function)
+            project_id = project['project_id']
+
         # get instrument_id if instrument_name provided
         if instrument_name is not None:
             instrument = self.get_or_add_instrument(instrument_name)
@@ -1294,7 +1213,8 @@ class CrucibleClient:
         file_obj = ('files', (file_to_upload, open(file_to_upload, 'rb'), 'text/plain'))
         return file_obj
 
-    
+
+
 
 
 
