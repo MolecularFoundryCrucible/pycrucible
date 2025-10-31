@@ -338,7 +338,7 @@ class CrucibleClient:
         Returns:
             Dict: Keyword object with updated usage count
         """
-        return self._request('post', f'/datasets/{dsid}/keywords', data={'keyword': keyword})
+        return self._request('post', f'/datasets/{dsid}/keywords', params={'keyword': keyword})
     
     def get_scientific_metadata(self, dsid: str) -> Dict:
         """Get scientific metadata for a dataset.
@@ -655,12 +655,14 @@ class CrucibleClient:
 
         if found_inst:
             return found_inst
-        
-        new_instrum = {"instrument_name": instrument_name,
-                      "location": location,
-                      "owner": instrument_owner}
-        print(new_instrum)
-        instrument = self._request('post', '/instruments', json=new_instrum)
+        elif any([location is None, instrument_owner is None]):
+            raise ValueError('Instrument does not exist, please provide location and owner')
+        else:
+            new_instrum = {"instrument_name": instrument_name,
+                        "location": location,
+                        "owner": instrument_owner}
+            print(new_instrum)
+            instrument = self._request('post', '/instruments', json=new_instrum)
         return instrument
 
 
@@ -880,7 +882,6 @@ class CrucibleClient:
                                      scientific_metadata: Optional[dict] = None,
                                      keywords: List[str] = None,
                                      get_user_info_function = None,
-                                     get_project_info_function = None,
                                      verbose = False,
                                      **extra_fields) -> Dict:
         """Shared helper method to create a dataset with metadata."""
@@ -894,14 +895,21 @@ class CrucibleClient:
         
         # get or add project
         if project_id is not None:
-            project = self.get_or_add_project(project_id, get_project_info_function)
-            project_id = project['project_id']
+            project = self.get_project(project_id)
+        
+            if project is None:
+                raise ValueError(f"Project with ID '{project_id}' does not exist in the database.")
+            else:
+                project_id = project['project_id']
 
         # get instrument_id if instrument_name provided
         if instrument_name is not None:
-            instrument = self.get_or_add_instrument(instrument_name)
-            instrument_id = instrument['id']
-
+            instrument = self.get_instrument(instrument_name)
+            if instrument is not None:
+                instrument_id = instrument['id']
+            else:
+                raise ValueError(f'Provided instrument does not exist: {instrument_name}')
+            
         # create the dataset with available metadata
         dataset = {"unique_id": unique_id,
                    "dataset_name": dataset_name,
@@ -910,6 +918,7 @@ class CrucibleClient:
                    "owner_orcid": owner_orcid,
                    "project_id": project_id,
                    "instrument_id": instrument_id,
+                   "instrument_name": instrument_name,
                    "measurement": measurement, 
                    "session_name": session_name,
                    "creation_time": creation_time,
@@ -985,14 +994,10 @@ class CrucibleClient:
         """
         # Validate project exists before making any database changes
         if project_id is not None:
-            try:
-                self.get_project(project_id)
-            except requests.exceptions.HTTPError as e:
-                if e.response.status_code == 404:
-                    raise ValueError(f"Project with ID '{project_id}' does not exist in the database. "
-                                   f"Please create the project first or use a valid project ID.")
-                else:
-                    raise
+            project = self.get_project(project_id)
+            if project is None:
+                raise ValueError(f"Project with ID '{project_id}' does not exist in the database.")
+
         result = self._create_dataset_with_metadata(
             dataset_name=dataset_name,
             unique_id=unique_id,
@@ -1071,18 +1076,20 @@ class CrucibleClient:
         """
         # Validate project exists before making any database changes
         if project_id is not None:
-            try:
-                self.get_project(project_id)
-            except requests.exceptions.HTTPError as e:
-                if e.response.status_code == 404:
-                    raise ValueError(f"Project with ID '{project_id}' does not exist in the database. "
-                                   f"Please create the project first or use a valid project ID.")
-                else:
-                    raise
+            project = self.get_project(project_id)
+            if project is None:
+                raise ValueError(f"Project with ID '{project_id}' does not exist in the database.")
+        
         # Create dataset using shared helper with file-specific fields
         main_file = files_to_upload[0]
+
+        if main_file.startswith('/'):
+            main_file_bucket_subpath = main_file[1:]
+        else:
+            main_file_bucket_subpath = main_file
+
         extra_fields = {
-            "file_to_upload": os.path.join("api-uploads", main_file),
+            "file_to_upload": os.path.join("api-uploads", main_file_bucket_subpath),
             "source_folder": source_folder
         }
         
@@ -1140,8 +1147,7 @@ class CrucibleClient:
                 if verbose:
                     print(f"added {afp}")
 
-            main_file_path = os.path.join("api-uploads", main_file)
-            
+            main_file_path = os.path.join("api-uploads", main_file_bucket_subpath)
         else:
             try:
                 for f in files_to_upload:
@@ -1169,9 +1175,10 @@ class CrucibleClient:
                 if verbose:
                     print(f"added {afp}")
                 
-            main_file_path = os.path.join("large-files/", main_file)
+            main_file_path = os.path.join("large-files/", main_file_bucket_subpath)
         if verbose:
             print(f"submitting {dsid} to be ingested from file {main_file_path} using the class {ingestor}")
+        
         ingest_req_info = self.ingest_dataset(dsid, main_file_path, ingestor)
         print(f"ingestion request {ingest_req_info['id']} is added to the queue")
         if wait_for_ingestion_response:
