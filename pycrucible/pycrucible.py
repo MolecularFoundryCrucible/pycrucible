@@ -50,6 +50,8 @@ class CrucibleClient:
     def list_projects(self, limit: int = 100) -> List[Dict]:
         """List all accessible projects.
 
+        **Requires admin permissions.**
+
         Args:
             limit (int): Maximum number of results to return (default: 100)
 
@@ -71,7 +73,9 @@ class CrucibleClient:
         return self._request('get', f'/projects/{project_id}')
     
     def get_user(self, orcid: str) -> Dict:
-        """Get user details by ORCID (admin access required).
+        """Get user details by ORCID.
+
+        **Requires admin permissions.**
 
         Args:
             orcid (str): ORCID identifier (format: 0000-0000-0000-000X)
@@ -83,6 +87,8 @@ class CrucibleClient:
     
     def get_user_by_email(self, email: str) -> List:
         """Get user details by email address.
+
+        **Requires admin permissions.**
 
         Args:
             email (str): Email address to search for
@@ -101,7 +107,9 @@ class CrucibleClient:
             return None
     
     def get_project_users(self, project_id: str, limit: int = 100) -> List[Dict]:
-        """Get users associated with a project (admin access required).
+        """Get users associated with a project.
+
+        **Requires admin permissions.**
 
         Args:
             project_id (str): Unique project identifier
@@ -316,7 +324,9 @@ class CrucibleClient:
         return req_info
     
     def get_dataset_access_groups(self, dsid: str) -> List[str]:
-        """Get access groups for a dataset (admin access required).
+        """Get access groups for a dataset.
+
+        **Requires admin permissions.**
 
         Args:
             dsid (str): Dataset ID
@@ -536,7 +546,9 @@ class CrucibleClient:
 
 
     def update_ingestion_status(self, dsid: str, reqid: str, status: str, timezone: str = "America/Los_Angeles"):
-        """Update the status of a dataset ingestion request (admin use).
+        """Update the status of a dataset ingestion request.
+
+        **Requires admin permissions.**
 
         Args:
             dsid (str): Dataset ID
@@ -561,7 +573,9 @@ class CrucibleClient:
         return response
 
     def update_scicat_upload_status(self, dsid: str, reqid: str, status: str, timezone: str = "America/Los_Angeles"):
-        """Update the status of a SciCat upload request (admin use).
+        """Update the status of a SciCat upload request.
+
+        **Requires admin permissions.**
 
         Args:
             dsid (str): Dataset ID
@@ -586,7 +600,9 @@ class CrucibleClient:
         return response
 
     def update_transfer_status(self, dsid: str, reqid: str, status: str, timezone: str = "America/Los_Angeles"):
-        """Update the status of a dataset transfer request (admin use).
+        """Update the status of a dataset transfer request.
+
+        **Requires admin permissions.**
 
         Args:
             dsid (str): Dataset ID
@@ -804,7 +820,9 @@ class CrucibleClient:
     
     
     def add_user(self, user_info: Dict) -> Dict:
-        """Add a new user to the system (admin access required).
+        """Add a new user to the system.
+
+        **Requires admin permissions.**
 
         Args:
             user_info (Dict): User information including 'projects' key
@@ -822,15 +840,17 @@ class CrucibleClient:
 
     def get_or_add_user(self, orcid, get_user_info_function, **kwargs):
         """Get an existing user or create a new one if they don't exist.
-        
+
+        **Requires admin permissions.**
+
         Args:
             orcid (str): ORCID of the user
             get_user_info_function (callable): Function to retrieve user info if not found
             **kwargs: Additional arguments to pass to get_user_info_function
-            
+
         Returns:
             dict: User information (existing or newly created)
-            
+
         Raises:
             ValueError: If user info cannot be found or created
         """
@@ -994,9 +1014,9 @@ class CrucibleClient:
             session_name (str, optional): Name of the measurement session
             creation_time (str, optional): Time of dataset creation in isoformat. 
             data_format (str, optional): Format of the dataset (eg. h5, png, dm4, emd)
-            scientific_metadata (dict, optional): Additional scientific metadata (accepts nested fields). 
+            scientific_metadata (dict, optional): Additional scientific metadata (accepts nested fields).
             keywords (list, optional): List of keywords to associate with the dataset
-            get_user_info_function (callable, optional): Function to get user info if needed.  You may define a function, use a function imported from another package, or use the included build_user_from_args function. If using the build_user_from_args function, please specify xxxx in the kwargs. 
+            get_user_info_function (callable, optional): Function to get user info if needed. This function should accept an orcid (str) and return a dictionary with keys: 'first_name', 'last_name', 'orcid', 'email' (optional), 'lbl_email' (optional), 'projects' (optional list of project IDs).
             **kwargs: Additional arguments
             
         Returns:
@@ -1078,35 +1098,8 @@ class CrucibleClient:
             source_folder (str, optional): Source folder path
             scientific_metadata (dict, optional): Additional scientific metadata (accepts nested fields)
             keywords (list, optional): List of keywords to associate with the dataset
-            get_user_info_function (callable, optional):  Function to get user info if needed.  You may define a function, use a function imported from another package, or use the included build_user_from_args function. If using the build_user_from_args function, please specify xxxx in the kwargs.
-            ingestor (str, optional): Ingestion class to use.  Currently available ingestor options are: 
-                AFMIngestor,
-                TitanXSessionIngestor,
-                Team05SessionIngestor,
-                SimpleTiledImageScopeFoundryH5Ingestor, 
-                BioGlowIngestor,
-                QSpleemSVRampIngestor, 
-                QSpleemImageIngestor, 
-                QSpleemARRESEKIngestor,
-                QSpleemARRESMMIngestor, 
-                CanonCaptureScopeFoundryH5Ingestor, 
-                SingleSpecScopeFoundryH5Ingestor,
-                HyperspecScopeFoundryH5Ingestor,
-                HyperspecSweepScopeFoundryH5Ingestor,
-                ToupcamLiveScopeFoundryH5Ingestor,
-                CLSyncRasterScanIngestor,
-                CLHyperspecIngestor, 
-                SpinbotSpecLineIngestor,
-                SpinbotCameraCaptureIngestor, 
-                SpinbotPhotoRunIngestor, 
-                InSituPlIngestor,
-                CziIngestor,
-                DigitalMicrographIngestor,
-                SerIngestor,
-                BcfIngestor,
-                EmdIngestor,
-                SpinbotSpecRunIngestor,
-                ImageIngestor
+            get_user_info_function (callable, optional): Function to get user info if needed. This function should accept an orcid (str) and return a dictionary with keys: 'first_name', 'last_name', 'orcid', 'email' (optional), 'lbl_email' (optional), 'projects' (optional list of project IDs).
+            ingestor (str, optional): Ingestion class to use. For the current list of available ingestors, see crucible_utils.constants.AVAILABLE_INGESTORS
             **kwargs: Additional arguments
             
         Returns:
