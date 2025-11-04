@@ -16,7 +16,7 @@ A Python client library for the Crucible API - the Molecular Foundry data lakeho
 ## Installation
 
 ```bash
-pip install pycrucible
+pip install git+https://github.com/MolecularFoundryCrucible/pycrucible
 ```
 
 ## Quick Start
