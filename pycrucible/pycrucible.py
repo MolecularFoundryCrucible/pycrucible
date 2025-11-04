@@ -128,7 +128,9 @@ class CrucibleClient:
         Args:
             sample_id (str, optional): If provided, returns datasets for this sample
             limit (int): Maximum number of results to return (default: 100)
-            **kwargs: Query parameters for filtering (keyword, owner_orcid, etc.)
+            **kwargs: Query parameters for filtering. Fields that are currently supported to filter on include: keyword, unique_id, public, dataset_name, file_to_upload, owner_orcid, project_id, instrument_name, source_folder, creation_time, size, data_format, measurement, session_name, and sha256_hash_file_to_upload. 
+
+            Note: Filters are applied such that datasets are filtered on the fields corresponding to the provided argument names where their attributes are equivalent to the value provided.  Values are case sensitive and expect exact matches with the exception of keywords which are case insensitive and will match substrings (eg. keyword = 'TEM' will return datasets with any of the following keywords: TEM, tem, Stem, etc)
 
         Returns:
             List[Dict]: Dataset objects matching filter criteria
@@ -1083,8 +1085,7 @@ class CrucibleClient:
                                 wait_for_ingestion_response = True,
                                 **kwargs):
         
-        f"""Build a new dataset with file upload and ingestion.
-        
+        """Build a new dataset with file upload and ingestion.
         Args:
             files_to_upload (List[str]): List of file paths to upload
             dataset_name (str, optional): Name of the dataset
@@ -1103,8 +1104,37 @@ class CrucibleClient:
             scientific_metadata (dict, optional): Additional scientific metadata (accepts nested fields)
             keywords (list, optional): List of keywords to associate with the dataset
             get_user_info_function (callable, optional): Function to get user info if needed. This function should accept an orcid (str) and return a dictionary with keys: 'first_name', 'last_name', 'orcid', 'email' (optional), 'lbl_email' (optional), 'projects' (optional list of project IDs).
-            ingestor (str, optional): Ingestion class to use. For the current list of available ingestors, see {AVAILABLE_INGESTORS}
+            ingestor (str, optional): Ingestion class to use. The current list of available ingestors is below:
             **kwargs: Additional arguments
+
+            Available Ingestors:
+                AFMIngestor,
+                TitanXSessionIngestor,
+                Team05SessionIngestor,
+                SimpleTiledImageScopeFoundryH5Ingestor,
+                BioGlowIngestor,
+                QSpleemSVRampIngestor,
+                QSpleemImageIngestor,
+                QSpleemARRESEKIngestor,
+                QSpleemARRESMMIngestor,
+                CanonCaptureScopeFoundryH5Ingestor,
+                SingleSpecScopeFoundryH5Ingestor,
+                HyperspecScopeFoundryH5Ingestor,
+                HyperspecSweepScopeFoundryH5Ingestor,
+                ToupcamLiveScopeFoundryH5Ingestor,
+                CLSyncRasterScanIngestor,
+                CLHyperspecIngestor,
+                SpinbotSpecLineIngestor,
+                SpinbotCameraCaptureIngestor,
+                SpinbotPhotoRunIngestor,
+                InSituPlIngestor,
+                CziIngestor,
+                DigitalMicrographIngestor,
+                SerIngestor,
+                BcfIngestor,
+                EmdIngestor,
+                SpinbotSpecRunIngestor,
+                ImageIngestor
             
         Returns:
             dict: Dictionary containing created_record, scientific_metadata_record, and ingestion_request
