@@ -1032,6 +1032,9 @@ class CrucibleClient:
             if project is None:
                 raise ValueError(f"Project with ID '{project_id}' does not exist in the database.")
 
+        if creation_time is None:
+            creation_time = get_tz_isoformat()
+
         result = self._create_dataset_with_metadata(
             dataset_name=dataset_name,
             unique_id=unique_id,
