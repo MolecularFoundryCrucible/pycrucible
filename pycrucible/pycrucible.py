@@ -4,6 +4,7 @@ import requests
 import time
 from typing import Optional, List, Dict, Union, Any
 from .utils import get_tz_isoformat, run_shell, checkhash
+from .constants import AVAILABLE_INGESTORS
 
 class CrucibleClient:
     def __init__(self, api_url: str, api_key: str):
@@ -1079,7 +1080,7 @@ class CrucibleClient:
                                 wait_for_ingestion_response = True,
                                 **kwargs):
         
-        """Build a new dataset with file upload and ingestion.
+        f"""Build a new dataset with file upload and ingestion.
         
         Args:
             files_to_upload (List[str]): List of file paths to upload
@@ -1099,7 +1100,7 @@ class CrucibleClient:
             scientific_metadata (dict, optional): Additional scientific metadata (accepts nested fields)
             keywords (list, optional): List of keywords to associate with the dataset
             get_user_info_function (callable, optional): Function to get user info if needed. This function should accept an orcid (str) and return a dictionary with keys: 'first_name', 'last_name', 'orcid', 'email' (optional), 'lbl_email' (optional), 'projects' (optional list of project IDs).
-            ingestor (str, optional): Ingestion class to use. For the current list of available ingestors, see crucible_utils.constants.AVAILABLE_INGESTORS
+            ingestor (str, optional): Ingestion class to use. For the current list of available ingestors, see {AVAILABLE_INGESTORS}
             **kwargs: Additional arguments
             
         Returns:
@@ -1119,6 +1120,8 @@ class CrucibleClient:
 
         if main_file.startswith('/'):
             main_file_bucket_subpath = main_file[1:]
+        elif main_file.startswith('./'):
+            main_file_bucket_subpath = main_file.replace('./', '')
         else:
             main_file_bucket_subpath = main_file
 
