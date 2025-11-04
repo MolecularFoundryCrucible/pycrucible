@@ -196,29 +196,42 @@ class CrucibleClient:
         if file_name is None:
             if 'file_to_upload' not in dataset or not dataset['file_to_upload']:
                 raise ValueError(f"No file_name specified and dataset {dsid} has no file_to_upload field")
-            file_to_upload = dataset['file_to_upload']
-            # Extract just the filename from the path (remove api-uploads/ or large-files/ prefix)
-            file_name = os.path.basename(file_to_upload)
 
+            # Extract just the filename from the path
+            file_to_upload = dataset['file_to_upload']
+            file_name = os.path.basename(file_to_upload)
+            
         # Set default output path if not provided
         if output_path is None:
-            output_path = os.path.join('crucible-downloads', file_name)
-            os.makedirs('crucible-downloads', exist_ok = True)
+            output_dir = 'crucible-downloads'
+            download_path = os.path.join(output_dir, file_name)
+        elif os.path.isdir(output_path):
+            output_dir = output_path
+            download_path = os.path.join(output_dir, file_name)
+        else:
+            output_dir = os.path.dirname(output_path)
+            download_path = output_path
+        
+        # make directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok = True)
+
 
         # Check if file already exists (caching)
-        if os.path.exists(output_path):
-            curr_hash = checkhash(output_path)
-            if curr_hash == dataset['sha256_hash']:
-                print(f"File {output_path} already exists, skipping download")
+        if os.path.exists(download_path):
+            curr_hash = checkhash(download_path)
+            if curr_hash == dataset['sha256_hash_file_to_upload']:
+                print(f"File {download_path} already exists, skipping download")
                 return
-            else:
-                url = f"/datasets/{dsid}/download/{file_name}"
-                response = self._request('get', url, stream=True)
-                response.raise_for_status()
-                with open(output_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                return(f"download complete for file {output_path}")
+
+        # request download
+        url = f"/datasets/{dsid}/download/{file_name}"
+        response = self._request('get', url, stream=True)
+        response.raise_for_status()
+        with open(download_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        return(f"download complete for file {download_path}")
+
         
     
     def request_ingestion(self, dsid: str, file_to_upload: str = None, ingestor: str = None) -> Dict:
@@ -970,20 +983,20 @@ class CrucibleClient:
         
         Args:
             dataset_name (str, optional): Name of the dataset
-            unique_id (str, optional): Unique identifier for the dataset
+            unique_id (str, optional): Unique identifier for the dataset. Must be an mfid generated uuid.  The mfid package can be installed with pip.  If not included, an mfid will be generated automatically.
             public (bool): Whether the dataset is public (default: False)
             owner_orcid (str, optional): ORCID of the dataset owner
             owner_user_id (int, optional): User ID of the dataset owner
             project_id (str, optional): ID of the project this dataset belongs to
-            instrument_name (str, optional): Name of the instrument used
-            instrument_id (int, optional): ID of the instrument used
+            instrument_name (str, optional): Name of the instrument used || To see current instrument names use list_instruments || To add a new instrument use get_or_add_instrument
+            instrument_id (int, optional): ID of the instrument used || To see current instrument ids use list_instruments || To add a new instrument use get_or_add_instrument
             measurement (str, optional): Type of measurement
             session_name (str, optional): Name of the measurement session
-            creation_time (str, optional): Time of dataset creation
-            data_format (str, optional): Format of the dataset
-            scientific_metadata (dict, optional): Additional scientific metadata
+            creation_time (str, optional): Time of dataset creation in isoformat. 
+            data_format (str, optional): Format of the dataset (eg. h5, png, dm4, emd)
+            scientific_metadata (dict, optional): Additional scientific metadata (accepts nested fields). 
             keywords (list, optional): List of keywords to associate with the dataset
-            get_user_info_function (callable, optional): Function to get user info if needed
+            get_user_info_function (callable, optional): Function to get user info if needed.  You may define a function, use a function imported from another package, or use the included build_user_from_args function. If using the build_user_from_args function, please specify xxxx in the kwargs. 
             **kwargs: Additional arguments
             
         Returns:
@@ -1045,27 +1058,55 @@ class CrucibleClient:
                                 verbose = False,
                                 wait_for_ingestion_response = True,
                                 **kwargs):
+        
         """Build a new dataset with file upload and ingestion.
         
         Args:
             files_to_upload (List[str]): List of file paths to upload
             dataset_name (str, optional): Name of the dataset
-            unique_id (str, optional): Unique identifier for the dataset
+            unique_id (str, optional): Unique identifier for the dataset. Must be an mfid generated uuid. If the instrument control software (eg. ScopeFoundry) you are using has already tagged this data with a unique identifier, that value should be provided here. The mfid package can be installed with pip.  If not included, an mfid will be generated automatically.
             public (bool): Whether the dataset is public (default: False)
             owner_orcid (str, optional): ORCID of the dataset owner
             owner_user_id (int, optional): User ID of the dataset owner
             project_id (str, optional): ID of the project this dataset belongs to
-            instrument_name (str, optional): Name of the instrument used
-            instrument_id (int, optional): ID of the instrument used
+            instrument_name (str, optional):  Name of the instrument used || To see current instrument names use list_instruments || To add a new instrument use get_or_add_instrument
+            instrument_id (int, optional): ID of the instrument used || To see current instrument ids use list_instruments || To add a new instrument use get_or_add_instrument
             measurement (str, optional): Type of measurement
             session_name (str, optional): Name of the measurement session
-            creation_time (str, optional): Time of dataset creation
-            data_format (str, optional): Format of the dataset
+            creation_time (str, optional): Time of dataset creation in isoformat.
+            data_format (str, optional): Format of the dataset (eg. h5, png, dm4, emd)
             source_folder (str, optional): Source folder path
-            scientific_metadata (dict, optional): Additional scientific metadata
+            scientific_metadata (dict, optional): Additional scientific metadata (accepts nested fields)
             keywords (list, optional): List of keywords to associate with the dataset
-            get_user_info_function (callable, optional): Function to get user info if needed
-            ingestor (str, optional): Ingestion class to use
+            get_user_info_function (callable, optional):  Function to get user info if needed.  You may define a function, use a function imported from another package, or use the included build_user_from_args function. If using the build_user_from_args function, please specify xxxx in the kwargs.
+            ingestor (str, optional): Ingestion class to use.  Currently available ingestor options are: 
+                AFMIngestor,
+                TitanXSessionIngestor,
+                Team05SessionIngestor,
+                SimpleTiledImageScopeFoundryH5Ingestor, 
+                BioGlowIngestor,
+                QSpleemSVRampIngestor, 
+                QSpleemImageIngestor, 
+                QSpleemARRESEKIngestor,
+                QSpleemARRESMMIngestor, 
+                CanonCaptureScopeFoundryH5Ingestor, 
+                SingleSpecScopeFoundryH5Ingestor,
+                HyperspecScopeFoundryH5Ingestor,
+                HyperspecSweepScopeFoundryH5Ingestor,
+                ToupcamLiveScopeFoundryH5Ingestor,
+                CLSyncRasterScanIngestor,
+                CLHyperspecIngestor, 
+                SpinbotSpecLineIngestor,
+                SpinbotCameraCaptureIngestor, 
+                SpinbotPhotoRunIngestor, 
+                InSituPlIngestor,
+                CziIngestor,
+                DigitalMicrographIngestor,
+                SerIngestor,
+                BcfIngestor,
+                EmdIngestor,
+                SpinbotSpecRunIngestor,
+                ImageIngestor
             **kwargs: Additional arguments
             
         Returns:
