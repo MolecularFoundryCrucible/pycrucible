@@ -51,8 +51,6 @@ class CrucibleClient:
     def list_projects(self, limit: int = 100) -> List[Dict]:
         """List all accessible projects.
 
-        **Requires admin permissions.**
-
         Args:
             limit (int): Maximum number of results to return (default: 100)
 
@@ -128,9 +126,18 @@ class CrucibleClient:
         Args:
             sample_id (str, optional): If provided, returns datasets for this sample
             limit (int): Maximum number of results to return (default: 100)
-            **kwargs: Query parameters for filtering. Fields that are currently supported to filter on include: keyword, unique_id, public, dataset_name, file_to_upload, owner_orcid, project_id, instrument_name, source_folder, creation_time, size, data_format, measurement, session_name, and sha256_hash_file_to_upload. 
+            **kwargs: Query parameters for filtering. Fields that are currently supported to filter on include: 
+                        keyword, unique_id, public, dataset_name, file_to_upload, owner_orcid,
+                        project_id, instrument_name, source_folder, creation_time,
+                        size, data_format, measurement, session_name, and sha256_hash_file_to_upload
+                Other kwargs will be ignored during filtering. 
 
-            Note: Filters are applied such that datasets are filtered on the fields corresponding to the provided argument names where their attributes are equivalent to the value provided.  Values are case sensitive and expect exact matches with the exception of keywords which are case insensitive and will match substrings (eg. keyword = 'TEM' will return datasets with any of the following keywords: TEM, tem, Stem, etc)
+            Note:   Filters are applied such that datasets are filtered on the fields
+                    corresponding to the provided argument names where their attributes
+                    are equivalent to the value provided.  Values are case sensitive and
+                    expect exact matches with the exception of keywords.
+                    Keywords are case insensitive and will match substrings
+                    (eg. keyword = 'TEM' will return datasets with any of the following keywords: TEM, tem, Stem, etc)
 
         Returns:
             List[Dict]: Dataset objects matching filter criteria
@@ -815,7 +822,6 @@ class CrucibleClient:
         Returns:
             Dict: Information about the created link
         """
-        print(f"/datasets/{dataset_id}/samples/{sample_id}")
         new_link = self._request('post', f"/datasets/{dataset_id}/samples/{sample_id}")
         return new_link
 
