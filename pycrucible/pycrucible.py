@@ -47,6 +47,20 @@ class CrucibleClient:
             return response
 
         #return response.json() if response.content else None
+    
+    def get_projects_by_user(self, orcid):
+        """
+        List projects for a given user. 
+        
+        Args:
+            limit (int): Maximum number of results to return (default: 100)
+
+        Returns:
+            List[Dict]: Project metadata including project_id, project_name, description, project_lead_email
+        """
+        result = self._request('get', f'/users/{orcid}/projects')
+        return result
+    
 
     def list_projects(self, limit: int = 100) -> List[Dict]:
         """List all accessible projects.
