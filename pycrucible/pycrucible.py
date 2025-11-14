@@ -362,6 +362,18 @@ class CrucibleClient:
         return [group['group_name'] for group in groups]
         
     
+    def list_keywords(self, limit: int = 100) -> List[Dict]:
+        """List all keywords in the database.
+
+        Args:
+            limit (int): Maximum number of results to return (default: 100)
+
+        Returns:
+            List[Dict]: Keyword objects with keyword text and num_datasets counts
+        """
+        result = self._request('get', '/keywords')
+        return result[:limit] if result else result
+
     def get_dataset_keywords(self, dsid: str, limit: int = 100) -> List[Dict]:
         """Get keywords associated with a dataset.
 
@@ -374,7 +386,7 @@ class CrucibleClient:
         """
         result = self._request('get', f'/datasets/{dsid}/keywords')
         return result[:limit] if result else result
-    
+
     def add_dataset_keyword(self, dsid: str, keyword: str) -> Dict:
         """Add a keyword to a dataset.
 
@@ -893,13 +905,15 @@ class CrucibleClient:
                 "organization": organization,
                 "project_lead": project_lead})
     
-    def get_or_add_crucible_project(self, crucible_project_id, get_project_info_function = _build_project_from_args, **kwargs):
+    def get_or_add_crucible_project(self, project_id, get_project_info_function = _build_project_from_args, **kwargs):
         """Get an existing project or create a new one if it doesn't exist.
         
         Args:
-            crucible_project_id (str): ID of the Crucible project
+            project_id (str): ID of the Crucible project
             get_project_info_func (callable): Function to retrieve project info if not found
-            **kwargs: Additional arguments to pass to get_project_info_func
+            **kwargs: Additional arguments to pass to get_project_info_func. 
+            If relying on the default to build the project from arguments, 
+            please provide the project_id, project_organization, and project_lead. 
             
         Returns:
             dict: Project information (existing or newly created)
@@ -907,17 +921,17 @@ class CrucibleClient:
         Raises:
             ValueError: If project info cannot be found or created
         """
-        proj = self.get_project(crucible_project_id)
+        proj = self.get_project(project_id)
         if proj is not None:
             return proj
 
-        project_info = get_project_info_function(crucible_project_id, **kwargs)
+        project_info = get_project_info_function(project_id, **kwargs)
             
         if project_info:
             proj = self._request('post', "/projects", json=project_info)
             return proj
         else:
-            raise ValueError(f"Project info for {crucible_project_id} not found in database or using the provided get_project_info_func")
+            raise ValueError(f"Project info for {project_id} not found in database or using the provided get_project_info_func")
 
     get_or_add_project = get_or_add_crucible_project
     add_project = get_or_add_project
