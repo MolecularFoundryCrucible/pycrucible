@@ -764,6 +764,18 @@ class CrucibleClient:
             result = self._request('get', f"/samples", params=params)
         return result[:limit] if result else result
         
+    def link_samples(self, parent_id: str, child_id: str):
+        """Link two samples with a parent-child relationship.
+
+        Args:
+            parent_id (str): Unique sample identifier of parent sample (unique_id)
+            child_id (str): Unique sample identifier of child sample (unique_id)
+
+        Returns:
+            Dict: Created link object
+        """
+        return self._request('post', f"/samples/{parent_id}/children/{child_id}")
+
 
     def add_sample(self, unique_id: str = None, sample_name: str = None, description: str = None,
                    creation_date: str = None, owner_orcid: str = None, owner_id: int = None,
