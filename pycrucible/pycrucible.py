@@ -900,10 +900,10 @@ class CrucibleClient:
         else:
             raise ValueError(f"User info for {orcid} not found in database or using the get_user_info_func")
     
-    def _build_project_from_args(self, project_id, organization, project_lead):
+    def _build_project_from_args(project_id, organization, project_lead_email):
         return({"project_id": project_id,
                 "organization": organization,
-                "project_lead": project_lead})
+                "project_lead_email": project_lead_email})
     
     def get_or_add_crucible_project(self, project_id, get_project_info_function = _build_project_from_args, **kwargs):
         """Get an existing project or create a new one if it doesn't exist.
@@ -913,7 +913,7 @@ class CrucibleClient:
             get_project_info_func (callable): Function to retrieve project info if not found
             **kwargs: Additional arguments to pass to get_project_info_func. 
             If relying on the default to build the project from arguments, 
-            please provide the project_id, project_organization, and project_lead. 
+            please provide the project_id, project_organization, and project_lead_email. 
             
         Returns:
             dict: Project information (existing or newly created)
@@ -925,7 +925,7 @@ class CrucibleClient:
         if proj is not None:
             return proj
 
-        project_info = get_project_info_function(project_id, **kwargs)
+        project_info = get_project_info_function(project_id = project_id, **kwargs)
             
         if project_info:
             proj = self._request('post', "/projects", json=project_info)
