@@ -778,7 +778,7 @@ class CrucibleClient:
 
 
     def add_sample(self, unique_id: str = None, sample_name: str = None, description: str = None,
-                   creation_date: str = None, owner_orcid: str = None, owner_id: int = None,
+                   creation_date: str = None, owner_orcid: str = None, owner_id: int = None, project_id: str = None,
                    parents: List[Dict] = [], children: List[Dict] = []) -> Dict:
         """Add a new sample with optional parent-child relationships.
 
@@ -789,6 +789,7 @@ class CrucibleClient:
             creation_date (str, optional): Sample creation date
             owner_orcid (str, optional): Owner's ORCID
             owner_id (int, optional): Owner's user ID
+            project_id (str, optional): Project ID (Name)
             parents (List[Dict], optional): Parent samples
             children (List[Dict], optional): Child samples
 
@@ -800,6 +801,7 @@ class CrucibleClient:
                           "owner_orcid": owner_orcid,
                           "owner_user_id": owner_id,
                           "description": description,
+                          "project_id": project_id,
                           "date_created": creation_date
                         }
         print(sample_info)
