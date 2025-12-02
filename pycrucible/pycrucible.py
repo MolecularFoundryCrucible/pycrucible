@@ -2,7 +2,8 @@ import os
 import time
 import requests
 import time
-from typing import Optional, List, Dict, Union, Any
+from typing import Optional, List, Dict, Any
+from .models import BaseDataset
 from .utils import get_tz_isoformat, run_shell, checkhash
 from .constants import AVAILABLE_INGESTORS
 
@@ -23,6 +24,7 @@ class CrucibleClient:
         self.api_key = api_key
         self.headers = {"Authorization": f"Bearer {api_key}"}
     
+
     def _request(self, method: str, endpoint: str, **kwargs) -> Any:
         """Make an HTTP request to the API.
         
@@ -45,36 +47,8 @@ class CrucibleClient:
                 return None
         except:
             return response
-
-        #return response.json() if response.content else None
     
-    def get_projects_by_user(self, orcid):
-        """
-        List projects for a given user. 
-        
-        Args:
-            limit (int): Maximum number of results to return (default: 100)
-
-        Returns:
-            List[Dict]: Project metadata including project_id, project_name, description, project_lead_email
-        """
-        result = self._request('get', f'/users/{orcid}/projects')
-        return result
-    
-
-    def list_projects(self, limit: int = 100) -> List[Dict]:
-        """List all accessible projects.
-
-        Args:
-            limit (int): Maximum number of results to return (default: 100)
-
-        Returns:
-            List[Dict]: Project metadata including project_id, project_name, description, project_lead_email
-        """
-        result = self._request('get', '/projects')
-        return result[:limit] if result else result
-    
-    def get_project(self, project_id: str) -> Dict:
+    def get_project(self, project_id: str, orcid: str = None) -> Dict:
         """Get details of a specific project.
 
         Args:
@@ -85,39 +59,52 @@ class CrucibleClient:
         """
         return self._request('get', f'/projects/{project_id}')
     
-    def get_user(self, orcid: str) -> Dict:
-        """Get user details by ORCID.
+
+    def list_projects(self, orcid: str = None, limit: int = 100) -> List[Dict]:
+        """List all accessible projects.
+
+        Args:
+            orcid (str): Option to filter projects by those associated with a certain user
+            limit (int): Maximum number of results to return (default: 100)
+
+        Returns:
+            List[Dict]: Project metadata including project_id, project_name, description, project_lead_email
+        """
+        if orcid is None:
+            return self._request('get', '/projects')
+        else:
+            return self._request('get', f'/users/{orcid}/projects')
+
+    
+    def get_user(self, orcid: str = None, email: str = None) -> Dict:
+        """Get user details by ORCID or email.
 
         **Requires admin permissions.**
 
         Args:
             orcid (str): ORCID identifier (format: 0000-0000-0000-000X)
+            email (str): Users email address
+
+            If both orcid and email are provided, only orcid will be used. 
 
         Returns:
             Dict: User profile with orcid, name, email, timestamps
         """
-        return self._request('get', f'/users/{orcid}')
-    
-    def get_user_by_email(self, email: str) -> List:
-        """Get user details by email address.
-
-        **Requires admin permissions.**
-
-        Args:
-            email (str): Email address to search for
-
-        Returns:
-            Dict: User information if found, searches both email and lbl_email fields
-        """
-        params = {"email": email}
-        result = self._request('get', '/users', params=params)
-        if not result:
-            params = {"lbl_email": email}
+        if orcid:
+            return self._request('get', f'/users/{orcid}')
+        elif email:
+            params = {"email": email}
             result = self._request('get', '/users', params=params)
-        if len(result) > 0:
-            return result[-1]
+            if not result:
+                params = {"lbl_email": email}
+                result = self._request('get', '/users', params=params)
+            if len(result) > 0:
+                return result[-1]
+            else:
+                return None
         else:
-            return None
+            raise ValueError('please provide orcid or email')
+        
     
     def get_project_users(self, project_id: str, limit: int = 100) -> List[Dict]:
         """Get users associated with a project.
@@ -132,8 +119,28 @@ class CrucibleClient:
             List[Dict]: Project team members (excludes project lead)
         """
         result = self._request('get', f'/projects/{project_id}/users')
-        return result[:limit] if result else result
+        return result
     
+    def get_dataset(self, dsid: str, include_metadata: bool = False) -> Dict:
+        """Get dataset details, optionally including scientific metadata.
+
+        Args:
+            dsid (str): Dataset unique identifier
+            include_metadata (bool): Whether to include scientific metadata
+
+        Returns:
+            Dict: Dataset object with optional metadata
+        """
+        dataset = self._request('get', f'/datasets/{dsid}')
+        if dataset and include_metadata:
+            try:
+                metadata = self._request('get', f'/datasets/{dsid}/scientific_metadata')
+                dataset['scientific_metadata'] = metadata or {}
+            except requests.exceptions.RequestException:
+                dataset['scientific_metadata'] = {}
+        return dataset
+    
+
     def list_datasets(self, sample_id: Optional[str] = None, limit: int = 100, **kwargs) -> List[Dict]:
         """List datasets with optional filtering.
 
@@ -162,29 +169,8 @@ class CrucibleClient:
             result = self._request('get', f'/samples/{sample_id}/datasets', params=params)
         else:
             result = self._request('get', '/datasets', params=params)
-        print(len(result))
-        # first_100 = result[0:min(len(result), limit)]
-        # print(len(first_100))
         return result
-    
-    def get_dataset(self, dsid: str, include_metadata: bool = False) -> Dict:
-        """Get dataset details, optionally including scientific metadata.
 
-        Args:
-            dsid (str): Dataset unique identifier
-            include_metadata (bool): Whether to include scientific metadata
-
-        Returns:
-            Dict: Dataset object with optional metadata
-        """
-        dataset = self._request('get', f'/datasets/{dsid}')
-        if dataset and include_metadata:
-            try:
-                metadata = self._request('get', f'/datasets/{dsid}/scientific_metadata')
-                dataset['scientific_metadata'] = metadata or {}
-            except requests.exceptions.RequestException:
-                dataset['scientific_metadata'] = {}
-        return dataset
 
     def update_dataset(self, dsid: str, **updates) -> Dict:
         """Update an existing dataset with new field values.
@@ -201,7 +187,8 @@ class CrucibleClient:
         """
         return self._request('patch', f'/datasets/{dsid}', json=updates)
 
-    def upload_dataset(self, dsid: str, file_path: str) -> Dict:
+
+    def upload_dataset_file(self, dsid: str, file_path: str, verbose=True) -> Dict:
         """Upload a file to a dataset.
 
         Args:
@@ -209,12 +196,43 @@ class CrucibleClient:
             file_path (str): Local path to file to upload
 
         Returns:
-            Dict: Upload response with ingestion request info
+            Dict: Upload response 
         """
-        with open(file_path, 'rb') as f:
-            files = [('files', (os.path.basename(file_path), f, 'application/octet-stream'))]
-            return self._request('post', f'/datasets/{dsid}/upload', files=files)
-    
+        if verbose:
+                    print(f"uploading file {file_path}...")
+
+        use_upload_endpoint = self.check_small_files(file_path)
+
+        if use_upload_endpoint: 
+            with open(file_path, 'rb') as f:
+                fname = os.path.basename(file_path)
+                files = [('files', (fname, f, 'application/octet-stream'))]
+                added_af = self._request('post', f'/datasets/{dsid}/upload', files=files)
+                return added_af[-1]
+        else:
+            try:
+                # use rclone to copy to bucket
+                if verbose:
+                    print(f"uploading file {file_path}...")
+                    print(f"rclone copy '{file_path}' mf-cloud-storage-upload:/crucible-uploads/api-uploads/")
+                xx = run_shell(f"rclone copy '{file_path}' mf-cloud-storage-upload:/crucible-uploads/api-uploads/")
+                if verbose:
+                    print(f"{xx.stdout=}")
+                    print(f"{xx.stderr=}")
+                    print(f"upload complete.")
+
+                # call add associated file
+                fname = os.path.basename(file_path)
+                af = {"filename": os.path.join("api-uploads", fname), 
+                     "size": os.path.getsize(file_path),
+                     "sha256_hash": checkhash(file_path)}
+                added_af = self._request('post', f"/datasets/{dsid}/associated_files", json=af)
+                return added_af[-1]
+
+            except:
+                raise Exception("Files too large for transfer by http")
+
+
     def download_dataset(self, dsid: str, file_name: Optional[str] = None, output_path: Optional[str] = None) -> None:
         """Download a dataset file.
 
@@ -226,7 +244,7 @@ class CrucibleClient:
         # If no file_name specified, get it from the dataset's file_to_upload field
         dataset = self.get_dataset(dsid)
         if file_name is None:
-            if 'file_to_upload' not in dataset or not dataset['file_to_upload']:
+            if dataset.get('file_to_upload') is None:
                 raise ValueError(f"No file_name specified and dataset {dsid} has no file_to_upload field")
 
             # Extract just the filename from the path
@@ -265,8 +283,7 @@ class CrucibleClient:
         return(f"download complete for file {download_path}")
 
         
-    
-    def request_ingestion(self, dsid: str, file_to_upload: str = None, ingestor: str = None) -> Dict:
+    def request_ingestion(self, dsid: str, file_to_upload: str = None, ingestion_class: str = None, wait_for_response: bool = False,) -> Dict:
         """Request dataset ingestion.
 
         Args:
@@ -277,34 +294,34 @@ class CrucibleClient:
         Returns:
             Dict: Ingestion request with id and status
         """
-        params = {"ingestion_class": ingestor, "file_to_upload": file_to_upload}
-        return self._request('post', f'/datasets/{dsid}/ingest', params=params)
+        params = {"ingestion_class": ingestion_class, "file_to_upload": file_to_upload}
+        req_info =  self._request('post', f'/datasets/{dsid}/ingest', params=params)
+        if wait_for_response:
+            req_info = self._wait_for_request_completion(dsid, req_info['id'], 'ingest')
+
+        return req_info
 
     
-    def get_ingestion_status(self, dsid: str, reqid: str) -> Dict:
-        """Get the status of an ingestion request.
+    def request_scicat_upload(self, dsid: str, wait_for_response: bool = False, overwrite_data: bool = False) -> Dict:
+        """Request SciCat update for a dataset.
 
         Args:
             dsid (str): Dataset ID
-            reqid (str): Request ID for the ingestion
+            wait_for_scicat_response (bool): Whether to wait for completion
+            overwrite_data (bool): Whether to overwrite existing SciCat records
 
         Returns:
-            Dict: Status, timestamps, and processing details
+            Dict: SciCat update request information
         """
-        return self._request('get', f'/datasets/{dsid}/ingest/{reqid}')
-    
-    def get_scicat_status(self, dsid: str, reqid: str) -> Dict:
-        """Get the status of a SciCat request.
+        params = {'overwrite_data': overwrite_data} if overwrite_data else None
+        scicat_req_info = self._request('post', f'/datasets/{dsid}/scicat_update', params=params)
 
-        Args:
-            dsid (str): Dataset ID
-            reqid (str): Request ID for the SciCat operation
+        if wait_for_response:
+            req_info = self._wait_for_request_completion(dsid, scicat_req_info['id'], 'scicat_update')
 
-        Returns:
-            Dict: SciCat sync status and timestamps
-        """
-        return self._request('get', f'/datasets/{dsid}/scicat_update/{reqid}')
+        return req_info
     
+
     def get_request_status(self, dsid: str, reqid: str, request_type: str) -> Dict:
         """Get the status of any type of request.
 
@@ -317,13 +334,14 @@ class CrucibleClient:
             Dict: Request status information
         """
         if request_type == 'ingest':
-            return self.get_ingestion_status(dsid, reqid)
+            return self._request('get', f'/datasets/{dsid}/ingest/{reqid}')
         elif request_type == 'scicat_update':
-            return self.get_scicat_status(dsid, reqid)
+            return self._request('get', f'/datasets/{dsid}/scicat_update/{reqid}')
         else:
             raise ValueError(f"Unsupported request_type: {request_type}")
     
-    def wait_for_request_completion(self, dsid: str, reqid: str, request_type: str,
+
+    def _wait_for_request_completion(self, dsid: str, reqid: str, request_type: str,
                                   sleep_interval: int = 5) -> Dict:
         """Wait for a request to complete by polling its status.
 
@@ -347,6 +365,7 @@ class CrucibleClient:
         print(f"Request completed with status: {req_info['status']}")
         return req_info
     
+
     def get_dataset_access_groups(self, dsid: str) -> List[str]:
         """Get access groups for a dataset.
 
@@ -362,43 +381,7 @@ class CrucibleClient:
         return [group['group_name'] for group in groups]
         
     
-    def list_keywords(self, limit: int = 100) -> List[Dict]:
-        """List all keywords in the database.
 
-        Args:
-            limit (int): Maximum number of results to return (default: 100)
-
-        Returns:
-            List[Dict]: Keyword objects with keyword text and num_datasets counts
-        """
-        result = self._request('get', '/keywords')
-        return result[:limit] if result else result
-
-    def get_dataset_keywords(self, dsid: str, limit: int = 100) -> List[Dict]:
-        """Get keywords associated with a dataset.
-
-        Args:
-            dsid (str): Dataset ID
-            limit (int): Maximum number of results to return (default: 100)
-
-        Returns:
-            List[Dict]: Keyword objects with keyword text and usage counts
-        """
-        result = self._request('get', f'/datasets/{dsid}/keywords')
-        return result[:limit] if result else result
-
-    def add_dataset_keyword(self, dsid: str, keyword: str) -> Dict:
-        """Add a keyword to a dataset.
-
-        Args:
-            dsid (str): Dataset ID
-            keyword (str): Keyword/tag to associate with dataset
-
-        Returns:
-            Dict: Keyword object with updated usage count
-        """
-        return self._request('post', f'/datasets/{dsid}/keywords', params={'keyword': keyword})
-    
     def get_scientific_metadata(self, dsid: str) -> Dict:
         """Get scientific metadata for a dataset.
 
@@ -409,6 +392,7 @@ class CrucibleClient:
             Dict: Scientific metadata containing experimental parameters and settings
         """
         return self._request('get', f'/datasets/{dsid}/scientific_metadata')
+
 
     def update_scientific_metadata(self, dsid: str, metadata: Dict, overwrite = False) -> Dict:
         """Create or replace scientific metadata for a dataset.
@@ -425,6 +409,7 @@ class CrucibleClient:
         else: 
             return self._request('patch', f'/datasets/{dsid}/scientific_metadata', json=metadata)
 
+
     def get_thumbnails(self, dsid: str, limit: int = 100) -> List[Dict]:
         """Get thumbnails for a dataset.
         Args:
@@ -434,8 +419,8 @@ class CrucibleClient:
         Returns:
             List[Dict]: Thumbnail objects with base64-encoded images
         """
-        result = self._request('get', f'/datasets/{dsid}/thumbnails')
-        return result[:limit] if result else result
+        return self._request('get', f'/datasets/{dsid}/thumbnails')
+
 
     def add_thumbnail(self, dsid: str, file_path: str, thumbnail_name: str = None) -> Dict:
         """Add a thumbnail to a dataset.
@@ -465,6 +450,7 @@ class CrucibleClient:
         }
         return self._request('post', f'/datasets/{dsid}/thumbnails', json=thumbnail_data)
     
+
     def get_associated_files(self, dsid: str, limit: int = 100) -> List[Dict]:
         """Get associated files for a dataset.
 
@@ -475,8 +461,8 @@ class CrucibleClient:
         Returns:
             List[Dict]: File metadata with names, sizes, and hashes
         """
-        result = self._request('get', f'/datasets/{dsid}/associated_files')
-        return result[:limit] if result else result
+        return self._request('get', f'/datasets/{dsid}/associated_files')
+
 
     def add_associated_file(self, dsid: str, file_path: str, filename: str = None) -> Dict:
         """Add an associated file to a dataset.
@@ -504,35 +490,34 @@ class CrucibleClient:
         }
         return self._request('post', f'/datasets/{dsid}/associated_files', json=associated_file_data)
     
-    def request_google_drive_transfer(self, dsid: str) -> Dict:
-        """Request transfer of dataset to Google Drive.
+
+    def list_keywords(self, dsid: str = None, limit: int = 100) -> List[Dict]:
+        """List keywords, option to filter on keywords associated with a given dataset.
+
+        Args:
+            limit (int): Maximum number of results to return (default: 100)
+
+        Returns:
+            List[Dict]: Keyword objects with keyword text and num_datasets counts
+        """
+        if dsid is None:
+            return self._request('get', '/keywords')
+        else:
+            return self._request('get', f'/datasets/{dsid}/keywords')
+
+
+    def add_dataset_keyword(self, dsid: str, keyword: str) -> Dict:
+        """Add a keyword to a dataset.
 
         Args:
             dsid (str): Dataset ID
+            keyword (str): Keyword/tag to associate with dataset
 
         Returns:
-            Dict: Transfer request with id and status
+            Dict: Keyword object with updated usage count
         """
-        return self._request('post', f'/datasets/{dsid}/google_drive_transfer')
-    
-    def send_to_scicat(self, dsid: str, wait_for_scicat_response: bool = False, overwrite_data: bool = False) -> Dict:
-        """Request SciCat update for a dataset.
+        return self._request('post', f'/datasets/{dsid}/keywords', params={'keyword': keyword})
 
-        Args:
-            dsid (str): Dataset ID
-            wait_for_scicat_response (bool): Whether to wait for completion
-            overwrite_data (bool): Whether to overwrite existing SciCat records
-
-        Returns:
-            Dict: SciCat update request information
-        """
-        params = {'overwrite_data': overwrite_data} if overwrite_data else None
-        scicat_req_info = self._request('post', f'/datasets/{dsid}/scicat_update', params=params)
-
-        if wait_for_scicat_response:
-            scicat_req_info = self.wait_for_request_completion(dsid, scicat_req_info['id'], 'scicat_update')
-
-        return scicat_req_info
 
     def delete_dataset(self, dsid: str) -> Dict:
         """Delete a dataset (not implemented in API).
@@ -545,7 +530,8 @@ class CrucibleClient:
         """
         return self._request('delete', f'/datasets/{dsid}')
 
-    def get_google_drive_info(self, dsid: str) -> List[Dict]:
+
+    def get_google_drive_location(self, dsid: str) -> List[Dict]:
         """Get current Google Drive location information for a dataset.
 
         Args:
@@ -556,21 +542,8 @@ class CrucibleClient:
         """
         return self._request('get', f'/datasets/{dsid}/drive_location')
 
-    def get_organized_google_drive_info(self, dsid: str, limit: int = 100) -> List[Dict]:
-        """Get organized Google Drive folder information for a dataset.
 
-        Args:
-            dsid (str): Dataset ID
-            limit (int): Maximum number of results to return (default: 100)
-
-        Returns:
-            List[Dict]: Organized Google Drive folder information
-        """
-        drive_info = self.get_google_drive_info(dsid)
-        org_google_drive_info = [x for x in drive_info if 'Organized' in x['folder_path_in_drive']]
-        return org_google_drive_info[:limit]
-
-    def add_drive_location_for_dataset(self, dsid: str, drive_info: Dict) -> None:
+    def add_google_drive_location(self, dsid: str, drive_info: Dict) -> None:
         """Add drive location information for a dataset (not implemented).
 
         Args:
@@ -608,6 +581,7 @@ class CrucibleClient:
         response = requests.request("patch", url, json=patch_json, headers=self.headers)
         return response
 
+
     def update_scicat_upload_status(self, dsid: str, reqid: str, status: str, timezone: str = "America/Los_Angeles"):
         """Update the status of a SciCat upload request.
 
@@ -634,6 +608,7 @@ class CrucibleClient:
         url = f"{self.api_url}/datasets/{dsid}/scicat_update/{reqid}"
         response = requests.request("patch", url, json=patch_json, headers=self.headers)
         return response
+
 
     def update_transfer_status(self, dsid: str, reqid: str, status: str, timezone: str = "America/Los_Angeles"):
         """Update the status of a dataset transfer request.
@@ -673,7 +648,8 @@ class CrucibleClient:
             List[Dict]: Instrument objects with specifications and metadata
         """
         result = self._request('get', '/instruments')
-        return result[:limit] if result else result
+        return result
+
 
     def get_instrument(self, instrument_name: str = None, instrument_id: str = None) -> Dict:
         """Get instrument information by name or ID.
@@ -743,6 +719,7 @@ class CrucibleClient:
         response = self._request('get', f"/samples/{sample_id}")
         return response
 
+
     def list_samples(self, dataset_id: str = None, parent_id: str = None, limit: int = 100, **kwargs) -> List[Dict]:
         """List samples with optional filtering.
 
@@ -762,8 +739,9 @@ class CrucibleClient:
             result = self._request('get', f"/samples/{parent_id}/children", params=params)
         else:
             result = self._request('get', f"/samples", params=params)
-        return result[:limit] if result else result
+        return result
         
+
     def link_samples(self, parent_id: str, child_id: str):
         """Link two samples with a parent-child relationship.
 
@@ -804,12 +782,10 @@ class CrucibleClient:
                           "project_id": project_id,
                           "date_created": creation_date
                         }
-        print(sample_info)
         if unique_id is None and sample_name is None:
             raise Exception('Please provide either a unique ID or a sample name for your sample')
             
         new_samp = self._request('post', "/samples", json=sample_info)
-        print(f"{new_samp=}")
 
         for p in parents:
             parent_id = p['unique_id']
@@ -822,35 +798,7 @@ class CrucibleClient:
             self._request('post', f"/samples/{parent_id}/children/{child_id}")
 
         return new_samp
-
     
-    # def add_sample_metadata(self, sample_id: str, sample_type: str, **kwargs) -> Dict:
-    #     """Upload metadata to table and link to provided sample.
-
-    #     Args:
-    #         sample_id (str): Sample's unique identifier
-    #         sample_type (str): Type of sample metadata (e.g., 'spinbot_batch')
-    #         **kwargs: Metadata fields
-
-    #     Returns:
-    #         Dict: Created metadata object
-    #     """
-    #     response = self._request('post', f"/samples/{sample_id}/metadata/{sample_type}", json = kwargs)
-    #     return response
-
-    # def get_sample_metadata(self, sample_id: str, sample_type: str) -> Dict:
-    #     """Get metadata for a sample by type.
-
-    #     Args:
-    #         sample_id (str): Sample's unique identifier
-    #         sample_type (str): Type of sample metadata
-
-    #     Returns:
-    #         Dict: Sample metadata object
-    #     """
-    #     response = self._request('get', f"/samples/{sample_id}/metadata/{sample_type}")
-    #     return response
-
     
     def add_sample_to_dataset(self, dataset_id: str, sample_id: str) -> Dict:
         """Link a sample to a dataset.
@@ -914,12 +862,23 @@ class CrucibleClient:
         else:
             raise ValueError(f"User info for {orcid} not found in database or using the get_user_info_func")
     
+
     def _build_project_from_args(project_id, organization, project_lead_email):
         return({"project_id": project_id,
                 "organization": organization,
                 "project_lead_email": project_lead_email})
     
-    def get_or_add_crucible_project(self, project_id, get_project_info_function = _build_project_from_args, **kwargs):
+
+    def check_small_files(filelist):
+        for f in filelist:
+            if os.path.getsize(f) < 1e8:
+                continue
+            else:
+                return False
+        return True
+
+
+    def get_or_add_project(self, project_id, get_project_info_function = _build_project_from_args, **kwargs):
         """Get an existing project or create a new one if it doesn't exist.
         
         Args:
@@ -946,75 +905,51 @@ class CrucibleClient:
             return proj
         else:
             raise ValueError(f"Project info for {project_id} not found in database or using the provided get_project_info_func")
+        
 
-    get_or_add_project = get_or_add_crucible_project
-    add_project = get_or_add_project
-
-    def _create_dataset_with_metadata(self, 
-                                     dataset_name: Optional[str] = None,
-                                     unique_id: Optional[str] = None, 
-                                     public: bool = False,
-                                     owner_orcid: Optional[str] = None,
-                                     owner_user_id: Optional[int] = None,
-                                     project_id: Optional[str] = None,
-                                     instrument_name: Optional[str] = None,
-                                     instrument_id: Optional[int] = None,
-                                     measurement: Optional[str] = None, 
-                                     session_name: Optional[str] = None,
-                                     creation_time: Optional[str] = None,
-                                     data_format: Optional[str] = None, 
-                                     scientific_metadata: Optional[dict] = None,
-                                     keywords: List[str] = None,
-                                     get_user_info_function = None,
-                                     verbose = False,
-                                     **extra_fields) -> Dict:
+    def create_new_dataset(self,
+                            dataset: BaseDataset, 
+                            scientific_metadata: Optional[dict] = {}, 
+                            keywords: List[str] = [],
+                            get_user_info_function = None,
+                            verbose = False) -> Dict:
+        
         """Shared helper method to create a dataset with metadata."""
-        if keywords is None:
-            keywords = []
-            
+        
+        dataset_details = dict(**dataset.model_dump())
+
+        # add creation time
+        if dataset_details.get('creation_time') is None:
+            dataset_details['creation_time'] = get_tz_isoformat()
+
         # get owner_id if orcid provided
-        if owner_orcid is not None and get_user_info_function is not None:
+        owner_orcid = dataset_details.get('owner_orcid')
+        if owner_orcid and get_user_info_function:
             owner = self.get_or_add_user(owner_orcid, get_user_info_function)
-            owner_user_id = owner['id']
+            dataset_details['owner_user_id'] = owner['id']
         
         # get or add project
-        if project_id is not None:
+        project_id = dataset_details.get('project_id')
+        if project_id:
             project = self.get_project(project_id)
-        
-            if project is None:
+            if not project:
                 raise ValueError(f"Project with ID '{project_id}' does not exist in the database.")
             else:
                 project_id = project['project_id']
 
         # get instrument_id if instrument_name provided
-        if instrument_name is not None:
+        instrument_name = dataset_details.get('instrument_name')
+        if instrument_name:
             instrument = self.get_instrument(instrument_name)
-            if instrument is not None:
-                instrument_id = instrument['id']
+            if instrument:
+                dataset_details['instrument_id'] = instrument['id']
             else:
                 raise ValueError(f'Provided instrument does not exist: {instrument_name}')
-            
-        # create the dataset with available metadata
-        dataset = {"unique_id": unique_id,
-                   "dataset_name": dataset_name,
-                   "public": public,
-                   "owner_user_id": owner_user_id,
-                   "owner_orcid": owner_orcid,
-                   "project_id": project_id,
-                   "instrument_id": instrument_id,
-                   "instrument_name": instrument_name,
-                   "measurement": measurement, 
-                   "session_name": session_name,
-                   "creation_time": creation_time,
-                   "data_format": data_format}
-        
-        # Add any extra fields
-        dataset.update(extra_fields)
-        
-        clean_dataset = {k: v for k, v in dataset.items() if v is not None}
+
         if verbose:
             print('creating new dataset record...')
-        new_ds_record = self._request('post', '/datasets', json=clean_dataset)
+
+        new_ds_record = self._request('post', '/datasets', json = dataset_details)
         dsid = new_ds_record['unique_id']
         
         # add scientific metadata
@@ -1026,134 +961,34 @@ class CrucibleClient:
             if verbose:
                 print('metadata addition complete')
                 print(f'adding keywords to dataset {dsid}: {keywords}')
+
         # add keywords
         for kw in keywords:
             self.add_dataset_keyword(dsid, kw)
 
+        print(f"{dsid=}")
         return {"created_record": new_ds_record, "scientific_metadata_record": scimd, "dsid": dsid}
 
-    def build_new_dataset_from_json(self,
-                                dataset_name: Optional[str] = None,
-                                unique_id: Optional[str] = None,
-                                public: bool = False,
-                                owner_orcid: Optional[str] = None,
-                                owner_user_id: Optional[int] = None,
-                                project_id: Optional[str] = None,
-                                instrument_name: Optional[str] = None,
-                                instrument_id: Optional[int] = None,
-                                measurement: Optional[str] = None,
-                                session_name: Optional[str] = None,
-                                creation_time: Optional[str] = None,
-                                data_format: Optional[str] = None,
-                                scientific_metadata: Optional[dict] = None,
-                                keywords: List[str] = None,
-                                get_user_info_function = None,
-                                verbose: bool = False,
-                                **kwargs):
-        """Build a new dataset from JSON metadata without file upload.
-        
-        Args:
-            dataset_name (str, optional): Name of the dataset
-            unique_id (str, optional): Unique identifier for the dataset. Must be an mfid generated uuid.  The mfid package can be installed with pip.  If not included, an mfid will be generated automatically.
-            public (bool): Whether the dataset is public (default: False)
-            owner_orcid (str, optional): ORCID of the dataset owner
-            owner_user_id (int, optional): User ID of the dataset owner
-            project_id (str, optional): ID of the project this dataset belongs to
-            instrument_name (str, optional): Name of the instrument used || To see current instrument names use list_instruments || To add a new instrument use get_or_add_instrument
-            instrument_id (int, optional): ID of the instrument used || To see current instrument ids use list_instruments || To add a new instrument use get_or_add_instrument
-            measurement (str, optional): Type of measurement
-            session_name (str, optional): Name of the measurement session
-            creation_time (str, optional): Time of dataset creation in isoformat. 
-            data_format (str, optional): Format of the dataset (eg. h5, png, dm4, emd)
-            scientific_metadata (dict, optional): Additional scientific metadata (accepts nested fields).
-            keywords (list, optional): List of keywords to associate with the dataset
-            get_user_info_function (callable, optional): Function to get user info if needed. This function should accept an orcid (str) and return a dictionary with keys: 'first_name', 'last_name', 'orcid', 'email' (optional), 'lbl_email' (optional), 'projects' (optional list of project IDs).
-            **kwargs: Additional arguments
-            
-        Returns:
-            dict: Dictionary containing created_record and scientific_metadata_record
-            
-        Raises:
-            ValueError: If project_id is provided but the project does not exist in the database
-        """
-        # Validate project exists before making any database changes
-        if project_id is not None:
-            project = self.get_project(project_id)
-            if project is None:
-                raise ValueError(f"Project with ID '{project_id}' does not exist in the database.")
-
-        if creation_time is None:
-            creation_time = get_tz_isoformat()
-
-        result = self._create_dataset_with_metadata(
-            dataset_name=dataset_name,
-            unique_id=unique_id,
-            public=public,
-            owner_orcid=owner_orcid,
-            owner_user_id=owner_user_id,
-            project_id=project_id,
-            instrument_name=instrument_name,
-            instrument_id=instrument_id,
-            measurement=measurement,
-            session_name=session_name,
-            creation_time=creation_time,
-            data_format=data_format,
-            scientific_metadata=scientific_metadata,
-            keywords=keywords,
-            get_user_info_function=get_user_info_function,
-            verbose = verbose
-        )
-        
-        
-        print(f"dsid={result['dsid']}")
-        return {"created_record": result["created_record"],
-                "scientific_metadata_record": result["scientific_metadata_record"]}
-
     
-    def build_new_dataset_from_file(self,
-                                files_to_upload: List[str], 
-                                dataset_name: Optional[str] = None,
-                                unique_id: Optional[str] = None, 
-                                public: bool = False,
-                                owner_orcid: Optional[str] = None,
-                                owner_user_id: Optional[int] = None,
-                                project_id: Optional[str] = None,
-                                instrument_name: Optional[str] = None,
-                                instrument_id: Optional[int] = None,
-                                measurement: Optional[str] = None, 
-                                session_name: Optional[str] = None,
-                                creation_time: Optional[str] = None,
-                                data_format: Optional[str] = None, 
-                                source_folder: Optional[str] = None,
-                                scientific_metadata: Optional[dict] = None,
-                                keywords: List[str] = None, 
-                                get_user_info_function = None, 
-                                ingestor = None,
-                                verbose = False,
-                                wait_for_ingestion_response = True,
-                                **kwargs):
+    def create_new_dataset_from_files(self, 
+                                     dataset: BaseDataset, 
+                                     files_to_upload: List[str], 
+                                     scientific_metadata: Optional[dict] = None,
+                                     keywords: List[str] = None, 
+                                     get_user_info_function = None, 
+                                     ingestor = None,
+                                     verbose = False,
+                                     wait_for_ingestion_response = True
+                                     ):
         
         """Build a new dataset with file upload and ingestion.
         Args:
             files_to_upload (List[str]): List of file paths to upload
-            dataset_name (str, optional): Name of the dataset
-            unique_id (str, optional): Unique identifier for the dataset. Must be an mfid generated uuid. If the instrument control software (eg. ScopeFoundry) you are using has already tagged this data with a unique identifier, that value should be provided here. The mfid package can be installed with pip.  If not included, an mfid will be generated automatically.
-            public (bool): Whether the dataset is public (default: False)
-            owner_orcid (str, optional): ORCID of the dataset owner
-            owner_user_id (int, optional): User ID of the dataset owner
-            project_id (str, optional): ID of the project this dataset belongs to
-            instrument_name (str, optional):  Name of the instrument used || To see current instrument names use list_instruments || To add a new instrument use get_or_add_instrument
-            instrument_id (int, optional): ID of the instrument used || To see current instrument ids use list_instruments || To add a new instrument use get_or_add_instrument
-            measurement (str, optional): Type of measurement
-            session_name (str, optional): Name of the measurement session
-            creation_time (str, optional): Time of dataset creation in isoformat.
-            data_format (str, optional): Format of the dataset (eg. h5, png, dm4, emd)
-            source_folder (str, optional): Source folder path
+            dataset (BaseDataset): basic details about the data being uploaded
             scientific_metadata (dict, optional): Additional scientific metadata (accepts nested fields)
             keywords (list, optional): List of keywords to associate with the dataset
             get_user_info_function (callable, optional): Function to get user info if needed. This function should accept an orcid (str) and return a dictionary with keys: 'first_name', 'last_name', 'orcid', 'email' (optional), 'lbl_email' (optional), 'projects' (optional list of project IDs).
             ingestor (str, optional): Ingestion class to use. The current list of available ingestors is below:
-            **kwargs: Additional arguments
 
             Available Ingestors:
                 AFMIngestor,
@@ -1190,165 +1025,46 @@ class CrucibleClient:
         Raises:
             ValueError: If project_id is provided but the project does not exist in the database
         """
-        # Validate project exists before making any database changes
-        if project_id is not None:
-            project = self.get_project(project_id)
-            if project is None:
-                raise ValueError(f"Project with ID '{project_id}' does not exist in the database.")
+        # figure out the file path
+        dataset_details = dict(**dataset.model_dump())
         
-        # Create dataset using shared helper with file-specific fields
-        main_file = files_to_upload[0]
-
-        if main_file.startswith('/'):
-            main_file_bucket_subpath = main_file[1:]
-        elif main_file.startswith('./'):
-            main_file_bucket_subpath = main_file.replace('./', '')
-        else:
-            main_file_bucket_subpath = main_file
-
-        extra_fields = {
-            "file_to_upload": os.path.join("api-uploads", main_file_bucket_subpath),
-            "source_folder": source_folder
-        }
+        main_file = dataset_details.get('file_to_upload') 
+        if not main_file:
+            main_file = files_to_upload[0]
         
-        result = self._create_dataset_with_metadata(
-            dataset_name=dataset_name,
-            unique_id=unique_id,
-            public=public,
-            owner_orcid=owner_orcid,
-            owner_user_id=owner_user_id,
-            project_id=project_id,
-            instrument_name=instrument_name,
-            instrument_id=instrument_id,
-            measurement=measurement,
-            session_name=session_name,
-            creation_time=creation_time,
-            data_format=data_format,
-            scientific_metadata=scientific_metadata,
-            keywords=keywords,
-            get_user_info_function=get_user_info_function,
-            **extra_fields
-        )
+        base_file_name = os.path.basename(main_file)
+        main_file_cloud = os.path.join('api-uploads', base_file_name)
+        dataset_details['file_to_upload'] = main_file_cloud
+
+        # create the dataset record / user / scimd / instrument / project
+        cleaned_dataset = BaseDataset(**dataset_details)
+        result = self.create_new_dataset(cleaned_dataset, 
+                                         scientific_metadata=scientific_metadata,
+                                         keywords=keywords,
+                                         get_user_info_function=get_user_info_function
+                                        )
         
         new_ds_record = result["created_record"]
         scimd = result["scientific_metadata_record"]
         dsid = result["dsid"]
-        print(f"created dataset record with {dsid=}")
             
-        # Send the file as bytes if small enough
-        use_upload_endpoint = True
-        for f in files_to_upload:
-            if os.path.getsize(f) < 1e8:
-                continue
-            else:
-                use_upload_endpoint = False
-                break
-                
-        if use_upload_endpoint:
-            for f in files_to_upload:
-                if verbose:
-                    print(f"uploading file {f}...")
-                file_payload = [self.create_file_payload(f) for f in files_to_upload]
-                upload_req = self._request('post', f"/datasets/{dsid}/upload", files=file_payload)
-                if verbose:
-                    print(f"upload complete.")
-                
-            associated_files = files_to_upload.copy()
-            associated_files.pop(0)
-            if verbose: 
-                print("adding associated files to dataset record")
-            for afp in associated_files:
-                af = {"filename": os.path.join("api-uploads", afp), 
-                     "size": os.path.getsize(afp),
-                     "sha256_hash": checkhash(afp)}
-                response = self._request('post', f"/datasets/{dsid}/associated_files", json=af)
-                if verbose:
-                    print(f"added {afp}")
+        # Upload the files and add to dataset -- returns list of associated file objs (filename, size, sha)
+        uploaded_files = [self.upload_dataset_file(dsid, each_file, verbose) for each_file in files_to_upload]
 
-            main_file_path = os.path.join("api-uploads", main_file_bucket_subpath)
-        else:
-            try:
-                for f in files_to_upload:
-                    if verbose:
-                        print(f"uploading file {f}...")
-                        print(f"rclone copy '{f}' mf-cloud-storage-upload:/crucible-uploads/large-files/")
-                    xx = run_shell(f"rclone copy '{f}' mf-cloud-storage-upload:/crucible-uploads/large-files/")
-                    if verbose:
-                        print(f"{xx.stdout=}")
-                        print(f"{xx.stderr=}")
-                        print(f"upload complete.")
-            except:
-                raise Exception("Files too large for transfer by http")
-                
-            associated_files = files_to_upload.copy()
-            associated_files.pop(0)
-            if verbose:
-                print("adding associated files to dataset record")
-            for afp in associated_files:
-                af = {"filename": os.path.join("large-files", afp), 
-                     "size": os.path.getsize(afp),
-                     "sha256_hash": checkhash(afp)}
-                
-                self._request('post', f"/datasets/{dsid}/associated_files", json=af)
-                if verbose:
-                    print(f"added {afp}")
-                
-            main_file_path = os.path.join("large-files/", main_file_bucket_subpath)
         if verbose:
-            print(f"submitting {dsid} to be ingested from file {main_file_path} using the class {ingestor}")
+            print(f"submitting {dsid} to be ingested from file {main_file_cloud} using the class {ingestor}")
         
-        ingest_req_info = self.ingest_dataset(dsid, main_file_path, ingestor)
-        print(f"ingestion request {ingest_req_info['id']} is added to the queue")
+        ingest_req_info = self.ingest_dataset(dsid, main_file_cloud, ingestor)
+
+        if verbose: 
+            print(f"ingestion request {ingest_req_info['id']} is added to the queue")
+
         if wait_for_ingestion_response:
-            ingest_req_info = self.wait_for_request_completion(dsid, ingest_req_info['id'], 'ingest')
+            ingest_req_info = self._wait_for_request_completion(dsid, ingest_req_info['id'], 'ingest')
 
         return {"created_record": new_ds_record,
                 "scientific_metadata_record": scimd,
-                "ingestion_request": ingest_req_info}
-
-    
-    def ingest_dataset(self, dsid: str, file_to_upload: str = None, ingestion_class: str = None) -> Dict:
-        """Request ingestion of a dataset file.
-
-        Args:
-            dsid (str): Dataset ID
-            file_to_upload (str, optional): Path to the file to ingest
-            ingestion_class (str, optional): Class to use for ingestion
-
-        Returns:
-            Dict: Ingestion request information
-        """
-        ingest_req = self._request('post',
-                                   f"/datasets/{dsid}/ingest",
-                                   params={"file_to_upload": file_to_upload, "ingestion_class": ingestion_class})
-        return(ingest_req)
-        
-
-
-    @staticmethod
-    def create_file_payload(file_to_upload: str) -> tuple:
-        """Create a file payload for upload.
-
-        Args:
-            file_to_upload (str): Path to the file to upload
-
-        Returns:
-            tuple: File payload tuple for requests
-        """
-        file_obj = ('files', (file_to_upload, open(file_to_upload, 'rb'), 'text/plain'))
-        return file_obj
-
-
-
-
-
-
-
-
-
-
-
-
-
+                "ingestion_request": ingest_req_info, 
+                "uploaded_files": uploaded_files}
 
 
