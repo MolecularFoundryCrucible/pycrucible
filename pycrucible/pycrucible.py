@@ -2,6 +2,7 @@ import os
 import time
 import requests
 import time
+import json
 from typing import Optional, List, Dict, Any
 from .models import BaseDataset
 from .utils import get_tz_isoformat, run_shell, checkhash
@@ -201,14 +202,14 @@ class CrucibleClient:
         if verbose:
                     print(f"uploading file {file_path}...")
 
-        use_upload_endpoint = self.check_small_files(file_path)
+        use_upload_endpoint = self.check_small_files([file_path])
 
         if use_upload_endpoint: 
             with open(file_path, 'rb') as f:
                 fname = os.path.basename(file_path)
                 files = [('files', (fname, f, 'application/octet-stream'))]
                 added_af = self._request('post', f'/datasets/{dsid}/upload', files=files)
-                return added_af[-1]
+                return added_af
         else:
             try:
                 # use rclone to copy to bucket
@@ -869,7 +870,7 @@ class CrucibleClient:
                 "project_lead_email": project_lead_email})
     
 
-    def check_small_files(filelist):
+    def check_small_files(self, filelist):
         for f in filelist:
             if os.path.getsize(f) < 1e8:
                 continue
@@ -917,7 +918,7 @@ class CrucibleClient:
         """Shared helper method to create a dataset with metadata."""
         
         dataset_details = dict(**dataset.model_dump())
-
+        
         # add creation time
         if dataset_details.get('creation_time') is None:
             dataset_details['creation_time'] = get_tz_isoformat()
@@ -948,8 +949,9 @@ class CrucibleClient:
 
         if verbose:
             print('creating new dataset record...')
-
-        new_ds_record = self._request('post', '/datasets', json = dataset_details)
+            
+        clean_dataset = {k: v for k, v in dataset_details.items() if v is not None}
+        new_ds_record = self._request('post', '/datasets', json = clean_dataset)
         dsid = new_ds_record['unique_id']
         
         # add scientific metadata

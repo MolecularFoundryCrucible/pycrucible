@@ -4,7 +4,7 @@ from typing import List, Optional
 class BaseDataset(BaseModel):
     unique_id: Optional[str] = None
     dataset_name: Optional[str] = None
-    public: Optional[str] = False
+    public: Optional[bool] = False
     owner_user_id: Optional[int] = None
     owner_orcid: Optional[str] = None
     project_id: Optional[str] = None

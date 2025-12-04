@@ -45,7 +45,6 @@ add_user
 _wait_for_request_completion
 create_file_payload
 _build_project_from_args
-_create_dataset_with_metadata
 
 # modified: 
 request_ingestion - modified to use ingestion_class and add option to wait for response
