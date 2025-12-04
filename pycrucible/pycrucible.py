@@ -1056,7 +1056,7 @@ class CrucibleClient:
         if verbose:
             print(f"submitting {dsid} to be ingested from file {main_file_cloud} using the class {ingestor}")
         
-        ingest_req_info = self.ingest_dataset(dsid, main_file_cloud, ingestor)
+        ingest_req_info = self.request_ingestion(dsid, main_file_cloud, ingestor)
 
         if verbose: 
             print(f"ingestion request {ingest_req_info['id']} is added to the queue")
