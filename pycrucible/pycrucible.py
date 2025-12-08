@@ -492,7 +492,7 @@ class CrucibleClient:
         return self._request('post', f'/datasets/{dsid}/associated_files', json=associated_file_data)
     
 
-    def list_keywords(self, dsid: str = None, limit: int = 100) -> List[Dict]:
+    def get_keywords(self, dsid: str = None, limit: int = 100) -> List[Dict]:
         """List keywords, option to filter on keywords associated with a given dataset.
 
         Args:
