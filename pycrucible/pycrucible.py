@@ -49,7 +49,7 @@ class CrucibleClient:
         except:
             return response
     
-    def get_project(self, project_id: str, orcid: str = None) -> Dict:
+    def get_project(self, project_id: str) -> Dict:
         """Get details of a specific project.
 
         Args:
@@ -59,7 +59,6 @@ class CrucibleClient:
             Dict: Complete project information
         """
         return self._request('get', f'/projects/{project_id}')
-    
 
     def list_projects(self, orcid: str = None, limit: int = 100) -> List[Dict]:
         """List all accessible projects.
@@ -836,6 +835,12 @@ class CrucibleClient:
         return new_user
 
 
+    def add_user_to_project(self, orcid, project_id):
+        updated_project_users = self._request('post', f'/projects/{project_id}/users/{orcid}')
+        
+        return updated_project_users
+        
+        
     def get_or_add_user(self, orcid, get_user_info_function, **kwargs):
         """Get an existing user or create a new one if they don't exist.
 
@@ -925,8 +930,10 @@ class CrucibleClient:
 
         # get owner_id if orcid provided
         owner_orcid = dataset_details.get('owner_orcid')
+        print(f"{owner_orcid=}")
         if owner_orcid and get_user_info_function:
             owner = self.get_or_add_user(owner_orcid, get_user_info_function)
+            print(f"{owner=}")
             dataset_details['owner_user_id'] = owner['id']
         
         # get or add project
