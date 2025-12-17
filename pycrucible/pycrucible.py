@@ -931,7 +931,7 @@ class CrucibleClient:
         # get owner_id if orcid provided
         owner_orcid = dataset_details.get('owner_orcid')
         print(f"{owner_orcid=}")
-        if owner_orcid and get_user_info_function:
+        if owner_orcid:
             owner = self.get_or_add_user(owner_orcid, get_user_info_function)
             print(f"{owner=}")
             dataset_details['owner_user_id'] = owner['id']
