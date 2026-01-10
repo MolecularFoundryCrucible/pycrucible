@@ -755,6 +755,33 @@ class CrucibleClient:
         return self._request('post', f"/samples/{parent_id}/children/{child_id}")
 
 
+    def update_sample(self, unique_id: str = None, sample_name: str = None, description: str = None,
+                   creation_date: str = None, owner_orcid: str = None, owner_id: int = None, project_id: str = None,
+                   parents: List[Dict] = [], children: List[Dict] = []):
+        
+        sample_info = {   "unique_id": unique_id,
+                          "sample_name": sample_name,
+                          "owner_orcid": owner_orcid,
+                          "owner_user_id": owner_id,
+                          "description": description,
+                          "project_id": project_id,
+                          "date_created": creation_date
+                        }
+         
+        upd_samp = self._request('patch', f"/samples/{unique_id}", json=sample_info)
+        for p in parents:
+            parent_id = p['unique_id']
+            child_id = upd_samp['unique_id']
+            self._request('post', f"/samples/{parent_id}/children/{child_id}")
+
+        for chd in children:
+            parent_id = upd_samp['unique_id']
+            child_id = chd['unique_id']
+            self._request('post', f"/samples/{parent_id}/children/{child_id}")
+
+        return upd_samp
+
+
     def add_sample(self, unique_id: str = None, sample_name: str = None, description: str = None,
                    creation_date: str = None, owner_orcid: str = None, owner_id: int = None, project_id: str = None,
                    parents: List[Dict] = [], children: List[Dict] = []) -> Dict:
@@ -958,7 +985,9 @@ class CrucibleClient:
             print('creating new dataset record...')
             
         clean_dataset = {k: v for k, v in dataset_details.items() if v is not None}
+        print(f'[pycrucible] post request to /datasets... with {clean_dataset}')
         new_ds_record = self._request('post', '/datasets', json = clean_dataset)
+        print(f'[pycrucible] request_complete')
         dsid = new_ds_record['unique_id']
         
         # add scientific metadata
