@@ -767,7 +767,9 @@ class CrucibleClient:
                           "project_id": project_id,
                           "date_created": creation_date
                         }
-         
+
+        sample_info = {k:v for k,v in sample_info.items() if v is not None}
+    
         upd_samp = self._request('patch', f"/samples/{unique_id}", json=sample_info)
         for p in parents:
             parent_id = p['unique_id']
