@@ -719,13 +719,44 @@ class CrucibleClient:
         response = self._request('get', f"/samples/{sample_id}")
         return response
 
+    def list_parents_of_sample(self, sample_id, limit = 100, **kwargs)-> List[Dict]:
+        params = {**kwargs}
+        """List the parents of a given sample with optional filtering.
+
+        Args:
+            sample_id (str, optional): The unique ID of the sample for which you want to find the parents 
+            limit (int): Maximum number of results to return (default: 100)
+            **kwargs: Query parameters for filtering samples
+
+        Returns:
+            List[Dict]: Parent samples
+        """
+        result = self._request('get', f"/samples/{sample_id}/parents", params=params)
+        return result
+    
+
+    def list_children_of_sample(self, sample_id, limit = 100, **kwargs)-> List[Dict]:
+        params = {**kwargs}
+        """List the children of a given sample with optional filtering.
+
+        Args:
+            sample_id (str, optional): The unique ID of the sample for which you want to find the children
+            limit (int): Maximum number of results to return (default: 100)
+            **kwargs: Query parameters for filtering samples
+
+        Returns:
+            List[Dict]: Children samples
+        """
+        result = self._request('get', f"/samples/{sample_id}/children", params=params)
+        return result
+    
 
     def list_samples(self, dataset_id: str = None, parent_id: str = None, limit: int = 100, **kwargs) -> List[Dict]:
         """List samples with optional filtering.
 
         Args:
             dataset_id (str, optional): Get samples from specific dataset
-            parent_id (str, optional): Get child samples from parent
+            parent_id (str, optional): Get child samples from parent (deprecated)
             limit (int): Maximum number of results to return (default: 100)
             **kwargs: Query parameters for filtering samples
 
@@ -736,6 +767,7 @@ class CrucibleClient:
         if dataset_id:
             result = self._request('get', f"/datasets/{dataset_id}/samples", params=params)
         elif parent_id:
+            print(f'WARNING: using parent_id with list_samples is deprecated. Please use list_children_sample instead.')
             result = self._request('get', f"/samples/{parent_id}/children", params=params)
         else:
             result = self._request('get', f"/samples", params=params)
