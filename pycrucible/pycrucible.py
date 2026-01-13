@@ -1153,7 +1153,7 @@ class CrucibleClient:
             print(f'from files_to_upload: {main_file=}')
         base_file_name = os.path.basename(main_file)
         print(f'{base_file_name=}')
-        main_file_cloud = os.path.join('api-uploads', base_file_name)
+        main_file_cloud = os.path.join(f'api-uploads/{base_file_name}')
         dataset_details['file_to_upload'] = main_file_cloud
         print(f'{main_file_cloud=}')
         # create the dataset record / user / scimd / instrument / project
