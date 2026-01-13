@@ -21,6 +21,8 @@ setup(
         "requests>=2.25.0",
         "pytz>=2021.1",
         "ipywidgets",
+        "pydantic",
+        "python-dotenv"
     ],
     extras_require={
         "dev": [
