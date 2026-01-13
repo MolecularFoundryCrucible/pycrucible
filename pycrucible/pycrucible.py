@@ -233,54 +233,62 @@ class CrucibleClient:
                 raise Exception("Files too large for transfer by http")
 
 
-    def download_dataset(self, dsid: str, file_name: Optional[str] = None, output_path: Optional[str] = None) -> None:
-        """Download a dataset file.
+    def get_dataset_download_links(self, dsid: str):
+        """Get the download links for file in a given dataset.
+        URLs will be valid for 1 hour and can be shared with other people.
+        While the URL is active, anyone with the URL will be able to access the file.
 
         Args:
             dsid (str): Dataset ID
-            file_name (str, optional): File to download (uses dataset's file_to_upload if not provided)
-            output_path (str, optional): Local save path (saves to crucible-downloads/ if not provided)
+
+        Returns:
+            Dict: Each item in the dictionary is a key, value pair 
+                  where the key is the filepath of a file in the dataset,
+                  and the value is the corresponding signed url. 
         """
-        # If no file_name specified, get it from the dataset's file_to_upload field
-        dataset = self.get_dataset(dsid)
-        if file_name is None:
-            if dataset.get('file_to_upload') is None:
-                raise ValueError(f"No file_name specified and dataset {dsid} has no file_to_upload field")
 
-            # Extract just the filename from the path
-            file_to_upload = dataset['file_to_upload']
-            file_name = os.path.basename(file_to_upload)
-            
-        # Set default output path if not provided
-        if output_path is None:
-            output_dir = 'crucible-downloads'
-            download_path = os.path.join(output_dir, file_name)
-        elif os.path.isdir(output_path):
-            output_dir = output_path
-            download_path = os.path.join(output_dir, file_name)
-        else:
-            output_dir = os.path.dirname(output_path)
-            download_path = output_path
+        result = self._request('get', f"/datasets/{dsid}/download_links")
+        return result
+
+
+    def download_dataset(self, dsid: str, file_name: Optional[str] = None, output_dir: Optional[str] = 'crucible-downloads', overwrite_existing = True) -> None:
+        """
+        Download a dataset file.
+
+        Args:
+            dsid (str): Dataset ID
+            file_name (str, optional): File to download (If not provided, downloads all files)
+            output_path (str, optional): Local save path (If not provided, files are saved to crucible-downloads/)
+        """
+        try:
+            os.makedirs(output_dir, exist_ok = True)
+        except:
+            raise Exception("Please specify a directory for the output_dir")
         
-        # make directory if it doesn't exist
-        os.makedirs(output_dir, exist_ok = True)
+        download_urls = self.get_dataset_download_links(dsid)
 
+        if file_name is None:
+            files = download_urls
+        else:
+            files = {k:v for k,v in download_urls.items() if file_name in k}
 
-        # Check if file already exists (caching)
-        if os.path.exists(download_path):
-            curr_hash = checkhash(download_path)
-            if curr_hash == dataset['sha256_hash_file_to_upload']:
-                print(f"File {download_path} already exists, skipping download")
-                return
+        downloads = []
+        for fname, signed_url in files.items():
+            download_path = os.path.join(output_dir, fname)
 
-        # request download
-        url = f"/datasets/{dsid}/download/{file_name}"
-        response = self._request('get', url, stream=True)
-        response.raise_for_status()
-        with open(download_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        return(f"download complete for file {download_path}")
+            if overwrite_existing is False and os.path.exists(download_path):
+                continue
+
+            response = requests.get(signed_url, stream=True)
+
+            with open(download_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+            downloads.append(download_path)
+
+        return(downloads)
+        
 
         
     def request_ingestion(self, dsid: str, file_to_upload: str = None, ingestion_class: str = None, wait_for_response: bool = False,) -> Dict:
