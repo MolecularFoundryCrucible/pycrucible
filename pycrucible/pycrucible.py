@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import requests
 import time
@@ -250,17 +251,39 @@ class CrucibleClient:
         result = self._request('get', f"/datasets/{dsid}/download_links")
         return result
 
+    # TODO - maybe better to have specific functions like load_photo load_h5 load_json etc?
+    # def load_dataset(self, dsid: str, file_name: str) -> None:
+    #     '''
+    #     Load a data file for a given dataset into memory. Similar to download dataset, but does not save to a file. 
+        
+    #     dsid str: Dataset Unique ID
+    #     file_name: File to load into memory
+    #     '''
+    #     # generate the signed urls
+    #     download_urls = self.get_dataset_download_links(dsid)
+    #     if file_name is None:
+    #         files = download_urls
+    #     else:
+    #         files = {k:v for k,v in download_urls.items() if file_name in k}
+
+    #     downloads = []
+    #     for _, signed_url in files.items():
+    #         response = requests.get(signed_url)
+
+    #     return response.content()
+
 
     def download_dataset(self, dsid: str, file_name: Optional[str] = None, output_dir: Optional[str] = 'crucible-downloads', overwrite_existing = True) -> None:
         """
         Download a dataset file.
 
         Args:
-            dsid (str): Dataset ID
+            dsid (str): Dataset Unique ID
             file_name (str, optional): File to download (If not provided, downloads all files)
             output_dir (str, optional): Directory to save files in (If not provided, files are saved to crucible-downloads/)
             overwrite_existing(bool): If the file already exists in the output directory, overwrite the File if set to True.
         """
+    
         # make sure the output directory is a directory not a file
         try:
             os.makedirs(output_dir, exist_ok = True)
@@ -274,7 +297,8 @@ class CrucibleClient:
         if file_name is None:
             files = download_urls
         else:
-            files = {k:v for k,v in download_urls.items() if file_name in k}
+            file_regex = fr"({file_name})"
+            files = {k:v for k,v in download_urls.items() if re.fullmatch(file_regex,k)}
 
         downloads = []
         for fname, signed_url in files.items():
