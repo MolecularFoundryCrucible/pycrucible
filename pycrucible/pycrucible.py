@@ -339,6 +339,7 @@ class CrucibleClient:
             Dict: Ingestion request with id and status
         """
         params = {"ingestion_class": ingestion_class, "file_to_upload": file_to_upload}
+        print(params)
         req_info =  self._request('post', f'/datasets/{dsid}/ingest', params=params)
         if wait_for_response:
             req_info = self._wait_for_request_completion(dsid, req_info['id'], 'ingest')
@@ -1144,14 +1145,17 @@ class CrucibleClient:
         # figure out the file path
         dataset_details = dict(**dataset.model_dump())
         
+        print(f'{files_to_upload=}')
         main_file = dataset_details.get('file_to_upload') 
+        print(f'from dataset_details: {main_file=}')
         if not main_file:
             main_file = files_to_upload[0]
-        
+            print(f'from files_to_upload: {main_file=}')
         base_file_name = os.path.basename(main_file)
+        print(f'{base_file_name=}')
         main_file_cloud = os.path.join('api-uploads', base_file_name)
         dataset_details['file_to_upload'] = main_file_cloud
-
+        print(f'{main_file_cloud=}')
         # create the dataset record / user / scimd / instrument / project
         cleaned_dataset = BaseDataset(**dataset_details)
         result = self.create_new_dataset(cleaned_dataset, 
