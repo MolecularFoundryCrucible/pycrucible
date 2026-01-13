@@ -261,14 +261,16 @@ class CrucibleClient:
             output_dir (str, optional): Directory to save files in (If not provided, files are saved to crucible-downloads/)
             overwrite_existing(bool): If the file already exists in the output directory, overwrite the File if set to True.
         """
-        
+        # make sure the output directory is a directory not a file
         try:
             os.makedirs(output_dir, exist_ok = True)
         except:
             raise Exception("Please specify a directory for the output_dir")
         
+        # generate the signed urls
         download_urls = self.get_dataset_download_links(dsid)
 
+        # subset the urls to the file specified or all files if not specified
         if file_name is None:
             files = download_urls
         else:
@@ -276,13 +278,21 @@ class CrucibleClient:
 
         downloads = []
         for fname, signed_url in files.items():
+            
+            # set the local download location
             download_path = os.path.join(output_dir, fname)
 
+            # check if the file exists and should be skipped
             if overwrite_existing is False and os.path.exists(download_path):
                 continue
 
+            # if there are subdirectories make them now
+            os.makedirs(os.path.dirname(download_path), exist_ok=True)
+
+            # get the content
             response = requests.get(signed_url, stream=True)
 
+            # write to file
             with open(download_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
