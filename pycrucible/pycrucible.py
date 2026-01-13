@@ -258,8 +258,10 @@ class CrucibleClient:
         Args:
             dsid (str): Dataset ID
             file_name (str, optional): File to download (If not provided, downloads all files)
-            output_path (str, optional): Local save path (If not provided, files are saved to crucible-downloads/)
+            output_dir (str, optional): Directory to save files in (If not provided, files are saved to crucible-downloads/)
+            overwrite_existing(bool): If the file already exists in the output directory, overwrite the File if set to True.
         """
+        
         try:
             os.makedirs(output_dir, exist_ok = True)
         except:
