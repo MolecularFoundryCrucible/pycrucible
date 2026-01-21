@@ -1187,4 +1187,30 @@ class CrucibleClient:
                 "ingestion_request": ingest_req_info, 
                 "uploaded_files": uploaded_files}
 
+    def link_datasets(self, parent_dataset_id: str, child_dataset_id: str) -> Dict:
+        """Link a derived dataset to a parent dataset.
 
+        Args:
+            parent_dataset_id (str): The unique ID for the parent dataset. 
+            child_dataset_id (str): The unique ID for the derived dataset. 
+
+        Returns:
+            Dict: Information about the created link
+        """
+        new_link = self._request('post', f"/datasets/{parent_dataset_id}/children/{child_dataset_id}")
+        return new_link
+    
+
+
+    def add_sample_to_dataset(self, dataset_id: str, sample_id: str) -> Dict:
+        """Link a sample to a dataset.
+
+        Args:
+            dataset_id (str): Dataset ID
+            sample_id (str): Sample ID
+
+        Returns:
+            Dict: Information about the created link
+        """
+        new_link = self._request('post', f"/datasets/{dataset_id}/samples/{sample_id}")
+        return new_link
