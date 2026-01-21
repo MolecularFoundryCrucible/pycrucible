@@ -1091,7 +1091,7 @@ class CrucibleClient:
                                      dataset: BaseDataset, 
                                      files_to_upload: List[str], 
                                      scientific_metadata: Optional[dict] = None,
-                                     keywords: List[str] = None, 
+                                     keywords: List[str] = [], 
                                      get_user_info_function = None, 
                                      ingestor = None,
                                      verbose = False,
