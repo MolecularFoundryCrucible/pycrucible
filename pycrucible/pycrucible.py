@@ -1200,17 +1200,33 @@ class CrucibleClient:
         new_link = self._request('post', f"/datasets/{parent_dataset_id}/children/{child_dataset_id}")
         return new_link
     
-
-
-    def add_sample_to_dataset(self, dataset_id: str, sample_id: str) -> Dict:
-        """Link a sample to a dataset.
+    def list_children_of_dataset(self, parent_dataset_id: str, limit = 100, **kwargs) -> List[Dict]:
+        params = {**kwargs}
+        """List the children of a given dataset with optional filtering.
 
         Args:
-            dataset_id (str): Dataset ID
-            sample_id (str): Sample ID
+            parent_dataset_id (str, optional): The unique ID of the datasets for which you want to find the children
+            limit (int): Maximum number of results to return (default: 100)
+            **kwargs: Query parameters for filtering datasets
 
         Returns:
-            Dict: Information about the created link
+            List[Dict]: Children datasets
         """
-        new_link = self._request('post', f"/datasets/{dataset_id}/samples/{sample_id}")
-        return new_link
+        params = {**kwargs}
+        result = self._request('get', f"/datasets/{parent_dataset_id}/children", params=params)
+        return result
+
+
+    def list_parents_of_dataset(self, child_dataset_id: str, limit = 100, **kwargs) -> List[Dict]:
+        """List the parents of a given dataset with optional filtering.
+
+        Args:
+            child_dataset_id (str, optional): The unique ID of the dataset for which you want to find the children
+            limit (int): Maximum number of results to return (default: 100)
+            **kwargs: Query parameters for filtering datasets
+        Returns:
+            List[Dict]: Parent datasets
+        """
+        params = {**kwargs}
+        result = self._request('get', f"/datasets/{child_dataset_id}/parents", params=params)
+        return result
