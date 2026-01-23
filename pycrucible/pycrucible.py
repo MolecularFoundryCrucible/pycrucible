@@ -142,7 +142,7 @@ class CrucibleClient:
         return dataset
     
 
-    def list_datasets(self, sample_id: Optional[str] = None, limit: int = 100, **kwargs) -> List[Dict]:
+    def list_datasets(self, sample_id: Optional[str] = None, include_metadata: bool = False, limit: int = 100, **kwargs) -> List[Dict]:
         """List datasets with optional filtering.
 
         Args:
@@ -166,6 +166,7 @@ class CrucibleClient:
         """
         params = {**kwargs}
         params['limit'] = limit
+        params['include_metadata'] = include_metadata
         if sample_id:
             result = self._request('get', f'/samples/{sample_id}/datasets', params=params)
         else:
