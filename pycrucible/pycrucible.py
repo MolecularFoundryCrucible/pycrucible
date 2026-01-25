@@ -166,7 +166,6 @@ class CrucibleClient:
         """
         params = {**kwargs}
         params['limit'] = limit
-        params['include_metadata'] = include_metadata
         if sample_id:
             result = self._request('get', f'/samples/{sample_id}/datasets', params=params)
         else:
@@ -1094,7 +1093,7 @@ class CrucibleClient:
                                      scientific_metadata: Optional[dict] = None,
                                      keywords: List[str] = [], 
                                      get_user_info_function = None, 
-                                     ingestor = None,
+                                     ingestor = 'ApiUploadIngestor',
                                      verbose = False,
                                      wait_for_ingestion_response = True
                                      ):
@@ -1106,7 +1105,9 @@ class CrucibleClient:
             scientific_metadata (dict, optional): Additional scientific metadata (accepts nested fields)
             keywords (list, optional): List of keywords to associate with the dataset
             get_user_info_function (callable, optional): Function to get user info if needed. This function should accept an orcid (str) and return a dictionary with keys: 'first_name', 'last_name', 'orcid', 'email' (optional), 'lbl_email' (optional), 'projects' (optional list of project IDs).
-            ingestor (str, optional): Ingestion class to use. The current list of available ingestors is below:
+            ingestor (str, optional): Ingestion class to use. defaults to api upload ingestor which will not perform any processing
+                                      but ensure that the json file and mf-storage-prod objects are created.
+            The current list of available ingestors is below:
 
             Available Ingestors:
                 AFMIngestor,
