@@ -166,6 +166,7 @@ class CrucibleClient:
         """
         params = {**kwargs}
         params['limit'] = limit
+        params['include_metadata'] = include_metadata
         if sample_id:
             result = self._request('get', f'/samples/{sample_id}/datasets', params=params)
         else:

@@ -1,4 +1,5 @@
 AVAILABLE_INGESTORS = [
+    'ApiUploadIngestor',
     'AFMIngestor',
     'TitanXSessionIngestor',
     'Team05SessionIngestor',
