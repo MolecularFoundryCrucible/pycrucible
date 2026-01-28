@@ -834,13 +834,14 @@ class CrucibleClient:
 
 
     def update_sample(self, unique_id: str = None, sample_name: str = None, description: str = None,
-                   creation_date: str = None, owner_orcid: str = None, owner_id: int = None, project_id: str = None,
+                   creation_date: str = None, owner_orcid: str = None, owner_id: int = None, project_id: str = None, sample_type: str = None,
                    parents: List[Dict] = [], children: List[Dict] = []):
         
         sample_info = {   "unique_id": unique_id,
                           "sample_name": sample_name,
                           "owner_orcid": owner_orcid,
                           "owner_user_id": owner_id,
+                          "sample_type": sample_type,
                           "description": description,
                           "project_id": project_id,
                           "date_created": creation_date
@@ -863,13 +864,14 @@ class CrucibleClient:
 
 
     def add_sample(self, unique_id: str = None, sample_name: str = None, description: str = None,
-                   creation_date: str = None, owner_orcid: str = None, owner_id: int = None, project_id: str = None,
+                   creation_date: str = None, owner_orcid: str = None, owner_id: int = None, project_id: str = None, sample_type: str = None,
                    parents: List[Dict] = [], children: List[Dict] = []) -> Dict:
         """Add a new sample with optional parent-child relationships.
 
         Args:
             unique_id (str, optional): Unique sample identifier
             sample_name (str, optional): Human-readable sample name
+            sample_type(str, optional): Category of sample (for filtering)
             description (str, optional): Sample description
             creation_date (str, optional): Sample creation date
             owner_orcid (str, optional): Owner's ORCID
@@ -883,6 +885,7 @@ class CrucibleClient:
         """
         sample_info = {   "unique_id": unique_id,
                           "sample_name": sample_name,
+                          "sample_type": sample_type,
                           "owner_orcid": owner_orcid,
                           "owner_user_id": owner_id,
                           "description": description,
