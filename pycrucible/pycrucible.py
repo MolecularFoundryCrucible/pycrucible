@@ -1236,3 +1236,11 @@ class CrucibleClient:
         params = {**kwargs}
         result = self._request('get', f"/datasets/{child_dataset_id}/parents", params=params)
         return result
+    
+
+    def request_carrier_segmentation(self, dataset_id):
+        '''
+        :param dataset_id: Description
+        '''
+        result = self._request('post', f"/datasets/{dataset_id}/carrier_segmentation")
+        return result
