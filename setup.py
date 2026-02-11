@@ -22,7 +22,8 @@ setup(
         "pytz>=2021.1",
         "ipywidgets",
         "pydantic",
-        "python-dotenv"
+        "python-dotenv",
+        "argcomplete>=2.0.0"
     ],
     extras_require={
         "dev": [
@@ -30,6 +31,11 @@ setup(
             "black>=21.0",
             "flake8>=3.8",
             "mypy>=0.812",
+        ],
+    },
+    entry_points={
+        'console_scripts': [
+            'crucible=pycrucible.cli:main',
         ],
     },
 )

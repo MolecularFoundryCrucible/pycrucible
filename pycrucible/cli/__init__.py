@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Crucible CLI - Unified command-line interface for Crucible operations.
+
+Available subcommands:
+    upload      Parse and upload datasets to Crucible
+    project     Manage Crucible projects (future)
+    dataset     Query and manage datasets (future)
+"""
+
+import argparse
+import sys
+
+try:
+    import argcomplete
+    ARGCOMPLETE_AVAILABLE = True
+except ImportError:
+    ARGCOMPLETE_AVAILABLE = False
+
+
+def main():
+    """Main entry point for the unified Crucible CLI."""
+    parser = argparse.ArgumentParser(
+        prog='crucible',
+        description='Crucible API command-line interface',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Available commands:
+    config      Manage pycrucible configuration
+    upload      Parse and upload datasets to Crucible
+    completion  Install shell autocomplete
+
+Examples:
+    crucible config init        # First-time setup
+    crucible config show        # View current settings
+    crucible upload -i input.lmp -t lammps -pid my-project -u
+    crucible completion bash    # Install bash autocomplete
+
+Future commands:
+    crucible project list
+    crucible dataset query --pid my-project
+"""
+    )
+
+    parser.add_argument(
+        '--version',
+        action='version',
+        version='%(prog)s 1.0.0'
+    )
+
+    # Subcommand parsers
+    subparsers = parser.add_subparsers(
+        title='commands',
+        dest='command',
+        help='Available commands'
+    )
+
+    # Import subcommands
+    from . import upload, completion, config as config_cmd
+
+    # Register subcommands
+    upload.register_subcommand(subparsers)
+    completion.register_subcommand(subparsers)
+    config_cmd.register_subcommand(subparsers)
+
+    # Enable shell completion if argcomplete is available
+    if ARGCOMPLETE_AVAILABLE:
+        argcomplete.autocomplete(parser)
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    # If no command specified, show help
+    if args.command is None:
+        parser.print_help()
+        sys.exit(1)
+
+    # Execute the command
+    # Each subcommand module should have added a 'func' attribute via set_defaults()
+    if hasattr(args, 'func'):
+        args.func(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
