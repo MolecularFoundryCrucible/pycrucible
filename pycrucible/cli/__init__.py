@@ -29,12 +29,14 @@ def main():
 Available commands:
     config      Manage pycrucible configuration
     upload      Parse and upload datasets to Crucible
+    open        Open a resource in Crucible Graph Explorer
     completion  Install shell autocomplete
 
 Examples:
     crucible config init        # First-time setup
     crucible config show        # View current settings
     crucible upload -i input.lmp -t lammps -pid my-project -u
+    crucible open <mfid> -pid my-project  # Open in browser
     crucible completion bash    # Install bash autocomplete
 
 Future commands:
@@ -57,12 +59,13 @@ Future commands:
     )
 
     # Import subcommands
-    from . import upload, completion, config as config_cmd
+    from . import upload, completion, config as config_cmd, open as open_cmd
 
     # Register subcommands
     upload.register_subcommand(subparsers)
     completion.register_subcommand(subparsers)
     config_cmd.register_subcommand(subparsers)
+    open_cmd.register_subcommand(subparsers)
 
     # Enable shell completion if argcomplete is available
     if ARGCOMPLETE_AVAILABLE:

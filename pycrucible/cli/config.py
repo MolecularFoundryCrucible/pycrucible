@@ -41,10 +41,11 @@ Examples:
     crucible config edit
 
 Configuration keys:
-    api_key     Crucible API authentication key (required)
-    api_url     Crucible API endpoint URL
-    cache_dir   Directory for caching downloaded data
-    orcid_id    Your ORCID identifier (optional)
+    api_key             Crucible API authentication key (required)
+    api_url             Crucible API endpoint URL
+    cache_dir           Directory for caching downloaded data
+    orcid_id            Your ORCID identifier (optional)
+    graph_explorer_url  Crucible Graph Explorer URL (optional)
 
 Priority order (highest to lowest):
     1. Environment variables (CRUCIBLE_API_KEY, CRUCIBLE_API_URL, etc.)
@@ -85,7 +86,7 @@ Priority order (highest to lowest):
     )
     get_parser.add_argument(
         'key',
-        choices=['api_key', 'api_url', 'cache_dir', 'orcid_id'],
+        choices=['api_key', 'api_url', 'cache_dir', 'orcid_id', 'graph_explorer_url'],
         help='Configuration key to retrieve'
     )
     get_parser.set_defaults(func=cmd_get)
@@ -97,7 +98,7 @@ Priority order (highest to lowest):
     )
     set_parser.add_argument(
         'key',
-        choices=['api_key', 'api_url', 'cache_dir', 'orcid_id'],
+        choices=['api_key', 'api_url', 'cache_dir', 'orcid_id', 'graph_explorer_url'],
         help='Configuration key to set'
     )
     set_parser.add_argument(
@@ -221,6 +222,10 @@ def cmd_show(args):
     else:
         print(f"  orcid_id    : <not set>")
 
+    # Graph Explorer URL
+    graph_explorer_url = config.graph_explorer_url
+    print(f"  graph_explorer_url : {graph_explorer_url}")
+
     # Show environment variable overrides
     print("\nEnvironment variable overrides:")
     env_overrides = {
@@ -228,6 +233,7 @@ def cmd_show(args):
         'CRUCIBLE_API_URL': os.environ.get('CRUCIBLE_API_URL'),
         'PYCRUCIBLE_CACHE_DIR': os.environ.get('PYCRUCIBLE_CACHE_DIR'),
         'ORCID_ID': os.environ.get('ORCID_ID'),
+        'CRUCIBLE_GRAPH_EXPLORER_URL': os.environ.get('CRUCIBLE_GRAPH_EXPLORER_URL'),
     }
     has_overrides = False
     for key, value in env_overrides.items():
@@ -256,6 +262,8 @@ def cmd_get(args):
             value = config.cache_dir
         elif key == 'orcid_id':
             value = config.orcid_id
+        elif key == 'graph_explorer_url':
+            value = config.graph_explorer_url
         else:
             print(f"Error: Unknown config key: {key}", file=sys.stderr)
             sys.exit(1)

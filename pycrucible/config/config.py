@@ -33,6 +33,7 @@ class Config:
         'api_url': {'env': 'CRUCIBLE_API_URL', 'ini': 'api_url'},
         'cache_dir': {'env': 'PYCRUCIBLE_CACHE_DIR', 'ini': 'cache_dir'},
         'orcid_id': {'env': 'ORCID_ID', 'ini': 'orcid_id'},
+        'graph_explorer_url': {'env': 'CRUCIBLE_GRAPH_EXPLORER_URL', 'ini': 'graph_explorer_url'},
     }
 
     def __init__(self):
@@ -137,6 +138,17 @@ class Config:
         return self._data.get('orcid_id')
 
     @property
+    def graph_explorer_url(self):
+        """
+        Get the Crucible Graph Explorer URL.
+
+        Returns:
+            str: The graph explorer URL
+        """
+        default_url = 'https://crucible-graph-explorer-776258882599.us-central1.run.app'
+        return self._data.get('graph_explorer_url', default_url)
+
+    @property
     def client(self):
         """
         Get a configured CrucibleClient instance.
@@ -234,6 +246,21 @@ def get_orcid_id():
         str or None: The ORCID ID if configured, None otherwise
     """
     return config.orcid_id
+
+
+def get_graph_explorer_url():
+    """
+    Get the Crucible Graph Explorer URL from configuration.
+
+    Priority order:
+    1. CRUCIBLE_GRAPH_EXPLORER_URL environment variable
+    2. graph_explorer_url from ~/.config/pycrucible/config.ini
+    3. Default: https://crucible-graph-explorer-776258882599.us-central1.run.app
+
+    Returns:
+        str: The graph explorer URL
+    """
+    return config.graph_explorer_url
 
 
 def get_client():

@@ -14,6 +14,7 @@ from .config import (
     get_client,
     create_config_file,
     get_config_file_path,
+    get_graph_explorer_url,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "get_client",
     "create_config_file",
     "get_config_file_path",
+    "get_graph_explorer_url",
 ]
