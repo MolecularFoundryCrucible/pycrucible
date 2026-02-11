@@ -23,7 +23,8 @@ setup(
         "ipywidgets",
         "pydantic",
         "python-dotenv",
-        "argcomplete>=2.0.0"
+        "argcomplete>=2.0.0",
+        "platformdirs>=2.5.0"
     ],
     extras_require={
         "dev": [
