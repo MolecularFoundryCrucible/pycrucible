@@ -212,11 +212,13 @@ class CrucibleClient:
                 return added_af
         else:
             try:
-                # use rclone to copy to bucket
+                # use rclone to copy to bucket (using list args for security)
+                rclone_cmd = ['rclone', 'copy', file_path,
+                             'mf-cloud-storage-upload:/crucible-uploads/api-uploads/']
                 if verbose:
                     print(f"uploading file {file_path}...")
-                    print(f"rclone copy '{file_path}' mf-cloud-storage-upload:/crucible-uploads/api-uploads/")
-                xx = run_shell(f"rclone copy '{file_path}' mf-cloud-storage-upload:/crucible-uploads/api-uploads/")
+                    print(f"Running: {' '.join(rclone_cmd)}")
+                xx = run_shell(rclone_cmd)
                 if verbose:
                     print(f"{xx.stdout=}")
                     print(f"{xx.stderr=}")
