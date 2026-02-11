@@ -909,7 +909,16 @@ class CrucibleClient:
 
         return new_samp
     
+    def remove_sample_from_dataset(self, dataset_id: str, sample_id: str) -> Dict:
+        '''
+        Remove a connection between a sample and a dataset
+        Requires admin permissions.
+        Currently only available in staging API
+        '''
+        del_link = self._request('delete', f"/datasets/{dataset_id}/samples/{sample_id}")
+        return del_link
     
+
     def add_sample_to_dataset(self, dataset_id: str, sample_id: str) -> Dict:
         """Link a sample to a dataset.
 
