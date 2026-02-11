@@ -933,7 +933,7 @@ class CrucibleClient:
         return new_link
 
     add_dataset_to_sample = add_sample_to_dataset
-    
+    remove_dataset_from_sample = remove_sample_from_dataset
     
     def add_user(self, user_info: Dict) -> Dict:
         """Add a new user to the system.
