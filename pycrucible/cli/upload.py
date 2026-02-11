@@ -44,8 +44,9 @@ Examples:
     # Parse and upload with auto-generated mfid
     crucible upload -i input.lmp -t lammps -pid my-project -u
 
-    # Upload with specific mfid
+    # Upload with specific mfid (all aliases work: --mfid, --uuid, --unique-id, --id)
     crucible upload -i input.lmp -t lammps -pid my-project -u --mfid abc123xyz
+    crucible upload -i input.lmp -t lammps -pid my-project -u --uuid abc123xyz
 
     # Upload with custom dataset name
     crucible upload -i input.lmp -t lammps -pid my-project -u -n "Water MD Simulation"
@@ -94,7 +95,7 @@ Examples:
 
     # Unique ID / mfid (with multiple aliases)
     parser.add_argument(
-        '--mfid', '-uuid', '--unique-id',
+        '--mfid', '--uuid', '--unique-id', '--id',
         dest='mfid',
         default=None,
         metavar='ID',
