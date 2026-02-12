@@ -117,7 +117,7 @@ Examples:
         dest='owner_orcid',
         default=None,
         metavar='ORCID',
-        help='Owner ORCID ID (optional)'
+        help='Owner ORCID ID (uses config if not specified)'
     )
 
     # Verbose output
@@ -199,11 +199,19 @@ def execute(args):
         else:
             print(f"Using provided mfid: {dataset_mfid}")
 
+        # Get ORCID - use flag if provided, otherwise fall back to config
+        from pycrucible.config import config
+        owner_orcid = args.owner_orcid
+        if owner_orcid is None:
+            owner_orcid = config.orcid_id
+            if owner_orcid and args.verbose:
+                print(f"Using ORCID from config: {owner_orcid}")
+
         try:
             result = parser.upload_dataset(
                 mfid=dataset_mfid,
                 project_id=args.project_id,
-                owner_orcid=args.owner_orcid,
+                owner_orcid=owner_orcid,
                 dataset_name=args.dataset_name,
                 verbose=args.verbose,
                 wait_for_ingestion_response=True
