@@ -5,19 +5,35 @@ from datetime import datetime
 
 def run_shell(cmd, checkflag = True, background = False):
     """Execute a shell command and return the result.
-    
+
+    SECURITY NOTE: Prefer passing cmd as a list rather than a string to avoid shell injection.
+
     Args:
-        cmd (str): The shell command to execute
+        cmd (str or list): The shell command to execute.
+                          - str: Executed via shell (DEPRECATED - security risk)
+                          - list: Executed directly (RECOMMENDED - secure)
         checkflag (bool): Whether to check return code and raise exception on failure. Defaults to True.
         background (bool): Whether to run the command in background. Defaults to False.
-        
+
     Returns:
-        subprocess.Popen or subprocess.CompletedProcess: Popen object if background=True, 
+        subprocess.Popen or subprocess.CompletedProcess: Popen object if background=True,
         CompletedProcess object otherwise
+
+    Examples:
+        # Secure (recommended):
+        run_shell(['rclone', 'copy', file_path, 'remote:/path'])
+
+        # Insecure (deprecated):
+        run_shell(f"rclone copy '{file_path}' remote:/path")  # DO NOT USE
     """
+    # Determine if we should use shell based on cmd type
+    use_shell = isinstance(cmd, str)
+
     if background:
-        return(sp.Popen(cmd, stdout = sp.PIPE, stderr = sp.STDOUT, shell = True, universal_newlines = True))
-    return(sp.run(cmd, stdout = sp.PIPE, stderr = sp.STDOUT, shell = True, universal_newlines = True, check = checkflag))
+        return sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.STDOUT, shell=use_shell,
+                       universal_newlines=True)
+    return sp.run(cmd, stdout=sp.PIPE, stderr=sp.STDOUT, shell=use_shell,
+                  universal_newlines=True, check=checkflag)
 
 
 def checkhash(file):
