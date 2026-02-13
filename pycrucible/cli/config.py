@@ -46,6 +46,7 @@ Configuration keys:
     cache_dir           Directory for caching downloaded data
     orcid_id            Your ORCID identifier (optional)
     graph_explorer_url  Crucible Graph Explorer URL (optional)
+    current_project     Default project ID (optional)
 
 Priority order (highest to lowest):
     1. Environment variables (CRUCIBLE_API_KEY, CRUCIBLE_API_URL, etc.)
@@ -86,7 +87,7 @@ Priority order (highest to lowest):
     )
     get_parser.add_argument(
         'key',
-        choices=['api_key', 'api_url', 'cache_dir', 'orcid_id', 'graph_explorer_url'],
+        choices=['api_key', 'api_url', 'cache_dir', 'orcid_id', 'graph_explorer_url', 'current_project'],
         help='Configuration key to retrieve'
     )
     get_parser.set_defaults(func=cmd_get)
@@ -98,7 +99,7 @@ Priority order (highest to lowest):
     )
     set_parser.add_argument(
         'key',
-        choices=['api_key', 'api_url', 'cache_dir', 'orcid_id', 'graph_explorer_url'],
+        choices=['api_key', 'api_url', 'cache_dir', 'orcid_id', 'graph_explorer_url', 'current_project'],
         help='Configuration key to set'
     )
     set_parser.add_argument(
@@ -226,6 +227,13 @@ def cmd_show(args):
     graph_explorer_url = config.graph_explorer_url
     print(f"  graph_explorer_url : {graph_explorer_url}")
 
+    # Current Project
+    current_project = config.current_project
+    if current_project:
+        print(f"  current_project    : {current_project}")
+    else:
+        print(f"  current_project    : <not set>")
+
     # Show environment variable overrides
     print("\nEnvironment variable overrides:")
     env_overrides = {
@@ -234,6 +242,7 @@ def cmd_show(args):
         'PYCRUCIBLE_CACHE_DIR': os.environ.get('PYCRUCIBLE_CACHE_DIR'),
         'ORCID_ID': os.environ.get('ORCID_ID'),
         'CRUCIBLE_GRAPH_EXPLORER_URL': os.environ.get('CRUCIBLE_GRAPH_EXPLORER_URL'),
+        'CRUCIBLE_CURRENT_PROJECT': os.environ.get('CRUCIBLE_CURRENT_PROJECT'),
     }
     has_overrides = False
     for key, value in env_overrides.items():
@@ -264,6 +273,8 @@ def cmd_get(args):
             value = config.orcid_id
         elif key == 'graph_explorer_url':
             value = config.graph_explorer_url
+        elif key == 'current_project':
+            value = config.current_project
         else:
             print(f"Error: Unknown config key: {key}", file=sys.stderr)
             sys.exit(1)

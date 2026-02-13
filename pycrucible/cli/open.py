@@ -57,7 +57,7 @@ Examples:
         '-pid', '--project-id',
         default=None,
         metavar='ID',
-        help='Project ID (uses config if not specified)'
+        help='Project ID (uses config current_project if not specified for project pages; required for specific resources)'
     )
 
     # Resource type
@@ -90,27 +90,31 @@ def execute(args):
     # Get graph explorer URL from config
     graph_explorer_url = config.graph_explorer_url.rstrip('/')
 
-    # Case 1: No mfid, no project_id -> open graph explorer home
+    # Use current_project as fallback when not specified
+    if project_id is None and (mfid is not None):
+        # mfid provided but no project_id - try to use current_project from config
+        project_id = config.current_project
+        if project_id is None:
+            print("Error: Project ID required when opening a specific resource.", file=sys.stderr)
+            print("  Specify with -pid or set current_project in config:", file=sys.stderr)
+            print("  crucible config set current_project YOUR_PROJECT_ID", file=sys.stderr)
+            sys.exit(1)
+
+    # Case 1: No mfid, no project_id (after fallback) -> open graph explorer home
     if mfid is None and project_id is None:
         url = graph_explorer_url
 
-    # Case 2: No mfid, but project_id given -> open project page
+    # Case 2: No mfid, but project_id given/from config -> open project page
     elif mfid is None and project_id is not None:
         url = f"{graph_explorer_url}/{project_id}"
 
-    # Case 3: Both mfid and project_id -> open specific resource
-    elif mfid is not None and project_id is not None:
+    # Case 3: Both mfid and project_id (possibly from config) -> open specific resource
+    else:
         ext = DTYPE_TO_EXT.get(dtype, "")
         if ext:
             url = f"{graph_explorer_url}/{project_id}/{ext}/{mfid}"
         else:
             url = f"{graph_explorer_url}/{project_id}/{mfid}"
-
-    # Case 4: mfid given but no project_id -> error
-    else:
-        print("Error: Project ID required when opening a specific resource.", file=sys.stderr)
-        print("Example: crucible open <mfid> -pid 10k_perovskites", file=sys.stderr)
-        sys.exit(1)
 
     if args.print_url:
         # Just print the URL

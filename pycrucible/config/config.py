@@ -34,6 +34,7 @@ class Config:
         'cache_dir': {'env': 'PYCRUCIBLE_CACHE_DIR', 'ini': 'cache_dir'},
         'orcid_id': {'env': 'ORCID_ID', 'ini': 'orcid_id'},
         'graph_explorer_url': {'env': 'CRUCIBLE_GRAPH_EXPLORER_URL', 'ini': 'graph_explorer_url'},
+        'current_project': {'env': 'CRUCIBLE_CURRENT_PROJECT', 'ini': 'current_project'},
     }
 
     def __init__(self):
@@ -149,6 +150,16 @@ class Config:
         return self._data.get('graph_explorer_url', default_url)
 
     @property
+    def current_project(self):
+        """
+        Get the current/default project ID.
+
+        Returns:
+            str or None: The current project ID if configured, None otherwise
+        """
+        return self._data.get('current_project')
+
+    @property
     def client(self):
         """
         Get a configured CrucibleClient instance.
@@ -261,6 +272,21 @@ def get_graph_explorer_url():
         str: The graph explorer URL
     """
     return config.graph_explorer_url
+
+
+def get_current_project():
+    """
+    Get the current/default project ID from configuration.
+
+    Priority order:
+    1. CRUCIBLE_CURRENT_PROJECT environment variable
+    2. current_project from ~/.config/pycrucible/config.ini
+    3. None if not configured
+
+    Returns:
+        str or None: The current project ID if configured, None otherwise
+    """
+    return config.current_project
 
 
 def get_client():
