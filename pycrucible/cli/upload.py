@@ -52,6 +52,11 @@ Examples:
     # Parse and upload LAMMPS simulation
     crucible upload -i input.lmp -t lammps -pid my-project -u
 
+    # Parse LAMMPS and add extra metadata/keywords
+    crucible upload -i input.lmp -t lammps -pid my-project -u \\
+        --metadata '{"experiment_id": "EXP-001"}' \\
+        --keywords "validation,benchmark"
+
     # Upload with specific mfid (all aliases work: --mfid, --uuid, --unique-id, --id)
     crucible upload -i input.lmp -t lammps -pid my-project -u --mfid abc123xyz
 
@@ -73,18 +78,18 @@ Examples:
         input_arg.completer = FilesCompleter()
 
     # Dataset type (optional - if not provided, uses generic upload)
-    available_types = ', '.join(sorted(set(PARSER_REGISTRY.keys())))
+    available_types = ', '.join(sorted(PARSER_REGISTRY.keys()))
     type_arg = parser.add_argument(
         '-t', '--type',
         required=False,
         default=None,
         dest='dataset_type',
         metavar='TYPE',
-        help=f'Dataset type (optional). Available: {available_types}. If not specified, files are uploaded without parsing.'
+        help=f'Dataset type (case-insensitive, optional). Available: {available_types}. If not specified, files are uploaded without parsing.'
     )
     # Add choices completion for dataset types
     if ARGCOMPLETE_AVAILABLE:
-        type_arg.completer = lambda **kwargs: sorted(set(PARSER_REGISTRY.keys()))
+        type_arg.completer = lambda **kwargs: sorted(PARSER_REGISTRY.keys())
 
     # Project ID
     parser.add_argument(
@@ -136,31 +141,31 @@ Examples:
         help='Verbose output'
     )
 
-    # Measurement type (for generic uploads without parser)
+    # Measurement type
     parser.add_argument(
         '-m', '--measurement',
         dest='measurement',
         default=None,
         metavar='TYPE',
-        help='Measurement type (optional, for generic uploads)'
+        help='Measurement type (optional, primarily for generic uploads)'
     )
 
-    # Scientific metadata JSON (for generic uploads without parser)
+    # Scientific metadata JSON
     parser.add_argument(
         '--metadata',
         dest='metadata',
         default=None,
         metavar='JSON',
-        help='Scientific metadata as JSON string or path to JSON file (optional, for generic uploads)'
+        help='Scientific metadata as JSON string or path to JSON file (merges with parser-extracted metadata)'
     )
 
-    # Keywords (for generic uploads without parser)
+    # Keywords
     parser.add_argument(
         '-k', '--keywords',
         dest='keywords',
         default=None,
         metavar='WORDS',
-        help='Comma-separated keywords (optional, for generic uploads)'
+        help='Comma-separated keywords (merges with parser-extracted keywords)'
     )
 
     # Set the function to execute for this subcommand
@@ -224,57 +229,72 @@ def execute(args):
             except json.JSONDecodeError as e:
                 print(f"Error: Invalid JSON in --metadata: {e}", file=sys.stderr)
                 sys.exit(1)
-
-    # Case 1: Generic upload (no dataset type specified)
-    if args.dataset_type is None:
-        print(f"Parser: BaseParser (generic upload, no parsing)")
-
-        # Create a BaseParser instance
-        parser = BaseParser(
-            files_to_upload=[str(f) for f in input_files],
-            project_id=project_id
-        )
-
-        # Add metadata if provided
-        if metadata_dict:
-            parser.scientific_metadata = metadata_dict
-            print(f"  Metadata: {len(parser.scientific_metadata)} fields")
-
-        # Add keywords if provided
-        if args.keywords:
-            parser.keywords = [k.strip() for k in args.keywords.split(',')]
-            print(f"  Keywords: {', '.join(parser.keywords)}")
-
-        # Measurement type for generic uploads
-        measurement_type = args.measurement or "generic"
-
-    # Case 2: Use specific parser for dataset type
     else:
-        # Get the appropriate parser
+        metadata_dict = None
+
+    # Parse keywords early
+    keywords_list = None
+    if args.keywords:
+        keywords_list = [k.strip() for k in args.keywords.split(',')]
+
+    # Generate mfid if not provided
+    dataset_mfid = args.mfid
+    if dataset_mfid is None and args.upload:
+        if mfid is None:
+            print("Error: mfid package not installed. Install with 'pip install mfid' or provide --mfid", file=sys.stderr)
+            sys.exit(1)
+        dataset_mfid = mfid.mfid()[0]
+        if args.verbose:
+            print(f"Generated mfid: {dataset_mfid}")
+
+    # Get ORCID - use flag if provided, otherwise fall back to config
+    owner_orcid = args.owner_orcid
+    if owner_orcid is None:
+        owner_orcid = config.orcid_id
+
+    # Determine parser class
+    if args.dataset_type is None:
+        # No dataset type specified - use BaseParser
+        ParserClass = BaseParser
+        print(f"Parser: BaseParser (generic upload, no parsing)")
+    else:
+        # Get specific parser for dataset type
         try:
             ParserClass = get_parser(args.dataset_type)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
-
-        # Use first input file (most parsers take a single primary input)
-        primary_input = str(input_files[0])
-
         print(f"Parser: {ParserClass.__name__}")
-        print(f"Input: {primary_input}")
+        print(f"Input: {input_files[0].name}")
 
-        # Initialize parser
-        try:
-            parser = ParserClass(primary_input, project_id=project_id)
-        except Exception as e:
-            print(f"Error parsing file: {e}", file=sys.stderr)
-            if args.verbose:
-                import traceback
-                traceback.print_exc()
-            sys.exit(1)
+    # Parser will use its default measurement if not provided
+    measurement_type = args.measurement
 
-        # Measurement type comes from parser (e.g., "LAMMPS")
-        measurement_type = args.measurement  # Will be set by parser in upload_dataset
+    # Show user-provided metadata/keywords
+    if metadata_dict:
+        print(f"  User metadata: {len(metadata_dict)} fields")
+    if keywords_list:
+        print(f"  User keywords: {', '.join(keywords_list)}")
+
+    # Initialize parser with all dataset properties
+    # Specific parsers will augment metadata/keywords with extracted data
+    try:
+        parser = ParserClass(
+            files_to_upload=[str(f) for f in input_files],
+            project_id=project_id,
+            metadata=metadata_dict,
+            keywords=keywords_list,
+            mfid=dataset_mfid,
+            measurement=measurement_type,
+            owner_orcid=owner_orcid,
+            dataset_name=args.dataset_name
+        )
+    except Exception as e:
+        print(f"Error parsing file: {e}", file=sys.stderr)
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
 
     # Display metadata (if not generic upload or if metadata provided)
     if args.dataset_type is not None or args.metadata or args.keywords:
@@ -304,40 +324,17 @@ def execute(args):
     if args.upload:
         print("\n=== Uploading to Crucible ===")
 
-        # Generate mfid if not provided
-        dataset_mfid = args.mfid
-        if dataset_mfid is None:
-            if mfid is None:
-                print("Error: mfid package not installed. Install with 'pip install mfid' or provide --mfid", file=sys.stderr)
-                sys.exit(1)
-            dataset_mfid = mfid.mfid()[0]
-            print(f"Generated mfid: {dataset_mfid}")
-        else:
+        if args.mfid:
             print(f"Using provided mfid: {dataset_mfid}")
-
-        # Get ORCID - use flag if provided, otherwise fall back to config
-        owner_orcid = args.owner_orcid
-        if owner_orcid is None:
-            owner_orcid = config.orcid_id
-            if owner_orcid and args.verbose:
-                print(f"Using ORCID from config: {owner_orcid}")
+        if owner_orcid and args.verbose:
+            print(f"Using ORCID: {owner_orcid}")
 
         try:
-            # For generic uploads, pass measurement type; for specific parsers, they handle it
-            upload_kwargs = {
-                'mfid': dataset_mfid,
-                'project_id': project_id,
-                'owner_orcid': owner_orcid,
-                'dataset_name': args.dataset_name,
-                'verbose': args.verbose,
-                'wait_for_ingestion_response': True
-            }
-
-            # Only pass measurement if it's a generic upload
-            if args.dataset_type is None:
-                upload_kwargs['measurement'] = measurement_type
-
-            result = parser.upload_dataset(**upload_kwargs)
+            # Upload - only pass behavioral flags
+            result = parser.upload_dataset(
+                verbose=args.verbose,
+                wait_for_ingestion_response=True
+            )
 
             print("\n✓ Upload successful!")
             print(f"Dataset ID: {result.get('created_record', {}).get('unique_id', 'N/A')}")

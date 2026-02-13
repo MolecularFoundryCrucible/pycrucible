@@ -20,14 +20,27 @@ class LAMMPSParser(BaseParser):
     
     _measurement = "LAMMPS"
     
-    def __init__(self, input_file, project_id=None):
+    def __init__(self, files_to_upload, project_id=None, metadata=None, keywords=None,
+                 mfid=None, measurement=None, owner_orcid=None, dataset_name=None):
         """
         Main driver, reads input file and find other relevant files, then
         reads each one to extract metadata.
+
+        Args:
+            files_to_upload (list): List of files to upload (uses first file as LAMMPS input)
+            project_id (str, optional): Project ID
+            metadata (dict, optional): User-provided metadata (parser will add to this)
+            keywords (list, optional): User-provided keywords (parser will add to this)
+            mfid (str, optional): Unique dataset identifier
+            measurement (str, optional): Measurement type (defaults to "LAMMPS")
+            owner_orcid (str, optional): Owner's ORCID ID
+            dataset_name (str, optional): Human-readable dataset name
         """
 
-        # find input file
-        input_file = os.path.abspath(input_file)
+        # Use first file as input
+        if not files_to_upload:
+            raise ValueError("No input files provided")
+        input_file = os.path.abspath(files_to_upload[0])
 
         # start by reading input file
         lmp_metadata = self.read_lmp_input_file(input_file)
@@ -50,17 +63,30 @@ class LAMMPSParser(BaseParser):
         # Note: dump files are parsed but not uploaded by default
         # They are stored in scientific_metadata for reference
 
-        # initialize parent class with all files
-        super().__init__(files_to_upload=files_to_upload, project_id=project_id)
+        # Use parser's default measurement if not provided
+        if measurement is None:
+            measurement = self._measurement
 
-        # store values internally
-        self.scientific_metadata = lmp_metadata
+        # initialize parent class with user-provided properties
+        super().__init__(
+            files_to_upload=files_to_upload,
+            project_id=project_id,
+            metadata=metadata,
+            keywords=keywords,
+            mfid=mfid,
+            measurement=measurement,
+            owner_orcid=owner_orcid,
+            dataset_name=dataset_name
+        )
 
-        # set keywords based on parsed data
-        self.keywords = ["LAMMPS", "molecular dynamics"]
+        # add parser-extracted metadata
+        self.add_metadata(lmp_metadata)
+
+        # add parser-extracted keywords
+        self.add_keywords(["LAMMPS", "molecular dynamics"])
         # Add elements as keywords
         if "elements" in lmp_metadata:
-            self.keywords.extend(lmp_metadata["elements"])
+            self.add_keywords(lmp_metadata["elements"])
 
         return
     
@@ -147,53 +173,3 @@ class LAMMPSParser(BaseParser):
 
         return data
     
-    def to_dataset(self, mfid=None, measurement=None, project_id=None,
-                   owner_orcid=None, dataset_name=None):
-        """
-        Convert parsed data to Crucible dataset.
-
-        Note: measurement parameter is ignored; uses self._measurement instead.
-        """
-        dst = super().to_dataset(
-                                 mfid=mfid,
-                                 measurement=self._measurement,
-                                 project_id=project_id,
-                                 owner_orcid=owner_orcid,
-                                 dataset_name=dataset_name
-                                 )
-
-        return dst
-
-    def upload_dataset(self, mfid=None, project_id=None, owner_orcid=None,
-                       dataset_name=None, get_user_info_function=None,
-                       ingestor='ApiUploadIngestor', verbose=False,
-                       wait_for_ingestion_response=True):
-        """
-        Upload LAMMPS dataset to Crucible.
-
-        Automatically sets measurement type to "LAMMPS".
-
-        Args:
-            mfid (str, optional): Unique dataset identifier
-            project_id (str, optional): Project ID. Uses self.project_id if not provided.
-            owner_orcid (str, optional): Owner's ORCID ID
-            dataset_name (str, optional): Human-readable dataset name
-            get_user_info_function (callable, optional): Function to get user info if needed
-            ingestor (str, optional): Ingestion class. Defaults to 'ApiUploadIngestor'
-            verbose (bool, optional): Print detailed progress. Defaults to False.
-            wait_for_ingestion_response (bool, optional): Wait for ingestion. Defaults to True.
-
-        Returns:
-            dict: Dictionary containing upload results
-        """
-        return super().upload_dataset(
-            mfid=mfid,
-            measurement=self._measurement,
-            project_id=project_id,
-            owner_orcid=owner_orcid,
-            dataset_name=dataset_name,
-            get_user_info_function=get_user_info_function,
-            ingestor=ingestor,
-            verbose=verbose,
-            wait_for_ingestion_response=wait_for_ingestion_response
-        )
