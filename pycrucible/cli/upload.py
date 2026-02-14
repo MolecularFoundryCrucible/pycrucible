@@ -7,7 +7,10 @@ Handles parsing and uploading datasets to Crucible.
 """
 
 import sys
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 try:
     import mfid
@@ -221,6 +224,10 @@ def execute(args):
     import json
     from pycrucible.parsers import get_parser, BaseParser
     from pycrucible.config import config
+    from pycrucible.cli import setup_logging
+
+    # Set up logging based on verbose flag
+    setup_logging(verbose=args.verbose)
 
     # Get project_id - use flag if provided, otherwise fall back to config
     project_id = args.project_id
@@ -229,21 +236,21 @@ def execute(args):
         project_id = config.current_project
         project_from_config = True
         if project_id is None:
-            print("Error: Project ID required. Specify with -pid or set current_project in config.", file=sys.stderr)
-            print("  Set default: crucible config set current_project YOUR_PROJECT_ID", file=sys.stderr)
+            logger.error("Error: Project ID required. Specify with -pid or set current_project in config.")
+            logger.error("  Set default: crucible config set current_project YOUR_PROJECT_ID")
             sys.exit(1)
 
     # Show which project is being used
     if project_from_config:
-        print(f"Project: {project_id} (from config)")
+        logger.info(f"Project: {project_id} (from config)")
     else:
-        print(f"Project: {project_id}")
+        logger.info(f"Project: {project_id}")
 
     # Validate input files exist
     input_files = [Path(f) for f in args.input]
     for input_file in input_files:
         if not input_file.exists():
-            print(f"Error: Input file not found: {input_file}", file=sys.stderr)
+            logger.error(f"Error: Input file not found: {input_file}")
             sys.exit(1)
 
     # Parse metadata early (before mode announcement) - support JSON string or file
@@ -256,17 +263,17 @@ def execute(args):
                 with open(metadata_input, 'r') as f:
                     metadata_dict = json.load(f)
             except json.JSONDecodeError as e:
-                print(f"Error: Invalid JSON in file {metadata_input}: {e}", file=sys.stderr)
+                logger.error(f"Error: Invalid JSON in file {metadata_input}: {e}")
                 sys.exit(1)
             except Exception as e:
-                print(f"Error reading metadata file {metadata_input}: {e}", file=sys.stderr)
+                logger.error(f"Error reading metadata file {metadata_input}: {e}")
                 sys.exit(1)
         else:
             # It's a JSON string
             try:
                 metadata_dict = json.loads(metadata_input)
             except json.JSONDecodeError as e:
-                print(f"Error: Invalid JSON in --metadata: {e}", file=sys.stderr)
+                logger.error(f"Error: Invalid JSON in --metadata: {e}")
                 sys.exit(1)
     else:
         metadata_dict = None
@@ -280,11 +287,10 @@ def execute(args):
     dataset_mfid = args.mfid
     if dataset_mfid is None and args.upload:
         if mfid is None:
-            print("Error: mfid package not installed. Install with 'pip install mfid' or provide --mfid", file=sys.stderr)
+            logger.error("Error: mfid package not installed. Install with 'pip install mfid' or provide --mfid")
             sys.exit(1)
         dataset_mfid = mfid.mfid()[0]
-        if args.verbose:
-            print(f"Generated mfid: {dataset_mfid}")
+        logger.debug(f"Generated mfid: {dataset_mfid}")
 
     # Get ORCID - use flag if provided, otherwise fall back to config
     owner_orcid = args.owner_orcid
@@ -295,25 +301,25 @@ def execute(args):
     if args.dataset_type is None:
         # No dataset type specified - use BaseParser
         ParserClass = BaseParser
-        print(f"Parser: BaseParser (generic upload, no parsing)")
+        logger.info(f"Parser: BaseParser (generic upload, no parsing)")
     else:
         # Get specific parser for dataset type
         try:
             ParserClass = get_parser(args.dataset_type)
         except ValueError as e:
-            print(f"Error: {e}", file=sys.stderr)
+            logger.error(f"Error: {e}")
             sys.exit(1)
-        print(f"Parser: {ParserClass.__name__}")
-        print(f"Input: {input_files[0].name}")
+        logger.info(f"Parser: {ParserClass.__name__}")
+        logger.info(f"Input: {input_files[0].name}")
 
     # Parser will use its default measurement if not provided
     measurement_type = args.measurement
 
     # Show user-provided metadata/keywords
     if metadata_dict:
-        print(f"  User metadata: {len(metadata_dict)} fields")
+        logger.info(f"  User metadata: {len(metadata_dict)} fields")
     if keywords_list:
-        print(f"  User keywords: {', '.join(keywords_list)}")
+        logger.info(f"  User keywords: {', '.join(keywords_list)}")
 
     # Initialize parser with all dataset properties
     # Specific parsers will augment metadata/keywords with extracted data
@@ -333,7 +339,7 @@ def execute(args):
             data_format=args.data_format
         )
     except Exception as e:
-        print(f"Error parsing file: {e}", file=sys.stderr)
+        logger.error(f"Error parsing file: {e}")
         if args.verbose:
             import traceback
             traceback.print_exc()
@@ -341,36 +347,36 @@ def execute(args):
 
     # Display metadata (if not generic upload or if metadata provided)
     if args.dataset_type is not None or args.metadata or args.keywords:
-        print("\n=== Dataset Information ===")
-        print(f"Files to upload: {len(parser.files_to_upload)}")
+        logger.info("\n=== Dataset Information ===")
+        logger.info(f"Files to upload: {len(parser.files_to_upload)}")
         for f in parser.files_to_upload:
-            print(f"  - {Path(f).name}")
+            logger.info(f"  - {Path(f).name}")
 
         if parser.keywords:
-            print(f"\nKeywords: {', '.join(parser.keywords)}")
+            logger.info(f"\nKeywords: {', '.join(parser.keywords)}")
 
         if parser.scientific_metadata:
-            print(f"\nScientific Metadata:")
+            logger.info(f"\nScientific Metadata:")
             for key, value in parser.scientific_metadata.items():
                 if key == 'dump_files':
-                    print(f"  {key}: {len(value)} files")
+                    logger.info(f"  {key}: {len(value)} files")
                 elif isinstance(value, (list, dict)) and len(str(value)) > 80:
-                    print(f"  {key}: <{type(value).__name__} with {len(value)} items>")
+                    logger.info(f"  {key}: <{type(value).__name__} with {len(value)} items>")
                 else:
-                    print(f"  {key}: {value}")
+                    logger.info(f"  {key}: {value}")
     else:
-        print("\n=== Files to Upload ===")
+        logger.info("\n=== Files to Upload ===")
         for f in parser.files_to_upload:
-            print(f"  - {Path(f).name}")
+            logger.info(f"  - {Path(f).name}")
 
     # Upload if requested
     if args.upload:
-        print("\n=== Uploading to Crucible ===")
+        logger.info("\n=== Uploading to Crucible ===")
 
         if args.mfid:
-            print(f"Using provided mfid: {dataset_mfid}")
-        if owner_orcid and args.verbose:
-            print(f"Using ORCID: {owner_orcid}")
+            logger.info(f"Using provided mfid: {dataset_mfid}")
+        if owner_orcid:
+            logger.debug(f"Using ORCID: {owner_orcid}")
 
         try:
             # Upload - only pass behavioral flags
@@ -379,21 +385,21 @@ def execute(args):
                 wait_for_ingestion_response=True
             )
 
-            print("\n✓ Upload successful!")
-            print(f"Dataset ID: {result.get('created_record', {}).get('unique_id', 'N/A')}")
+            logger.info("\n✓ Upload successful!")
+            logger.info(f"Dataset ID: {result.get('created_record', {}).get('unique_id', 'N/A')}")
 
-            if args.verbose and result:
-                print("\nUpload result details:")
+            if result:
+                logger.debug("\nUpload result details:")
                 for key, value in result.items():
-                    print(f"  {key}: {value}")
+                    logger.debug(f"  {key}: {value}")
 
         except Exception as e:
-            print(f"\n✗ Upload failed: {e}", file=sys.stderr)
+            logger.error(f"\n✗ Upload failed: {e}")
             if args.verbose:
                 import traceback
                 traceback.print_exc()
             sys.exit(1)
     else:
-        print("\n(Use -u/--upload flag to upload to Crucible)")
+        logger.info("\n(Use -u/--upload flag to upload to Crucible)")
 
-    print("\nDone!")
+    logger.info("\nDone!")

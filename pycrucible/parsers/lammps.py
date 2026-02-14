@@ -9,6 +9,9 @@ Created on Tue Feb 10 17:22:34 2026
 from .base import BaseParser
 
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 #%%
 
@@ -185,11 +188,16 @@ class LAMMPSParser(BaseParser):
     
     @staticmethod
     def render_thumbnail(ase_atoms, mfid: str):
-        
+
         from ase.io import write
         from pycrucible.config import get_cache_dir
         import os
-        
+        import logging
+
+        # Suppress matplotlib's verbose output
+        logging.getLogger('matplotlib').setLevel(logging.WARNING)
+        logging.getLogger('matplotlib.font_manager').setLevel(logging.WARNING)
+
         # Get cache directory and create thumbnails_upload subdirectory
         cache_dir = get_cache_dir()
         thumbnail_dir = os.path.join(cache_dir, 'thumbnails_upload')

@@ -7,7 +7,10 @@ Created on Tue Feb 10 17:45:48 2026
 """
 
 import os
+import logging
 from pycrucible import BaseDataset
+
+logger = logging.getLogger(__name__)
 
 #%%
 
