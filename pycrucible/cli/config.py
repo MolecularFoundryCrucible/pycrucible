@@ -171,13 +171,29 @@ def cmd_init(args):
     if not orcid_id:
         orcid_id = None
 
+    # Get Graph Explorer URL
+    print("\n5. Graph Explorer URL (optional)")
+    print("   Press Enter to use default: https://crucible-graph-explorer-776258882599.us-central1.run.app")
+    graph_explorer_url = input("   Graph Explorer URL: ").strip()
+    if not graph_explorer_url:
+        graph_explorer_url = None
+
+    # Get current project
+    print("\n6. Default Project ID (optional)")
+    print("   Project ID to use when -pid is not specified")
+    current_project = input("   Project ID: ").strip()
+    if not current_project:
+        current_project = None
+
     # Create config file
     try:
         created_path = create_config_file(
             api_key=api_key,
             api_url=api_url,
             cache_dir=cache_dir,
-            orcid_id=orcid_id
+            orcid_id=orcid_id,
+            graph_explorer_url=graph_explorer_url,
+            current_project=current_project
         )
         print(f"\n✓ Configuration saved to: {created_path}")
         print("\nYou can now use crucible commands!")

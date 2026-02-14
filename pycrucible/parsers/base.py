@@ -6,6 +6,7 @@ Created on Tue Feb 10 17:45:48 2026
 @author: roncofaber
 """
 
+import os
 from pycrucible import BaseDataset
 
 #%%
@@ -13,10 +14,14 @@ from pycrucible import BaseDataset
 class BaseParser:
 
     _measurement = "base"
+    _data_format = None
+    _instrument_name = None
 
     def __init__(self, files_to_upload=None, project_id=None,
                  metadata=None, keywords=None, mfid=None,
-                 measurement=None, owner_orcid=None, dataset_name=None):
+                 measurement=None, owner_orcid=None, dataset_name=None,
+                 session_name=None, public=False, instrument_name=None,
+                 data_format=None, thumbnail=None):
         """
         Initialize the parser with dataset properties.
 
@@ -29,10 +34,18 @@ class BaseParser:
             measurement (str, optional): Measurement type
             owner_orcid (str, optional): Owner's ORCID ID
             dataset_name (str, optional): Human-readable dataset name
+            session_name (str, optional): Session name for grouping datasets
+            public (bool, optional): Whether dataset is public. Defaults to False.
+            instrument_name (str, optional): Instrument name
+            data_format (str, optional): Data format type
         """
-        # Use parser's default measurement if not provided
+        # Use parser's defaults if not provided
         if measurement is None:
             measurement = self._measurement
+        if data_format is None:
+            data_format = self._data_format
+        if instrument_name is None:
+            instrument_name = self._instrument_name
 
         # Dataset properties
         self.project_id      = project_id
@@ -41,6 +54,12 @@ class BaseParser:
         self.measurement     = measurement
         self.owner_orcid     = owner_orcid
         self.dataset_name    = dataset_name
+        self.session_name    = session_name
+        self.public          = public
+        self.instrument_name = instrument_name
+        self.data_format     = data_format
+        self.source_folder   = os.getcwd()
+        self.thumbnail       = thumbnail
 
         # initialize with user-provided metadata/keywords
         self.scientific_metadata = metadata or {}
@@ -77,7 +96,7 @@ class BaseParser:
 
     @property
     def client(self):
-        """Get or create CrucibleClient instance."""
+        """Get or create CrucibleClient instance (lazy loaded)."""
         if self._client is None:
             from pycrucible.config import get_client
             self._client = get_client()
@@ -96,19 +115,18 @@ class BaseParser:
         file_to_upload = self.files_to_upload[0] if self.files_to_upload else None
 
         crucible_dataset = BaseDataset(
-            unique_id    = self.mfid,
-            measurement  = self.measurement,
-            project_id   = self.project_id,
-            owner_orcid  = self.owner_orcid,
-            dataset_name = self.dataset_name,
+            unique_id      = self.mfid,
+            measurement    = self.measurement,
+            project_id     = self.project_id,
+            owner_orcid    = self.owner_orcid,
+            dataset_name   = self.dataset_name,
+            session_name   = self.session_name,
+            public         = self.public,
+            instrument_name = self.instrument_name,
+            data_format    = self.data_format,
+            source_folder  = self.source_folder,
             file_to_upload = file_to_upload
-            )
-
-        # Store scientific_metadata for external use
-        # (Note: BaseDataset doesn't have a scientific_metadata field,
-        # it's added separately via the API after dataset creation)
-        crucible_dataset._scientific_metadata = self.scientific_metadata
-        crucible_dataset._keywords = self.keywords
+        )
 
         return crucible_dataset
     
@@ -143,5 +161,8 @@ class BaseParser:
             verbose=verbose,
             wait_for_ingestion_response=wait_for_ingestion_response
         )
-
+        
+        if self.thumbnail is not None:
+            self.client.add_thumbnail(self.mfid, self.thumbnail)
+        
         return result

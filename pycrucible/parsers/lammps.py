@@ -17,11 +17,14 @@ def store_variable(varname, varvalue, vardict):
     return
 
 class LAMMPSParser(BaseParser):
-    
+
     _measurement = "LAMMPS"
-    
+    _data_format = "LAMMPS"
+    _instrument_name = None
+
     def __init__(self, files_to_upload, project_id=None, metadata=None, keywords=None,
-                 mfid=None, measurement=None, owner_orcid=None, dataset_name=None):
+                 mfid=None, measurement=None, owner_orcid=None, dataset_name=None,
+                 session_name=None, public=False, instrument_name=None, data_format=None):
         """
         Main driver, reads input file and find other relevant files, then
         reads each one to extract metadata.
@@ -35,6 +38,10 @@ class LAMMPSParser(BaseParser):
             measurement (str, optional): Measurement type (defaults to "LAMMPS")
             owner_orcid (str, optional): Owner's ORCID ID
             dataset_name (str, optional): Human-readable dataset name
+            session_name (str, optional): Session name for grouping datasets
+            public (bool, optional): Whether dataset is public. Defaults to False.
+            instrument_name (str, optional): Instrument name
+            data_format (str, optional): Data format type (defaults to "LAMMPS")
         """
 
         # Use first file as input
@@ -50,7 +57,7 @@ class LAMMPSParser(BaseParser):
 
         # then read data file
         data_file = os.path.join(lmp_metadata["root"], lmp_metadata["data_file"])
-        data_file_metadata = self.read_data_file(data_file)
+        data_file_metadata, ase_atoms = self.read_data_file(data_file)
         lmp_metadata.update(data_file_metadata)
         files_to_upload.append(data_file)
 
@@ -62,11 +69,7 @@ class LAMMPSParser(BaseParser):
 
         # Note: dump files are parsed but not uploaded by default
         # They are stored in scientific_metadata for reference
-
-        # Use parser's default measurement if not provided
-        if measurement is None:
-            measurement = self._measurement
-
+        
         # initialize parent class with user-provided properties
         super().__init__(
             files_to_upload=files_to_upload,
@@ -76,7 +79,11 @@ class LAMMPSParser(BaseParser):
             mfid=mfid,
             measurement=measurement,
             owner_orcid=owner_orcid,
-            dataset_name=dataset_name
+            dataset_name=dataset_name,
+            session_name=session_name,
+            public=public,
+            instrument_name=instrument_name,
+            data_format=data_format,
         )
 
         # add parser-extracted metadata
@@ -87,6 +94,9 @@ class LAMMPSParser(BaseParser):
         # Add elements as keywords
         if "elements" in lmp_metadata:
             self.add_keywords(lmp_metadata["elements"])
+            
+        # generate thumbnail
+        self.thumbnail = self.render_thumbnail(ase_atoms, self.mfid)
 
         return
     
@@ -144,21 +154,21 @@ class LAMMPSParser(BaseParser):
         except:
             raise ImportError("ASE needs to be installed for LMP ingestor to work!")
             
-        data = {}
+        lmp_metadata = {}
 
         ase_atoms = ase.io.lammpsdata.read_lammps_data(data_file)
         
         #TODO this should not stay like that --> should be a json
-        # data["atoms"] = ase_atoms.todict()
+        # lmp_metadata["atoms"] = ase_atoms
         
         # store some info about the system to metadata
-        data['elements'] = list(set(ase_atoms.get_chemical_symbols()))
-        data['natoms']   = len(ase_atoms.get_chemical_symbols())
-        data["volume"]   = ase_atoms.get_volume()
+        lmp_metadata['elements'] = list(set(ase_atoms.get_chemical_symbols()))
+        lmp_metadata['natoms']   = len(ase_atoms.get_chemical_symbols())
+        lmp_metadata["volume"]   = ase_atoms.get_volume()
 
         # what else do we want from the data_file
 
-        return data    
+        return lmp_metadata, ase_atoms    
 
     @staticmethod
     def read_log_file(log_file):
@@ -173,3 +183,30 @@ class LAMMPSParser(BaseParser):
 
         return data
     
+    @staticmethod
+    def render_thumbnail(ase_atoms, mfid: str):
+        
+        from ase.io import write
+        from pycrucible.config import get_cache_dir
+        import os
+        
+        # Get cache directory and create thumbnails_upload subdirectory
+        cache_dir = get_cache_dir()
+        thumbnail_dir = os.path.join(cache_dir, 'thumbnails_upload')
+        os.makedirs(thumbnail_dir, exist_ok=True)
+        
+        # Create file path
+        file_path = os.path.join(thumbnail_dir, f'{mfid}.png')
+        
+        # Make sure atoms are wrapped
+        ase_atoms.wrap()
+        
+        # Write directly to file
+        write(file_path, ase_atoms, 
+              format='png',
+              show_unit_cell=2, 
+              scale=20, 
+              maxwidth=512,
+              rotation='90x,0y,90z')
+        
+        return file_path

@@ -62,6 +62,10 @@ Examples:
 
     # Upload with custom dataset name
     crucible upload -i input.lmp -t lammps -pid my-project -u -n "Water MD Simulation"
+
+    # Upload with session name and make public
+    crucible upload -i input.lmp -t lammps -pid my-project -u \\
+        --session "2024-Q1-experiments" --public
 """
     )
 
@@ -166,6 +170,41 @@ Examples:
         default=None,
         metavar='WORDS',
         help='Comma-separated keywords (merges with parser-extracted keywords)'
+    )
+
+    # Session name
+    parser.add_argument(
+        '--session',
+        dest='session_name',
+        default=None,
+        metavar='NAME',
+        help='Session name for grouping related datasets'
+    )
+
+    # Public flag
+    parser.add_argument(
+        '--public',
+        action='store_true',
+        dest='public',
+        help='Make dataset public (default: private)'
+    )
+
+    # Instrument name
+    parser.add_argument(
+        '--instrument',
+        dest='instrument_name',
+        default=None,
+        metavar='NAME',
+        help='Instrument name (optional, parser-specific)'
+    )
+
+    # Data format
+    parser.add_argument(
+        '--data-format',
+        dest='data_format',
+        default=None,
+        metavar='FORMAT',
+        help='Data format type (optional, parser-specific)'
     )
 
     # Set the function to execute for this subcommand
@@ -287,7 +326,11 @@ def execute(args):
             mfid=dataset_mfid,
             measurement=measurement_type,
             owner_orcid=owner_orcid,
-            dataset_name=args.dataset_name
+            dataset_name=args.dataset_name,
+            session_name=args.session_name,
+            public=args.public,
+            instrument_name=args.instrument_name,
+            data_format=args.data_format
         )
     except Exception as e:
         print(f"Error parsing file: {e}", file=sys.stderr)

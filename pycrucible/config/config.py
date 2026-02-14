@@ -302,7 +302,8 @@ def get_client():
     return config.client
 
 
-def create_config_file(api_key, api_url=None, cache_dir=None, orcid_id=None, **kwargs):
+def create_config_file(api_key, api_url=None, cache_dir=None, orcid_id=None,
+                       graph_explorer_url=None, current_project=None, **kwargs):
     """
     Create a configuration file with the given API key and optional settings.
 
@@ -312,6 +313,8 @@ def create_config_file(api_key, api_url=None, cache_dir=None, orcid_id=None, **k
         cache_dir (str, optional): Custom cache directory path. If not provided,
                                    defaults to platform-specific cache directory
         orcid_id (str, optional): User's ORCID ID (e.g., '0000-0002-1234-5678')
+        graph_explorer_url (str, optional): Graph Explorer URL
+        current_project (str, optional): Default project ID
         **kwargs: Additional configuration values to store
 
     Returns:
@@ -321,33 +324,52 @@ def create_config_file(api_key, api_url=None, cache_dir=None, orcid_id=None, **k
     config_dir.mkdir(parents=True, exist_ok=True)
     config_file = config_dir / "config.ini"
 
-    parser = configparser.ConfigParser()
+    # Get default values
+    default_api_url = 'https://crucible.lbl.gov/testapi'
+    default_cache_dir = str(user_cache_dir("pycrucible"))
+    default_graph_explorer_url = 'https://crucible-graph-explorer-776258882599.us-central1.run.app'
 
-    # Build config dictionary
-    config_data = {"api_key": api_key}
-
-    if api_url is not None:
-        config_data["api_url"] = str(api_url)
-
-    if cache_dir is not None:
-        config_data["cache_dir"] = str(cache_dir)
-
-    if orcid_id is not None:
-        config_data["orcid_id"] = str(orcid_id)
-
-    # Add any additional kwargs
-    config_data.update(kwargs)
-
-    # Set up crucible section
-    parser["crucible"] = config_data
-
+    # Manually write the config file with comments for clarity
     with open(config_file, 'w') as f:
-        parser.write(f)
+        f.write("[crucible]\n")
+        f.write("# Crucible API authentication key (required)\n")
+        f.write(f"api_key = {api_key}\n\n")
+
+        f.write("# Crucible API endpoint URL\n")
+        if api_url is not None:
+            f.write(f"api_url = {api_url}\n\n")
+        else:
+            f.write(f"api_url = {default_api_url}\n\n")
+
+        f.write("# Directory for caching downloaded data\n")
+        if cache_dir is not None:
+            f.write(f"cache_dir = {cache_dir}\n\n")
+        else:
+            f.write(f"cache_dir = {default_cache_dir}\n\n")
+
+        f.write("# Your ORCID identifier (optional, e.g., 0000-0002-1234-5678)\n")
+        if orcid_id is not None:
+            f.write(f"orcid_id = {orcid_id}\n\n")
+        else:
+            f.write(f"# orcid_id = \n\n")
+
+        f.write("# Crucible Graph Explorer URL\n")
+        if graph_explorer_url is not None:
+            f.write(f"graph_explorer_url = {graph_explorer_url}\n\n")
+        else:
+            f.write(f"graph_explorer_url = {default_graph_explorer_url}\n\n")
+
+        f.write("# Default project ID (optional)\n")
+        if current_project is not None:
+            f.write(f"current_project = {current_project}\n\n")
+        else:
+            f.write(f"# current_project = \n\n")
+
+        # Add any additional kwargs
+        for key, value in kwargs.items():
+            f.write(f"{key} = {value}\n")
 
     logger.info(f"Created config file: {config_file}")
-    for key, value in config_data.items():
-        if key != "api_key":  # Don't log the API key
-            logger.debug(f"{key}: {value}")
 
     # Reload the global config
     config.reload()
