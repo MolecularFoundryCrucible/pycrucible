@@ -283,17 +283,14 @@ def _register_update(subparsers):
         help='Update sample fields or scientific metadata',
         description='Update fields or scientific metadata of an existing sample',
         formatter_class=term.ColorHelpFormatter,
-        epilog=f"""
-Updatable fields (use --set):
-    {', '.join(fields)}
-
+        epilog="""
 Examples:
-    crucible sample update SAMPLE_ID --set sample_name="Silicon Wafer B"
-    crucible sample update SAMPLE_ID --set description="Annealed at 900C"
-    crucible sample update SAMPLE_ID --set sample_type=substrate --set project_id=my-project
-    crucible sample update SAMPLE_ID --metadata '{{"thickness_nm": 50, "substrate": "SiO2"}}'
-    crucible sample update SAMPLE_ID --metadata metadata.json
+    crucible sample update SAMPLE_ID --name "Silicon Wafer B"
+    crucible sample update SAMPLE_ID --description "Annealed at 900C" --type substrate
+    crucible sample update SAMPLE_ID --project my-project --public
+    crucible sample update SAMPLE_ID --metadata '{"thickness_nm": 50}'
     crucible sample update SAMPLE_ID --metadata metadata.json --overwrite
+    crucible sample update SAMPLE_ID --set session_name=run42
 """
     )
 
@@ -305,12 +302,19 @@ Examples:
     if ARGCOMPLETE_AVAILABLE:
         sample_id_arg.completer = argcomplete.completers.SuppressCompleter()
 
+    parser.add_argument('-n', '--name',        dest='sample_name',  metavar='NAME',    default=None, help='Sample name')
+    parser.add_argument('-t', '--type',        dest='sample_type',  metavar='TYPE',    default=None, help='Sample type')
+    parser.add_argument('--description',       dest='description',  metavar='TEXT',    default=None, help='Sample description')
+    parser.add_argument('--project',           dest='project_id',   metavar='PROJECT', default=None, help='Project ID')
+    parser.add_argument('--timestamp',         dest='timestamp',    metavar='DATE',    default=None, help='User-defined timestamp')
+    parser.add_argument('--owner',             dest='owner_orcid',  metavar='ORCID',   default=None, help='Owner ORCID')
+
     parser.add_argument(
         '--set', '-s',
         action='append',
         dest='set_fields',
         metavar='KEY=VALUE',
-        help='Set a sample field (repeatable). Values are auto-cast to int, float, bool, or string.'
+        help='Set any sample field by name (repeatable, for fields without a dedicated flag)'
     )
 
     parser.add_argument(
@@ -327,19 +331,8 @@ Examples:
     )
 
     group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        '--public',
-        dest='public',
-        action='store_true',
-        default=None,
-        help='Make sample publicly visible'
-    )
-    group.add_argument(
-        '--no-public',
-        dest='public',
-        action='store_false',
-        help='Make sample private'
-    )
+    group.add_argument('--public',    dest='public', action='store_true',  default=None, help='Make sample publicly visible')
+    group.add_argument('--no-public', dest='public', action='store_false',               help='Make sample private')
 
     parser.set_defaults(func=_execute_update, public=None)
 
@@ -353,8 +346,12 @@ def _execute_update(args):
     has_metadata = bool(getattr(args, 'metadata', None))
     has_public   = getattr(args, 'public', None) is not None
 
-    if not has_set and not has_metadata and not has_public:
-        logger.error("Error: provide at least one of --set KEY=VALUE, --public/--no-public, or --metadata JSON")
+    named = {k: getattr(args, k) for k in
+             ('sample_name', 'sample_type', 'description', 'project_id', 'timestamp', 'owner_orcid')
+             if getattr(args, k, None) is not None}
+
+    if not has_set and not has_metadata and not has_public and not named:
+        logger.error("Error: provide at least one field to update")
         sys.exit(1)
 
     updates = {}
@@ -386,6 +383,7 @@ def _execute_update(args):
     try:
         client = CrucibleClient()
 
+        updates.update(named)
         if has_public:
             updates['public'] = args.public
 
