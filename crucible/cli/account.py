@@ -110,6 +110,10 @@ def _execute_show(args):
     from crucible.client import CrucibleClient
     try:
         user = CrucibleClient().users.me()
+        if user is None:
+            logger.error("No user record found for the current API key - "
+                         "the account may not be fully set up yet")
+            sys.exit(1)
         if getattr(args, 'json', False):
             import json
             print(json.dumps(user, indent=2, default=str))
@@ -128,6 +132,9 @@ def _execute_edit(args):
     try:
         client = CrucibleClient()
         user = client.users.me()
+        if user is None:
+            logger.error("No user record found for the current API key")
+            sys.exit(1)
     except Exception as e:
         logger.error(f"Error fetching profile: {e}")
         sys.exit(1)
