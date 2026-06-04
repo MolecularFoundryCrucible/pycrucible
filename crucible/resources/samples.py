@@ -177,6 +177,7 @@ class SampleOperations(BaseResource):
             raise Exception('Please provide either a unique ID or a sample name for your sample')
 
         sample_info = {
+            "unique_id": unique_id,
             "sample_name": sample_name,
             "sample_type": sample_type,
             "owner_orcid": owner_orcid,
