@@ -20,28 +20,32 @@ class UserOperations(BaseResource):
     Access via: client.users.get(), client.users.create(), etc.
     """
 
-    def get(self, orcid: Optional[str] = None, email: Optional[str] = None) -> Dict:
-        """Get user details by unique ID (ORCID for real users) or email.
+    def get(self, orcid: Optional[str] = None, email: Optional[str] = None,
+            username: Optional[str] = None) -> Dict:
+        """Get user details by ORCID, email, or username.
 
-        **Requires admin permissions.**
+        **Requires admin permissions (or self-lookup by username).**
 
         Args:
-            orcid (str, optional): User unique ID (ORCID for real users)
+            orcid (str, optional): User ORCID identifier
             email (str, optional): User's email address
+            username (str, optional): User's username
 
         Returns:
-            Dict: User profile with unique_id, name, email, is_service_account
+            Dict: UserRead profile
 
         Raises:
-            ValueError: If neither orcid nor email is provided, no user is found,
-                or email matches multiple accounts (use ORCID in that case).
+            ValueError: If no identifier provided, no user found,
+                or email matches multiple accounts.
 
         Note:
-            ORCID is the canonical user identifier. Email is not guaranteed unique -
-            if both are provided, orcid takes precedence.
+            ORCID is the canonical identifier. If multiple are provided,
+            orcid > username > email in precedence.
         """
         if orcid:
             return self._request('get', f'/users/{orcid}')
+        elif username:
+            return self._request('get', f'/users/by-username/{username}')
         elif email:
             matches = self._paginate('/users', {'email': email, 'permissive': False})
             if not matches:
@@ -52,7 +56,50 @@ class UserOperations(BaseResource):
                 )
             return matches[0]
         else:
-            raise ValueError('please provide orcid or email')
+            raise ValueError('provide orcid, username, or email')
+
+    def me(self) -> Dict:
+        """Return the authenticated caller's own user profile.
+
+        Returns:
+            Dict: UserRead profile including username
+        """
+        return self._request('get', '/users/me')
+
+    def update_me(self, **kwargs) -> Dict:
+        """Self-service profile update. No admin required.
+
+        Accepted fields: first_name, last_name, email, username.
+        Pass username=None to clear the username.
+
+        Returns:
+            Dict: Updated UserRead profile
+        """
+        return self._request('patch', '/users/me', json=kwargs)
+
+    def resolve(self, orcids: Optional[List[str]] = None,
+                usernames: Optional[List[str]] = None,
+                emails: Optional[List[str]] = None) -> Dict:
+        """Batch-resolve users by any mix of ORCIDs, usernames, or emails.
+
+        **Requires admin permissions.**
+
+        Args:
+            orcids: List of ORCID strings
+            usernames: List of username strings
+            emails: List of email strings
+
+        Returns:
+            Dict: Mapping of orcid → UserRead for all resolved users
+        """
+        body = {}
+        if orcids:
+            body['orcids'] = orcids
+        if usernames:
+            body['usernames'] = usernames
+        if emails:
+            body['emails'] = emails
+        return self._request('post', '/users/resolve', json=body)
 
     def list(self, limit: int = DEFAULT_LIMIT, offset: int = 0, **kwargs) -> List[Dict]:
         """List all users in the system.

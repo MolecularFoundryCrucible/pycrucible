@@ -86,6 +86,7 @@ class User(BaseModel):
         default=None,
         validation_alias=AliasChoices("unique_id", "orcid"),
     )
+    username: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     email: Optional[str] = None

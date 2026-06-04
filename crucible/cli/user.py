@@ -41,6 +41,7 @@ def register_subcommand(subparsers):
     _register_get(user_subparsers)
     _register_create(user_subparsers)
     _register_update(user_subparsers)
+    _register_set_username(user_subparsers)
     _register_list(user_subparsers)
     _register_list_datasets(user_subparsers)
     _register_check_access(user_subparsers)
@@ -53,34 +54,23 @@ def _register_get(subparsers):
     """Register the 'user get' subcommand."""
     parser = subparsers.add_parser(
         'get',
-        help='Get user by ORCID or email',
+        help='Get user by ORCID, username, or email',
         description='Retrieve user information (requires admin permissions)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
     crucible user get --orcid 0000-0002-1825-0097
+    crucible user get --username fabrice
     crucible user get --email user@example.com
 """
     )
 
-    parser.add_argument(
-        '--orcid',
-        metavar='ORCID',
-        help='User ORCID identifier (format: 0000-0000-0000-000X)'
-    )
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--orcid',    metavar='ORCID',    help='User ORCID identifier')
+    group.add_argument('-u', '--username', metavar='USERNAME',  help='Username')
+    group.add_argument('--email',    metavar='EMAIL',     help='User email address')
 
-    parser.add_argument(
-        '--email',
-        metavar='EMAIL',
-        help='User email address'
-    )
-
-    parser.add_argument(
-        '--json',
-        action='store_true',
-        default=False,
-        help='Output as JSON'
-    )
+    parser.add_argument('--json', action='store_true', default=False, help='Output as JSON')
 
     parser.set_defaults(func=_execute_get)
 
@@ -105,37 +95,12 @@ Examples:
 """
     )
 
-    parser.add_argument(
-        '--orcid',
-        metavar='ORCID',
-        help='User ORCID identifier (format: 0000-0000-0000-000X). If not provided, will prompt interactively.'
-    )
-
-    parser.add_argument(
-        '--first-name',
-        dest='first_name',
-        metavar='NAME',
-        help='First name. If not provided, will prompt interactively.'
-    )
-
-    parser.add_argument(
-        '--last-name',
-        dest='last_name',
-        metavar='NAME',
-        help='Last name. If not provided, will prompt interactively.'
-    )
-
-    parser.add_argument(
-        '--email',
-        metavar='EMAIL',
-        help='Email address (optional)'
-    )
-
-    parser.add_argument(
-        '--projects', '-p',
-        metavar='IDS',
-        help='Comma-separated list of project IDs to associate with user (optional)'
-    )
+    parser.add_argument('--orcid',                 metavar='ORCID',    help='User ORCID identifier. If not provided, will prompt interactively.')
+    parser.add_argument('-f', '--first-name',  dest='first_name', metavar='NAME',     help='First name. If not provided, will prompt interactively.')
+    parser.add_argument('-l', '--last-name',   dest='last_name',  metavar='NAME',     help='Last name. If not provided, will prompt interactively.')
+    parser.add_argument('--email',                 metavar='EMAIL',    help='Email address (optional)')
+    parser.add_argument('-u', '--username',         metavar='USERNAME', help='Username (optional, 3-32 chars: lowercase letters/digits/hyphens/underscores)')
+    parser.add_argument('-p', '--projects',         metavar='IDS',      help='Comma-separated project IDs (optional)')
 
     parser.set_defaults(func=_execute_create)
 
@@ -162,6 +127,9 @@ Examples:
         help=f'Maximum number of users to return (default: {_config.default_limit})'
     )
 
+    parser.add_argument('-u', '--username', metavar='USERNAME', default=None,
+                        help='Filter by username (partial match)')
+
     parser.set_defaults(func=_execute_list)
 
 
@@ -174,9 +142,10 @@ def _show_user(user):
     uid = user.get('orcid') or user.get('unique_id')
 
     term.header("User")
-    _p("Name",    full_name)
-    _p("ORCID",   term.orcid_link(uid))
-    _p("Email",   user.get('email'))
+    _p("Username", user.get('username') or term.dim('(not set)'))
+    _p("Name",     full_name)
+    _p("ORCID",    term.orcid_link(uid))
+    _p("Email",    user.get('email'))
     if user.get('is_service_account'):
         _p("Type", "service account")
 
@@ -184,16 +153,16 @@ def _show_user(user):
 def _execute_get(args):
     """Execute the 'user get' subcommand."""
     from crucible.client import CrucibleClient
-    if not args.orcid and not args.email:
-        logger.error("Error: Either --orcid or --email must be provided")
-        sys.exit(1)
-
     try:
         client = CrucibleClient()
-        user = client.users.get(orcid=args.orcid, email=args.email)
+        user = client.users.get(
+            orcid=getattr(args, 'orcid', None),
+            username=getattr(args, 'username', None),
+            email=getattr(args, 'email', None),
+        )
 
         if user is None:
-            identifier = args.orcid if args.orcid else args.email
+            identifier = args.orcid or getattr(args, 'username', None) or args.email
             logger.error(f"User not found: {identifier}")
             sys.exit(1)
 
@@ -277,6 +246,7 @@ def _execute_create(args):
 
         user = User(
             unique_id=orcid,
+            username=getattr(args, 'username', None) or None,
             first_name=first_name,
             last_name=last_name,
             email=email or None,
@@ -309,9 +279,12 @@ Examples:
 """
     )
     parser.add_argument('orcid', metavar='ORCID', help='User ORCID identifier')
-    parser.add_argument('--first-name',       dest='first_name',       metavar='NAME',  help='First name')
-    parser.add_argument('--last-name',        dest='last_name',        metavar='NAME',  help='Last name')
-    parser.add_argument('--email',            dest='email',            metavar='EMAIL', help='Email address')
+    parser.add_argument('-f', '--first-name',  dest='first_name',    metavar='NAME',     help='First name')
+    parser.add_argument('-l', '--last-name',   dest='last_name',     metavar='NAME',     help='Last name')
+    parser.add_argument('--email',             dest='email',          metavar='EMAIL',    help='Email address')
+    parser.add_argument('-u', '--username',    dest='username',       metavar='USERNAME', help='Username')
+    parser.add_argument('--clear-username',    dest='clear_username', action='store_true',
+                        help='Remove the username (set to null)')
     parser.add_argument('--service-account',    dest='is_service_account', action='store_true',
                         help='Mark as a service account')
     parser.add_argument('--no-service-account', dest='is_service_account', action='store_false',
@@ -324,14 +297,18 @@ def _execute_update(args):
     from crucible.client import CrucibleClient
 
     fields = {k: v for k, v in {
-        'first_name':       args.first_name,
-        'last_name':        args.last_name,
-        'email':            args.email,
+        'first_name':         args.first_name,
+        'last_name':          args.last_name,
+        'email':              args.email,
+        'username':           args.username,
         'is_service_account': args.is_service_account,
     }.items() if v is not None}
 
+    if getattr(args, 'clear_username', False):
+        fields['username'] = None
+
     if not fields:
-        logger.error("No fields to update. Provide at least one of: --first-name, --last-name, --email, --service-account, --no-service-account")
+        logger.error("No fields to update. Provide at least one of: --first-name, --last-name, --email, --username, --clear-username, --service-account")
         sys.exit(1)
 
     try:
@@ -341,6 +318,47 @@ def _execute_update(args):
         _show_user(result)
     except Exception as e:
         logger.error(f"Error updating user: {e}")
+        sys.exit(1)
+
+
+def _register_set_username(subparsers):
+    parser = subparsers.add_parser(
+        'set-username',
+        help='Set your own username (no admin required)',
+        description='Self-service: set or clear your own username. '
+                    'Format: lowercase letters, digits, hyphens, underscores; 3-32 chars.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible user set-username fabrice
+    crucible user set-username --clear
+""",
+    )
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('username', metavar='USERNAME', nargs='?', default=None,
+                       help='New username')
+    group.add_argument('--clear', action='store_true', default=False,
+                       help='Remove your username')
+    parser.set_defaults(func=_execute_set_username)
+
+
+def _execute_set_username(args):
+    """Execute 'user set-username'."""
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+        username = None if args.clear else args.username
+        result = client.users.update_me(username=username)
+        if username:
+            logger.info(f"Username set to: {username}")
+        else:
+            logger.info("Username cleared")
+        _show_user(result)
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
         sys.exit(1)
 
 
@@ -378,7 +396,9 @@ def _execute_list(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        users = client.users.list(limit=args.limit)
+        username_filter = getattr(args, 'username', None)
+        kwargs = {'username': username_filter} if username_filter else {}
+        users = client.users.list(limit=args.limit, **kwargs)
 
         term.header(f"Users ({len(users)})")
 
@@ -389,11 +409,12 @@ def _execute_list(args):
         rows = []
         for user in users:
             name_parts = [user.get('first_name') or '', user.get('last_name') or '']
-            name  = ' '.join(p for p in name_parts if p) or '-'
-            orcid = term.orcid_link(user.get('unique_id') or user.get('orcid')) or '-'
-            email = user.get('email') or '-'
-            rows.append((name, orcid, email))
-        term.table(rows, ['Name', 'ORCID', 'Email'], max_widths=[25, 19, 35])
+            name     = ' '.join(p for p in name_parts if p) or '-'
+            orcid    = term.orcid_link(user.get('orcid') or user.get('unique_id')) or '-'
+            email    = user.get('email') or '-'
+            username = user.get('username') or '-'
+            rows.append((username, name, orcid, email))
+        term.table(rows, ['Username', 'Name', 'ORCID', 'Email'], max_widths=[20, 25, 19, 35])
 
     except Exception as e:
         logger.error(f"Error listing users: {e}")

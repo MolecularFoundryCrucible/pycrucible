@@ -233,16 +233,9 @@ Examples:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
-        '--orcid',
-        metavar='ORCID',
-        help='User ORCID identifier (format: 0000-0000-0000-000X)'
-    )
-    group.add_argument(
-        '--email',
-        metavar='EMAIL',
-        help='User email address'
-    )
+    group.add_argument('--orcid',    metavar='ORCID',    help='User ORCID identifier')
+    group.add_argument('--email',    metavar='EMAIL',    help='User email address')
+    group.add_argument('-u', '--username', metavar='USERNAME', help='Username')
 
     parser.set_defaults(func=_execute_add_user)
 
@@ -293,8 +286,9 @@ Examples:
     if ARGCOMPLETE_AVAILABLE:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--orcid', metavar='ORCID', help='User ORCID identifier')
-    group.add_argument('--email', metavar='EMAIL', help='User email address')
+    group.add_argument('--orcid',    metavar='ORCID',    help='User ORCID identifier')
+    group.add_argument('--email',    metavar='EMAIL',    help='User email address')
+    group.add_argument('-u', '--username', metavar='USERNAME', help='Username')
     parser.set_defaults(func=_execute_remove_user)
 
 
@@ -523,8 +517,9 @@ def _execute_add_user(args):
     import re
     from crucible.client import CrucibleClient
 
-    orcid = getattr(args, 'orcid', None)
-    email = getattr(args, 'email', None)
+    orcid    = getattr(args, 'orcid', None)
+    email    = getattr(args, 'email', None)
+    username = getattr(args, 'username', None)
 
     if orcid and not re.match(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$', orcid):
         logger.error(f"Invalid ORCID format: {orcid}")
@@ -534,12 +529,14 @@ def _execute_add_user(args):
     try:
         import requests as _req
         client = CrucibleClient()
-        users = client.projects.add_user(orcid=orcid, project_id=args.project_id, email=email)
+        users = client.projects.add_user(orcid=orcid, project_id=args.project_id,
+                                         email=email, username=username)
 
-        name = orcid or email
+        name = orcid or username or email
         if isinstance(users, list):
             match = next((u for u in users if
                           (orcid and (u.get('orcid') or u.get('unique_id')) == orcid) or
+                          (username and u.get('username') == username) or
                           (email and u.get('email') == email)), None)
             if match:
                 first = match.get('first_name') or ''
@@ -550,7 +547,7 @@ def _execute_add_user(args):
 
     except _req.exceptions.HTTPError as e:
         if e.response is not None and e.response.status_code == 404:
-            identifier = orcid or email
+            identifier = orcid or username or email
             logger.error(f"Not found: check that '{identifier}' has a Crucible account "
                          f"and that project '{args.project_id}' exists")
         else:
@@ -621,26 +618,27 @@ def _execute_remove_user(args):
     import requests as _req
     from crucible.client import CrucibleClient
 
-    orcid = getattr(args, 'orcid', None)
-    email = getattr(args, 'email', None)
+    orcid    = getattr(args, 'orcid', None)
+    email    = getattr(args, 'email', None)
+    username = getattr(args, 'username', None)
 
     try:
         client = CrucibleClient()
 
         try:
-            user = client.users.get(orcid=orcid, email=email)
+            user = client.users.get(orcid=orcid, email=email, username=username)
             first = user.get('first_name') or ''
             last  = user.get('last_name') or ''
-            name  = ' '.join(p for p in (first, last) if p) or orcid or email
+            name  = ' '.join(p for p in (first, last) if p) or orcid or username or email
         except Exception:
-            name = orcid or email
+            name = orcid or username or email
 
-        client.projects.remove_user(args.project_id, orcid=orcid, email=email)
+        client.projects.remove_user(args.project_id, orcid=orcid, email=email, username=username)
         logger.info(f"Removed {name} from project '{args.project_id}'")
 
     except _req.exceptions.HTTPError as e:
         if e.response is not None and e.response.status_code == 404:
-            identifier = orcid or email
+            identifier = orcid or username or email
             logger.error(f"Not found: check that '{identifier}' is a member of '{args.project_id}'")
         else:
             logger.error(f"Error removing user from project: {e}")
