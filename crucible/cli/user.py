@@ -41,7 +41,6 @@ def register_subcommand(subparsers):
     _register_get(user_subparsers)
     _register_create(user_subparsers)
     _register_update(user_subparsers)
-    _register_set_username(user_subparsers)
     _register_list(user_subparsers)
     _register_list_datasets(user_subparsers)
     _register_check_access(user_subparsers)
@@ -322,45 +321,6 @@ def _execute_update(args):
         sys.exit(1)
 
 
-def _register_set_username(subparsers):
-    parser = subparsers.add_parser(
-        'set-username',
-        help='Set your own username (no admin required)',
-        description='Self-service: set or clear your own username. '
-                    'Format: lowercase letters, digits, hyphens, underscores; 3-32 chars.',
-        formatter_class=term.ColorHelpFormatter,
-        epilog="""
-Examples:
-    crucible user set-username fabrice
-    crucible user set-username --clear
-""",
-    )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('username', metavar='USERNAME', nargs='?', default=None,
-                       help='New username')
-    group.add_argument('--clear', action='store_true', default=False,
-                       help='Remove your username')
-    parser.set_defaults(func=_execute_set_username)
-
-
-def _execute_set_username(args):
-    """Execute 'user set-username'."""
-    from crucible.client import CrucibleClient
-    try:
-        client = CrucibleClient()
-        username = None if args.clear else args.username
-        result = client.users.update_me(username=username)
-        if username:
-            logger.info(f"Username set to: {username}")
-        else:
-            logger.info("Username cleared")
-        _show_user(result)
-    except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
 
 
 def _register_add_access_group(subparsers):

@@ -18,7 +18,7 @@ from . import term
 def register_subcommand(subparsers):
     parser = subparsers.add_parser(
         'account',
-        help='Manage your own account (show, edit, set-username, api-key)',
+        help='Manage your own account (show, edit, update, api-key, verify)',
         description='Self-service account management. No admin required.',
     )
     sub = parser.add_subparsers(dest='account_command', metavar='COMMAND')
@@ -26,8 +26,9 @@ def register_subcommand(subparsers):
 
     _register_show(sub)
     _register_edit(sub)
-    _register_set_username(sub)
+    _register_update(sub)
     _register_api_key(sub)
+    _register_verify(sub)
 
 
 def _register_show(subparsers):
@@ -62,25 +63,24 @@ Examples:
     parser.set_defaults(func=_execute_edit)
 
 
-def _register_set_username(subparsers):
+def _register_update(subparsers):
     parser = subparsers.add_parser(
-        'set-username',
-        help='Set or clear your username',
-        description='Set your username without opening an editor. '
-                    'Format: lowercase letters, digits, hyphens, underscores; 3-32 chars.',
+        'update',
+        help='Update your profile fields',
+        description='Update one or more profile fields without opening an editor.',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible account set-username fabrice
-    crucible account set-username --clear
+    crucible account update -u fabrice
+    crucible account update --email new@lbl.gov
+    crucible account update -f Jane -l Doe -u janedoe
 """,
     )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('username', metavar='USERNAME', nargs='?', default=None,
-                       help='New username')
-    group.add_argument('--clear', action='store_true', default=False,
-                       help='Remove your username')
-    parser.set_defaults(func=_execute_set_username)
+    parser.add_argument('-u', '--username',   metavar='USERNAME', default=None, help='Set username')
+    parser.add_argument('-f', '--first-name', metavar='NAME',     default=None, dest='first_name', help='First name')
+    parser.add_argument('-l', '--last-name',  metavar='NAME',     default=None, dest='last_name',  help='Last name')
+    parser.add_argument('--email',            metavar='EMAIL',    default=None, help='Email address')
+    parser.set_defaults(func=_execute_update)
 
 
 def _register_api_key(subparsers):
@@ -90,6 +90,43 @@ def _register_api_key(subparsers):
         description='Display the API key associated with your account.',
     )
     parser.set_defaults(func=_execute_api_key)
+
+
+def _register_verify(subparsers):
+    parser = subparsers.add_parser(
+        'verify',
+        help='Check your API key validity and expiry',
+        description='Show whether your API key is valid and when it expires.',
+    )
+    parser.set_defaults(func=_execute_verify)
+
+
+def _execute_verify(args):
+    import requests as _req
+    from crucible.client import CrucibleClient
+    try:
+        info = CrucibleClient().account.verify()
+        _p = term.field_printer(10)
+        term.header("API Key")
+        valid = info.get('valid', False)
+        _p("Valid",   term.green("yes") if valid else term.red("no"))
+        _p("Created", term.fmt_ts(info.get('created_at')))
+        _p("Expires", term.fmt_ts(info.get('expires_at')))
+    except _req.exceptions.HTTPError as e:
+        if e.response is not None and e.response.status_code == 404:
+            logger.error("No API key found for this account.")
+        else:
+            logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
 
 
 def _show_profile(user):
@@ -109,7 +146,7 @@ def _show_profile(user):
 def _execute_show(args):
     from crucible.client import CrucibleClient
     try:
-        user = CrucibleClient().users.me()
+        user = CrucibleClient().account.profile()
         if user is None:
             logger.error("No user record found for the current API key - "
                          "the account may not be fully set up yet")
@@ -131,7 +168,7 @@ def _execute_edit(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        user = client.users.me()
+        user = client.account.profile()
         if user is None:
             logger.error("No user record found for the current API key")
             sys.exit(1)
@@ -162,7 +199,7 @@ def _execute_edit(args):
         return
 
     try:
-        result = client.users.update_me(**changes)
+        result = client.account.update_profile(**changes)
         term.header("Changes")
         term.diff(editable, {k: edited[k] for k in changes})
         _show_profile(result)
@@ -174,15 +211,23 @@ def _execute_edit(args):
         sys.exit(1)
 
 
-def _execute_set_username(args):
+def _execute_update(args):
     from crucible.client import CrucibleClient
+
+    fields = {k: v for k, v in {
+        'first_name': args.first_name,
+        'last_name':  args.last_name,
+        'email':      args.email,
+        'username':   args.username,
+    }.items() if v is not None}
+
+    if not fields:
+        logger.error("No fields to update. Provide at least one of: "
+                     "-u/--username, -f/--first-name, -l/--last-name, --email")
+        sys.exit(1)
+
     try:
-        username = None if args.clear else args.username
-        result = CrucibleClient().users.update_me(username=username)
-        if username:
-            logger.info(f"Username set to: {username}")
-        else:
-            logger.info("Username cleared.")
+        result = CrucibleClient().account.update_profile(**fields)
         _show_profile(result)
     except Exception as e:
         logger.error(f"Error: {e}")
@@ -196,7 +241,7 @@ def _execute_api_key(args):
     import requests as _req
     from crucible.client import CrucibleClient
     try:
-        key = CrucibleClient().users.get_api_key()
+        key = CrucibleClient().account.api_key()
         _p = term.field_printer(8)
         term.header("API Key")
         _p("Key", key)

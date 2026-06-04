@@ -10,6 +10,7 @@ import logging
 from typing import Optional, Dict, List
 from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
+from ..utils.deprecation import _deprecated
 
 logger = logging.getLogger(__name__)
 
@@ -58,26 +59,26 @@ class UserOperations(BaseResource):
         else:
             raise ValueError('provide orcid, username, or email')
 
+    @_deprecated("client.account.profile()")
     def me(self) -> Dict:
-        """Return the authenticated caller's own user profile.
+        """Deprecated: use client.account.profile() instead."""
+        return self._client.account.profile()
 
-        Returns:
-            Dict: UserRead profile including username
-        """
-        return self._request('get', '/account/profile')
-
+    @_deprecated("client.account.update_profile()")
     def update_me(self, **kwargs) -> Dict:
-        """Self-service profile update. No admin required.
+        """Deprecated: use client.account.update_profile() instead."""
+        return self._client.account.update_profile(**kwargs)
 
-        Accepted fields: first_name, last_name, email, username.
-        Pass username=None to clear the username.
-        Note: is_service_account cannot be set here — use users.update() (admin only).
+    def verify_api_key(self, orcid: str) -> Dict:
+        """Verify the API key for any user. Admin only.
+
+        Args:
+            orcid: User's ORCID identifier
 
         Returns:
-            Dict: Updated UserRead profile
+            Dict: {valid: bool, created_at: str, expires_at: str}
         """
-        kwargs.pop('is_service_account', None)
-        return self._request('patch', '/account/profile', json=kwargs)
+        return self._request('get', f'/users/{orcid}/apikey/verify')
 
     def resolve(self, orcids: Optional[List[str]] = None,
                 usernames: Optional[List[str]] = None,
@@ -241,14 +242,10 @@ class UserOperations(BaseResource):
         """
         return self._request('patch', f'/users/{orcid}', json=kwargs)
 
+    @_deprecated("client.account.api_key()")
     def get_api_key(self) -> str:
-        """Return the caller's own Crucible API key.
-
-        Returns:
-            str: The caller's API key
-        """
-        result = self._request('get', '/account/apikey')
-        return result['api_key']
+        """Deprecated: use client.account.api_key() instead."""
+        return self._client.account.api_key()
 
     def remove_from_access_group(self, orcid: str, group_name: str) -> Dict:
         """Remove a user from an access group.
