@@ -64,18 +64,20 @@ class UserOperations(BaseResource):
         Returns:
             Dict: UserRead profile including username
         """
-        return self._request('get', '/users/me')
+        return self._request('get', '/account/profile')
 
     def update_me(self, **kwargs) -> Dict:
         """Self-service profile update. No admin required.
 
         Accepted fields: first_name, last_name, email, username.
         Pass username=None to clear the username.
+        Note: is_service_account cannot be set here — use users.update() (admin only).
 
         Returns:
             Dict: Updated UserRead profile
         """
-        return self._request('patch', '/users/me', json=kwargs)
+        kwargs.pop('is_service_account', None)
+        return self._request('patch', '/account/profile', json=kwargs)
 
     def resolve(self, orcids: Optional[List[str]] = None,
                 usernames: Optional[List[str]] = None,

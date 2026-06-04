@@ -248,6 +248,8 @@ def register_subcommand(subparsers):
     _register_search(dataset_subparsers)
     _register_add_keyword(dataset_subparsers)
     _register_list_keywords(dataset_subparsers)
+    _register_list_access_groups(dataset_subparsers)
+    _register_add_access_group(dataset_subparsers)
     _register_parsers(dataset_subparsers)
     _register_ingestors(dataset_subparsers)
 
@@ -1487,6 +1489,77 @@ def _execute_list_keywords(args):
     except Exception as e:
         logger.error(f"Error retrieving keywords: {e}")
         if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_list_access_groups(subparsers):
+    parser = subparsers.add_parser(
+        'list-access-groups',
+        help='List access groups for a dataset (admin)',
+        description='List access groups that have been granted access to a dataset.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible dataset list-access-groups DSID
+""",
+    )
+    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.set_defaults(func=_execute_list_access_groups)
+
+
+def _execute_list_access_groups(args):
+    """Execute 'crucible dataset list-access-groups'."""
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+        groups = client.datasets.get_access_groups(args.dataset_id)
+        term.header(f"Access Groups · {args.dataset_id} ({len(groups)})")
+        if not groups:
+            print(f"  {term.dim('No access groups found.')}")
+        else:
+            for g in groups:
+                print(f"  {g}")
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_add_access_group(subparsers):
+    parser = subparsers.add_parser(
+        'add-access-group',
+        help='Grant an access group access to a dataset (admin)',
+        description='Add an access group to a dataset with read and/or write permissions.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible dataset add-access-group DSID my-group
+    crucible dataset add-access-group DSID my-group --write
+""",
+    )
+    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('group_name', metavar='GROUP',      help='Access group name')
+    parser.add_argument('--read',  action='store_true', default=True,  help='Grant read access (default: on)')
+    parser.add_argument('--write', action='store_true', default=False, help='Grant write access (default: off)')
+    parser.set_defaults(func=_execute_add_access_group)
+
+
+def _execute_add_access_group(args):
+    """Execute 'crucible dataset add-access-group'."""
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+        client.datasets.add_access_group(args.dataset_id, args.group_name,
+                                         read=args.read, write=args.write)
+        perms = 'read+write' if args.write else 'read'
+        logger.info(f"✓ Access group '{args.group_name}' added to {args.dataset_id} ({perms})")
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
             import traceback
             traceback.print_exc()
         sys.exit(1)

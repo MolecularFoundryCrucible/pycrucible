@@ -46,6 +46,7 @@ def register_subcommand(subparsers):
     _register_list_datasets(user_subparsers)
     _register_check_access(user_subparsers)
     _register_list_access_groups(user_subparsers)
+    _register_add_access_group(user_subparsers)
     _register_remove_access_group(user_subparsers)
     _register_list_projects(user_subparsers)
 
@@ -354,6 +355,38 @@ def _execute_set_username(args):
         else:
             logger.info("Username cleared")
         _show_user(result)
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_add_access_group(subparsers):
+    """Register the 'user add-access-group' subcommand."""
+    parser = subparsers.add_parser(
+        'add-access-group',
+        help='Add a user to an access group',
+        description='Add a user to an access group (requires admin permissions)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible user add-access-group 0000-0002-1825-0097 my-group
+""",
+    )
+    parser.add_argument('orcid',      metavar='ORCID', help='User ORCID identifier')
+    parser.add_argument('group_name', metavar='GROUP', help='Access group name')
+    parser.set_defaults(func=_execute_add_access_group)
+
+
+def _execute_add_access_group(args):
+    """Execute the 'user add-access-group' subcommand."""
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+        client.users.add_to_access_group(args.orcid, args.group_name)
+        logger.info(f"Added {args.orcid} to access group '{args.group_name}'")
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):

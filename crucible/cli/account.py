@@ -193,12 +193,23 @@ def _execute_set_username(args):
 
 
 def _execute_api_key(args):
+    import requests as _req
     from crucible.client import CrucibleClient
     try:
         key = CrucibleClient().users.get_api_key()
         _p = term.field_printer(8)
         term.header("API Key")
         _p("Key", key)
+    except _req.exceptions.HTTPError as e:
+        if e.response is not None and e.response.status_code == 404:
+            logger.error("No API key found for this account. "
+                         "Use the web interface to generate one.")
+        else:
+            logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):
