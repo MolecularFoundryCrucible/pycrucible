@@ -64,9 +64,13 @@ docs = [
     "mkdocs-material>=9.0",
     "mkdocstrings[python]>=0.24",
 ]
+gcs = [
+    "google-cloud-storage>=2.7.0",
+]
 all = [
     "ase>=3.22.0",
     "prompt_toolkit>=3.0",
+    "google-cloud-storage>=2.7.0",
 ]
 
 [project.scripts]

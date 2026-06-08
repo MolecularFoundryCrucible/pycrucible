@@ -74,9 +74,94 @@ class FileOperations(BaseResource):
 
 
     def _upload_file_gcs(self, dsid: str, file_path: str) -> Dict:
-        """Upload a file to a dataset using resumable GCS chunked upload.
-        
-        Automatically resumes interrupted uploads.
+        """Upload a file to a dataset, using parallel multipart if google-cloud-storage
+        is installed, otherwise falling back to the sequential resumable upload.
+
+        Args:
+            dsid: Dataset unique identifier
+            file_path: Local path to the file
+
+        Returns:
+            Dict: AssociatedFile record for the uploaded file.
+        """
+        try:
+            import google.cloud.storage  # noqa: F401
+            return self._upload_file_gcs_multipart(dsid, file_path)
+        except ImportError:
+            logger.debug("google-cloud-storage not installed, using sequential resumable upload. "
+                         "Install with: pip install nano-crucible[gcs]")
+            return self._upload_file_gcs_resumable(dsid, file_path)
+
+    def _upload_file_gcs_multipart(self, dsid: str, file_path: str) -> Dict:
+        """Upload using the GCS SDK's parallel multipart upload (upload_chunks_concurrently).
+
+        Requires google-cloud-storage>=2.7.0 (pip install nano-crucible[gcs]).
+        The API vends a short-lived OAuth2 token so no GCS credentials are needed.
+
+        Args:
+            dsid: Dataset unique identifier
+            file_path: Local path to the file
+
+        Returns:
+            Dict: AssociatedFile record for the uploaded file.
+        """
+        import hashlib
+        from google.cloud import storage
+        from google.cloud.storage import transfer_manager
+        from google.oauth2.credentials import Credentials
+
+        _CHUNK = 32 * 1024 * 1024   # 32 MiB parts
+        _WORKERS = 8
+
+        file_size = os.path.getsize(file_path)
+        filename  = os.path.basename(file_path)
+
+        logger.info(f"Uploading {filename} ({file_size / 1024**2:.1f} MB) "
+                    f"to dataset {dsid} [parallel, {_WORKERS} workers]")
+
+        # SHA256 pre-pass: used for server-side dedup at initiate and sent to /complete.
+        h = hashlib.sha256()
+        with open(file_path, 'rb') as f:
+            for block in iter(lambda: f.read(_CHUNK), b''):
+                h.update(block)
+        sha256_hash = h.hexdigest()
+
+        # Initiate: get upload token (or dedup hit)
+        init = self._request('post', f'/datasets/{dsid}/upload/initiate/multipart',
+                             json={'filename': filename, 'size': file_size,
+                                   'sha256_hash': sha256_hash})
+
+        if init.get('existing_file') is not None:
+            logger.info(f"{filename} already exists in dataset {dsid}, skipping upload")
+            return init['existing_file']
+
+        upload_id = init['upload_id']
+
+        # Build GCS client from vended token — no user credentials needed
+        gcs = storage.Client(
+            credentials=Credentials(token=init['access_token']),
+            project=init['project'],
+        )
+        blob = gcs.bucket(init['bucket']).blob(f"{init['object_prefix']}{filename}")
+
+        logger.debug(f"Starting parallel upload: upload_id={upload_id}, "
+                     f"chunk={_CHUNK >> 20} MiB, workers={_WORKERS}")
+
+        transfer_manager.upload_chunks_concurrently(
+            file_path,
+            blob,
+            chunk_size=_CHUNK,
+            max_workers=_WORKERS,
+            worker_type=transfer_manager.THREAD,
+            checksum="crc32c",
+        )
+
+        logger.info(f"Completing upload for {filename} (upload_id={upload_id})")
+        return self._request('post', f'/datasets/{dsid}/upload/complete',
+                             json={'upload_id': upload_id, 'sha256_hash': sha256_hash})
+
+    def _upload_file_gcs_resumable(self, dsid: str, file_path: str) -> Dict:
+        """Upload using a GCS resumable session URI (sequential, no extra dependencies).
 
         Args:
             dsid: Dataset unique identifier
