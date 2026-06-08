@@ -31,7 +31,8 @@ class FileOperations(BaseResource):
 
     def add_file_to_dataset(self, dsid: str, file_path: str,
                             ingestion_class: Optional[str] = None,
-                            wait_for_ingestion_response: bool = False) -> Dict:
+                            wait_for_ingestion_response: bool = False,
+                            multipart: bool = True) -> Dict:
         """Upload a file to a dataset and request ingestion.
 
         Args:
@@ -40,6 +41,8 @@ class FileOperations(BaseResource):
             ingestion_class: Ingestion class for the worker (e.g. 'lammps', 'nexus').
                 Defaults to the server-side default if omitted.
             wait_for_ingestion_response: Block until ingestion completes.
+            multipart: Use parallel multipart upload (default: True). Set to False to
+                use the sequential resumable upload (slower but simpler).
 
         Returns:
             Dict: {'associated_file': AssociatedFileRead, 'ingestion_request': IngestionRequest}
@@ -50,7 +53,7 @@ class FileOperations(BaseResource):
         filename = os.path.basename(file_path)
         
         # run file upload
-        file_record = self._upload_file_gcs(dsid, file_path)
+        file_record = self._upload_file_gcs(dsid, file_path, multipart=multipart)
         
         # Trigger ingestion — use the stored filename from the response (full GCS path)
         stored_filename = file_record.get('filename', filename)
@@ -73,24 +76,21 @@ class FileOperations(BaseResource):
         return {'associated_file': file_record, 'ingestion_request': ingestion_request}
 
 
-    def _upload_file_gcs(self, dsid: str, file_path: str) -> Dict:
-        """Upload a file to a dataset, using parallel multipart if google-cloud-storage
-        is installed, otherwise falling back to the sequential resumable upload.
+    def _upload_file_gcs(self, dsid: str, file_path: str, multipart: bool = True) -> Dict:
+        """Upload a file to a dataset.
 
         Args:
             dsid: Dataset unique identifier
             file_path: Local path to the file
+            multipart: If True (default), use parallel multipart upload via the GCS SDK.
+                       If False, use the sequential resumable upload.
 
         Returns:
             Dict: AssociatedFile record for the uploaded file.
         """
-        try:
-            import google.cloud.storage  # noqa: F401
+        if multipart:
             return self._upload_file_gcs_multipart(dsid, file_path)
-        except ImportError:
-            logger.debug("google-cloud-storage not installed, using sequential resumable upload. "
-                         "Install with: pip install nano-crucible[gcs]")
-            return self._upload_file_gcs_resumable(dsid, file_path)
+        return self._upload_file_gcs_resumable(dsid, file_path)
 
     def _upload_file_gcs_multipart(self, dsid: str, file_path: str) -> Dict:
         """Upload using the GCS SDK's parallel multipart upload (upload_chunks_concurrently).
