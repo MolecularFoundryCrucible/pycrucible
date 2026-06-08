@@ -445,6 +445,18 @@ class FileOperations(BaseResource):
         }
         return self._request('post', f'/datasets/{dsid}/thumbnails', json=thumbnail_data)
 
+    def delete_thumbnail(self, dsid: str, thumbnail_id: int) -> Dict:
+        """Delete a thumbnail from a dataset.
+
+        Args:
+            dsid: Dataset unique identifier
+            thumbnail_id: Integer ID of the thumbnail (from get_thumbnails())
+
+        Returns:
+            Dict: Confirmation message
+        """
+        return self._request('delete', f'/datasets/{dsid}/thumbnails/{thumbnail_id}')
+
     # Ingestion Methods
 
     def get_ingestion_requests(self, dsid: Optional[str] = None,
