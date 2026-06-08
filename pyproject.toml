@@ -44,14 +44,13 @@ dependencies = [
     "mfid>=1.0.0",
     "pyyaml>=6.0",
     "google-crc32c>=1.1.0",
+    "google-cloud-storage>=2.7.0",
+    "prompt_toolkit>=3.0",
 ]
 
 [project.optional-dependencies]
 parsers = [
     "ase>=3.22.0",
-]
-shell = [
-    "prompt_toolkit>=3.0",
 ]
 dev = [
     "pytest>=6.0",
@@ -63,14 +62,6 @@ docs = [
     "mkdocs>=1.5",
     "mkdocs-material>=9.0",
     "mkdocstrings[python]>=0.24",
-]
-gcs = [
-    "google-cloud-storage>=2.7.0",
-]
-all = [
-    "ase>=3.22.0",
-    "prompt_toolkit>=3.0",
-    "google-cloud-storage>=2.7.0",
 ]
 
 [project.scripts]
