@@ -10,6 +10,7 @@ import logging
 from typing import Optional, Dict, List
 from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
+from ..utils.deprecation import _deprecated
 
 logger = logging.getLogger(__name__)
 
@@ -20,28 +21,32 @@ class UserOperations(BaseResource):
     Access via: client.users.get(), client.users.create(), etc.
     """
 
-    def get(self, orcid: Optional[str] = None, email: Optional[str] = None) -> Dict:
-        """Get user details by unique ID (ORCID for real users) or email.
+    def get(self, orcid: Optional[str] = None, email: Optional[str] = None,
+            username: Optional[str] = None) -> Dict:
+        """Get user details by ORCID, email, or username.
 
-        **Requires admin permissions.**
+        **Requires admin permissions (or self-lookup by username).**
 
         Args:
-            orcid (str, optional): User unique ID (ORCID for real users)
+            orcid (str, optional): User ORCID identifier
             email (str, optional): User's email address
+            username (str, optional): User's username
 
         Returns:
-            Dict: User profile with unique_id, name, email, is_service_account
+            Dict: UserRead profile
 
         Raises:
-            ValueError: If neither orcid nor email is provided, no user is found,
-                or email matches multiple accounts (use ORCID in that case).
+            ValueError: If no identifier provided, no user found,
+                or email matches multiple accounts.
 
         Note:
-            ORCID is the canonical user identifier. Email is not guaranteed unique -
-            if both are provided, orcid takes precedence.
+            ORCID is the canonical identifier. If multiple are provided,
+            orcid > username > email in precedence.
         """
         if orcid:
             return self._request('get', f'/users/{orcid}')
+        elif username:
+            return self._request('get', f'/users/by-username/{username}')
         elif email:
             matches = self._paginate('/users', {'email': email, 'permissive': False})
             if not matches:
@@ -52,7 +57,52 @@ class UserOperations(BaseResource):
                 )
             return matches[0]
         else:
-            raise ValueError('please provide orcid or email')
+            raise ValueError('provide orcid, username, or email')
+
+    @_deprecated("client.account.profile()")
+    def me(self) -> Dict:
+        """Deprecated: use client.account.profile() instead."""
+        return self._client.account.profile()
+
+    @_deprecated("client.account.update_profile()")
+    def update_me(self, **kwargs) -> Dict:
+        """Deprecated: use client.account.update_profile() instead."""
+        return self._client.account.update_profile(**kwargs)
+
+    def verify_api_key(self, orcid: str) -> Dict:
+        """Verify the API key for any user. Admin only.
+
+        Args:
+            orcid: User's ORCID identifier
+
+        Returns:
+            Dict: {valid: bool, created_at: str, expires_at: str}
+        """
+        return self._request('get', f'/users/{orcid}/apikey/verify')
+
+    def resolve(self, orcids: Optional[List[str]] = None,
+                usernames: Optional[List[str]] = None,
+                emails: Optional[List[str]] = None) -> Dict:
+        """Batch-resolve users by any mix of ORCIDs, usernames, or emails.
+
+        **Requires admin permissions.**
+
+        Args:
+            orcids: List of ORCID strings
+            usernames: List of username strings
+            emails: List of email strings
+
+        Returns:
+            Dict: Mapping of orcid → UserRead for all resolved users
+        """
+        body = {}
+        if orcids:
+            body['orcids'] = orcids
+        if usernames:
+            body['usernames'] = usernames
+        if emails:
+            body['emails'] = emails
+        return self._request('post', '/users/resolve', json=body)
 
     def list(self, limit: int = DEFAULT_LIMIT, offset: int = 0, **kwargs) -> List[Dict]:
         """List all users in the system.
@@ -192,14 +242,10 @@ class UserOperations(BaseResource):
         """
         return self._request('patch', f'/users/{orcid}', json=kwargs)
 
+    @_deprecated("client.account.api_key()")
     def get_api_key(self) -> str:
-        """Return the caller's own Crucible API key.
-
-        Returns:
-            str: The caller's API key
-        """
-        result = self._request('get', '/account/apikey')
-        return result['api_key']
+        """Deprecated: use client.account.api_key() instead."""
+        return self._client.account.api_key()
 
     def remove_from_access_group(self, orcid: str, group_name: str) -> Dict:
         """Remove a user from an access group.

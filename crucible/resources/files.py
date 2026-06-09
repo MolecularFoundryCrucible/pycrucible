@@ -12,7 +12,7 @@ import re
 import fnmatch
 import logging
 import requests
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 
 from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
@@ -47,24 +47,31 @@ class FileOperations(BaseResource):
         Returns:
             Dict: {'associated_file': AssociatedFileRead, 'ingestion_request': IngestionRequest}
                 AssociatedFileRead includes: mfid, filename, storage_path, size, sha256_hash, dataset_mfid
+                ingestion_request is None when the file was already present and a prior
+                ingestion for it had completed, so ingestion was skipped.
         """
         # get file information
         file_size = os.path.getsize(file_path)
         filename = os.path.basename(file_path)
         
         # run file upload
-        file_record = self._upload_file_gcs(dsid, file_path, multipart=multipart)
-        
-        # Trigger ingestion — use the stored filename from the response (full GCS path)
+        file_record, was_existing = self._upload_file_gcs(dsid, file_path, multipart=multipart)
+
+
         stored_filename = file_record.get('filename', filename)
         file_id = file_record.get('mfid')
+
+        if was_existing and self._has_successful_ingestion(file_id):
+            logger.info(f"{stored_filename} already ingested successfully; skipping ingestion")
+            return {'associated_file': file_record, 'ingestion_request': None}
+
         ingest_params = {'filename': stored_filename, 'file_size': file_size}
         if ingestion_class:
             ingest_params['ingestion_class'] = ingestion_class
-            
+
         logger.info(f"Requesting ingestion for {stored_filename}"
                     + (f" (class={ingestion_class})" if ingestion_class else ""))
-        
+
         ingestion_request = self._request('post', f'/datasets/{dsid}/files/{file_id}/ingest', params=ingest_params)
         
         logger.debug(f"Ingestion request created: id={ingestion_request.get('id')}, "
@@ -72,11 +79,17 @@ class FileOperations(BaseResource):
 
         if wait_for_ingestion_response and ingestion_request:
             self._client._wait_for_request_completion(ingestion_request['id'])
-            
+
         return {'associated_file': file_record, 'ingestion_request': ingestion_request}
 
+    def _has_successful_ingestion(self, file_id: Optional[str]) -> bool:
+        if not file_id:
+            return False
+        resp = self.get_ingestion_requests(file_id=file_id)
+        items = resp.get('items', []) if isinstance(resp, dict) else (resp or [])
+        return any(r.get('status') == 'complete' for r in items)
 
-    def _upload_file_gcs(self, dsid: str, file_path: str, multipart: bool = True) -> Dict:
+    def _upload_file_gcs(self, dsid: str, file_path: str, multipart: bool = True) -> Tuple[Dict, bool]:
         """Upload a file to a dataset.
 
         Args:
@@ -86,7 +99,8 @@ class FileOperations(BaseResource):
                        If False, use the sequential resumable upload.
 
         Returns:
-            Dict: AssociatedFile record for the uploaded file.
+            Tuple[Dict, bool]: (AssociatedFile record, was_existing).
+                was_existing is True when the file was a dedup hit and the upload was skipped.
         """
         if multipart:
             return self._upload_file_gcs_multipart(dsid, file_path)
@@ -139,7 +153,7 @@ class FileOperations(BaseResource):
 
         if init.get('existing_file') is not None:
             logger.info(f"{filename} already exists in dataset {dsid}, skipping upload")
-            return init['existing_file']
+            return init['existing_file'], True
 
         upload_id = init['upload_id']
 
@@ -177,10 +191,11 @@ class FileOperations(BaseResource):
         logger.debug(f"CRC32C verified: {local_crc32c_b64}")
 
         logger.info(f"Completing upload for {filename} (upload_id={upload_id})")
-        return self._request('post', f'/datasets/{dsid}/upload/complete',
-                             json={'upload_id': upload_id, 'sha256_hash': sha256_hash})
+        file_record = self._request('post', f'/datasets/{dsid}/upload/complete',
+                                    json={'upload_id': upload_id, 'sha256_hash': sha256_hash})
+        return file_record, False
 
-    def _upload_file_gcs_resumable(self, dsid: str, file_path: str) -> Dict:
+    def _upload_file_gcs_resumable(self, dsid: str, file_path: str) -> Tuple[Dict, bool]:
         """Upload using a GCS resumable session URI (sequential, no extra dependencies).
 
         Args:
@@ -188,7 +203,9 @@ class FileOperations(BaseResource):
             file_path: Local path to the file
 
         Returns:
-            Dict: AssociatedFile record for the uploaded file.
+            Tuple[Dict, bool]: (AssociatedFile record, was_existing). was_existing is
+                True when the file already existed in the dataset and the byte upload
+                was skipped via server-side dedup.
         """
         import hashlib
         import base64
@@ -221,7 +238,7 @@ class FileOperations(BaseResource):
 
         if init.get('existing_file', None) is not None:
             logger.info(f"File {filename} already exists in dataset {dsid}, skipping upload")
-            return init['existing_file']
+            return init['existing_file'], True
 
         upload_id  = init['upload_id']
         uri        = init['resumable_uri']
@@ -297,7 +314,7 @@ class FileOperations(BaseResource):
         file_record = self._request('post', f'/datasets/{dsid}/upload/complete',
                                     json={'upload_id': upload_id, 'sha256_hash': sha256_hash})
 
-        return file_record
+        return file_record, False
 
 
     def list_files(self, limit: int = DEFAULT_LIMIT,
@@ -534,6 +551,18 @@ class FileOperations(BaseResource):
             'thumbnail_b64str': thumbnail_b64str,
         }
         return self._request('post', f'/datasets/{dsid}/thumbnails', json=thumbnail_data)
+
+    def delete_thumbnail(self, dsid: str, thumbnail_id: int) -> Dict:
+        """Delete a thumbnail from a dataset.
+
+        Args:
+            dsid: Dataset unique identifier
+            thumbnail_id: Integer ID of the thumbnail (from get_thumbnails())
+
+        Returns:
+            Dict: Confirmation message
+        """
+        return self._request('delete', f'/datasets/{dsid}/thumbnails/{thumbnail_id}')
 
     # Ingestion Methods
 

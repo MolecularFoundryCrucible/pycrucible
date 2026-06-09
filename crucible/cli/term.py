@@ -144,10 +144,8 @@ def fmt_ts(ts) -> str | None:
         dt = datetime.fromisoformat(s)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.astimezone()  # convert to local timezone
         abs_str = dt.strftime('%Y-%m-%d %H:%M')
-        tz_s = dt.strftime('%z')
-        if tz_s:
-            abs_str += f"  {tz_s[:3]}:{tz_s[3:]}"
     except (ValueError, TypeError):
         pass
 
@@ -169,7 +167,7 @@ def fmt_ts(ts) -> str | None:
     if dt is None:
         return s  # unrecognised format — return raw
 
-    now = datetime.now(tz=dt.tzinfo or timezone.utc)
+    now = datetime.now(tz=dt.tzinfo)
     return f"{abs_str}  {dim(f'({_rel(now - dt)})')}"
 
 

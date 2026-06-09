@@ -15,5 +15,8 @@ from .users import UserOperations
 from .instruments import InstrumentOperations
 from .deletion import DeletionOperations
 from .graphs import GraphOperations
+from .account import AccountOperations
 
-__all__ = ['FileOperations', 'DatasetOperations', 'SampleOperations', 'ProjectOperations', 'UserOperations', 'InstrumentOperations', 'DeletionOperations', 'GraphOperations']
+__all__ = ['FileOperations', 'DatasetOperations', 'SampleOperations', 'ProjectOperations',
+           'UserOperations', 'InstrumentOperations', 'DeletionOperations', 'GraphOperations',
+           'AccountOperations']

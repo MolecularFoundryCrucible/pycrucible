@@ -85,3 +85,4 @@ nav:
     - Users: api-reference/users.md
     - Graphs: api-reference/graphs.md
     - Models: api-reference/models.md
+  - Changelog: changelog.md

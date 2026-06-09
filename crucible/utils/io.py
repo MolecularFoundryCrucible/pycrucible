@@ -9,7 +9,7 @@ import os
 import pytz
 import subprocess as sp
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def run_shell(cmd, checkflag=True, background=False):
@@ -94,7 +94,7 @@ def parse_timestamp(value: str) -> str:
     from datetime import timedelta
 
     v = value.strip().lower()
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
 
     if v in ("now", "today"):
         return now.replace(microsecond=0).isoformat()
@@ -103,6 +103,8 @@ def parse_timestamp(value: str) -> str:
 
     try:
         dt = _duparser.parse(value)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
         return dt.replace(microsecond=0).isoformat()
     except (ValueError, OverflowError):
         raise ValueError(

@@ -86,6 +86,7 @@ class User(BaseModel):
         default=None,
         validation_alias=AliasChoices("unique_id", "orcid"),
     )
+    username: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     email: Optional[str] = None
@@ -120,14 +121,13 @@ class Instrument(BaseModel):
 
 
 class DeletionRequest(BaseModel):
-    '''
-    A pending or resolved request to delete a resource. 
-    '''  
+    '''A pending or resolved request to delete a resource.'''
 
     id: Optional[int] = None
     resource_type: Optional[str] = None
     resource_id: Optional[str] = None
     resource_name: Optional[str] = None
+    project_id: Optional[str] = None
     requester_id: Optional[str] = None
     reason: Optional[str] = None
     status: Optional[str] = None          # "pending" | "approved" | "rejected"
@@ -135,6 +135,25 @@ class DeletionRequest(BaseModel):
     review_time: Optional[str] = None
     reviewer_id: Optional[str] = None
     reviewer_notes: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
+
+
+class DeletionAuditLog(BaseModel):
+    '''Permanent record of a hard-deleted resource. Written before deletion; survives it.'''
+
+    id: Optional[int] = None
+    resource_id: Optional[str] = None
+    resource_type: Optional[str] = None
+    resource_name: Optional[str] = None
+    project_id: Optional[str] = None
+    requester_id: Optional[str] = None
+    reason: Optional[str] = None
+    request_time: Optional[str] = None
+    reviewer_id: Optional[str] = None
+    reviewer_notes: Optional[str] = None
+    review_time: Optional[str] = None
+    deleted_at: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
 

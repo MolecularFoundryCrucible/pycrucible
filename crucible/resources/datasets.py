@@ -71,10 +71,12 @@ class DatasetOperations(FileOperations):
 
         Args:
             sample_id (str, optional): If provided, returns datasets for this sample
-            limit (int): Maximum total results to return (default: 100). Requests
-                         above API_PAGE_MAX (1000) are handled transparently via
-                         parallel pagination.
-            offset (int): Starting position in the full result set (default: 0)
+            limit (int): Maximum total results to return (default: 100). Larger
+                         requests are handled transparently by following the
+                         server's keyset cursor. Pass None to fetch all matches.
+            offset (int): Deprecated for the top-level /datasets endpoint, which now
+                          uses keyset pagination and ignores offset. Still honored
+                          for the sample_id sub-listing.
             include_metadata (bool): Include scientific metadata in results
             include_links (bool): Include linked resources (parents, children, associated) per dataset
             **kwargs (Any): Query parameters for filtering. Supported fields include:
@@ -97,13 +99,20 @@ class DatasetOperations(FileOperations):
                 params['limit'] = limit
             raw = self._request('get', f'/samples/{sample_id}/datasets', params=params)
         else:
+            if offset:
+                import warnings
+                warnings.warn(
+                    "'offset' is ignored by /datasets, which now uses keyset "
+                    "pagination; results start from the newest dataset.",
+                    DeprecationWarning, stacklevel=2,
+                )
             raw = self._paginate('/datasets', params, limit, offset)
         return [self._parse(d) for d in raw]
 
     def count(self, **kwargs) -> int:
         """Return the total number of datasets matching the given filters without fetching items."""
         params = {k: v for k, v in kwargs.items() if v is not None}
-        result = self._request('get', '/datasets', params={**params, 'limit': 1, 'offset': 0})
+        result = self._request('get', '/datasets', params={**params, 'limit': 1})
         return result['total']
 
 

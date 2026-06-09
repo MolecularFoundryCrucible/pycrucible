@@ -75,7 +75,8 @@ class CrucibleClient:
 
         # Initialize resource operations
         from .resources import FileOperations, DatasetOperations, SampleOperations, \
-        ProjectOperations, UserOperations, InstrumentOperations, DeletionOperations, GraphOperations
+        ProjectOperations, UserOperations, InstrumentOperations, DeletionOperations, \
+        GraphOperations, AccountOperations
 
         self.files = FileOperations(self)
         self.datasets = DatasetOperations(self)
@@ -85,6 +86,7 @@ class CrucibleClient:
         self.instruments = InstrumentOperations(self)
         self.deletions = DeletionOperations(self)
         self.graphs = GraphOperations(self)
+        self.account = AccountOperations(self)
     
     def _request(self, method: str, endpoint: str, **kwargs) -> Any:
         """Make an HTTP request to the API.
@@ -650,6 +652,11 @@ class CrucibleClient:
     def add_thumbnail(self, dsid: str, file_path: str, thumbnail_name: str = None) -> Dict:
         """Backward compatible: Use client.datasets.add_thumbnail() instead."""
         return self.datasets.add_thumbnail(dsid, file_path, thumbnail_name=thumbnail_name)
+
+    @_deprecated("client.datasets.delete_thumbnail()")
+    def delete_thumbnail(self, dsid: str, thumbnail_id: int) -> Dict:
+        """Backward compatible: Use client.datasets.delete_thumbnail() instead."""
+        return self.datasets.delete_thumbnail(dsid, thumbnail_id)
     
     @_deprecated("client.datasets.get_associated_files()")
     def get_associated_files(self, dsid: str, **kwargs) -> List[Dict]:
