@@ -106,11 +106,13 @@ class FileOperations(BaseResource):
             Dict: AssociatedFile record for the uploaded file.
         """
         import hashlib
+        import base64
+        import google_crc32c
         from google.cloud import storage
         from google.cloud.storage import transfer_manager
         from google.oauth2.credentials import Credentials
 
-        _CHUNK = 32 * 1024 * 1024   # 32 MiB parts
+        _CHUNK   = 32 * 1024 * 1024   # 32 MiB parts
         _WORKERS = 8
 
         file_size = os.path.getsize(file_path)
@@ -119,12 +121,16 @@ class FileOperations(BaseResource):
         logger.info(f"Uploading {filename} ({file_size / 1024**2:.1f} MB) "
                     f"to dataset {dsid} [parallel, {_WORKERS} workers]")
 
-        # SHA256 pre-pass: used for server-side dedup at initiate and sent to /complete.
-        h = hashlib.sha256()
+        # Single pre-pass: SHA256 for Crucible dedup/verify + CRC32C for
+        # post-upload integrity check against the GCS-assembled object.
+        sha = hashlib.sha256()
+        crc = google_crc32c.Checksum()
         with open(file_path, 'rb') as f:
             for block in iter(lambda: f.read(_CHUNK), b''):
-                h.update(block)
-        sha256_hash = h.hexdigest()
+                sha.update(block)
+                crc.update(block)
+        sha256_hash      = sha.hexdigest()
+        local_crc32c_b64 = base64.b64encode(crc.digest()).decode()
 
         # Initiate: get upload token (or dedup hit)
         init = self._request('post', f'/datasets/{dsid}/upload/initiate/multipart',
@@ -147,14 +153,28 @@ class FileOperations(BaseResource):
         logger.debug(f"Starting parallel upload: upload_id={upload_id}, "
                      f"chunk={_CHUNK >> 20} MiB, workers={_WORKERS}")
 
+        # No per-chunk checksum flag — the SDK has a known bug where it sends
+        # the CRC32C in a way GCS rejects. We verify the final assembled object
+        # below instead, which is a stronger guarantee.
         transfer_manager.upload_chunks_concurrently(
             file_path,
             blob,
             chunk_size=_CHUNK,
             max_workers=_WORKERS,
             worker_type=transfer_manager.THREAD,
-            checksum="crc32c",
         )
+
+        # Verify the assembled GCS object's CRC32C matches our local hash.
+        # GCS computes CRC32C over the full assembled byte stream, identical
+        # to a local sequential hash, so this catches any corruption in
+        # upload or server-side assembly.
+        blob.reload()
+        if blob.crc32c and blob.crc32c != local_crc32c_b64:
+            raise RuntimeError(
+                f"CRC32C mismatch for {filename} after assembly: "
+                f"local={local_crc32c_b64} gcs={blob.crc32c}"
+            )
+        logger.debug(f"CRC32C verified: {local_crc32c_b64}")
 
         logger.info(f"Completing upload for {filename} (upload_id={upload_id})")
         return self._request('post', f'/datasets/{dsid}/upload/complete',
