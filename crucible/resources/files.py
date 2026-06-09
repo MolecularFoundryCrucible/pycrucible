@@ -32,7 +32,9 @@ class FileOperations(BaseResource):
     def add_file_to_dataset(self, dsid: str, file_path: str,
                             ingestion_class: Optional[str] = None,
                             wait_for_ingestion_response: bool = False,
-                            multipart: bool = True) -> Dict:
+                            multipart: bool = True,
+                            chunk_size_mb: Optional[int] = None,
+                            max_workers: Optional[int] = None) -> Dict:
         """Upload a file to a dataset and request ingestion.
 
         Args:
@@ -55,7 +57,9 @@ class FileOperations(BaseResource):
         filename = os.path.basename(file_path)
         
         # run file upload
-        file_record, was_existing = self._upload_file_gcs(dsid, file_path, multipart=multipart)
+        file_record, was_existing = self._upload_file_gcs(dsid, file_path, multipart=multipart,
+                                                          chunk_size_mb=chunk_size_mb,
+                                                          max_workers=max_workers)
 
 
         stored_filename = file_record.get('filename', filename)
@@ -89,7 +93,9 @@ class FileOperations(BaseResource):
         items = resp.get('items', []) if isinstance(resp, dict) else (resp or [])
         return any(r.get('status') == 'complete' for r in items)
 
-    def _upload_file_gcs(self, dsid: str, file_path: str, multipart: bool = True) -> Tuple[Dict, bool]:
+    def _upload_file_gcs(self, dsid: str, file_path: str, multipart: bool = True,
+                         chunk_size_mb: Optional[int] = None,
+                         max_workers: Optional[int] = None) -> Tuple[Dict, bool]:
         """Upload a file to a dataset.
 
         Args:
@@ -97,16 +103,22 @@ class FileOperations(BaseResource):
             file_path: Local path to the file
             multipart: If True (default), use parallel multipart upload via the GCS SDK.
                        If False, use the sequential resumable upload.
+            chunk_size_mb: Override chunk size in MiB (uses config/default if None).
+            max_workers: Override number of upload threads (uses config/default if None).
 
         Returns:
             Tuple[Dict, bool]: (AssociatedFile record, was_existing).
                 was_existing is True when the file was a dedup hit and the upload was skipped.
         """
         if multipart:
-            return self._upload_file_gcs_multipart(dsid, file_path)
+            return self._upload_file_gcs_multipart(dsid, file_path,
+                                                    chunk_size_mb=chunk_size_mb,
+                                                    max_workers=max_workers)
         return self._upload_file_gcs_resumable(dsid, file_path)
 
-    def _upload_file_gcs_multipart(self, dsid: str, file_path: str) -> Dict:
+    def _upload_file_gcs_multipart(self, dsid: str, file_path: str,
+                                    chunk_size_mb: Optional[int] = None,
+                                    max_workers: Optional[int] = None) -> Tuple[Dict, bool]:
         """Upload using the GCS SDK's parallel multipart upload (upload_chunks_concurrently).
 
         Requires google-cloud-storage>=2.7.0 (pip install nano-crucible[gcs]).
@@ -126,8 +138,9 @@ class FileOperations(BaseResource):
         from google.cloud.storage import transfer_manager
         from google.oauth2.credentials import Credentials
 
-        _CHUNK   = 32 * 1024 * 1024   # 32 MiB parts
-        _WORKERS = 8
+        cfg      = self._client._config
+        _CHUNK   = (chunk_size_mb or cfg.upload_chunk_size_mb) * 1024 * 1024
+        _WORKERS = max_workers or cfg.upload_max_workers
 
         file_size = os.path.getsize(file_path)
         filename  = os.path.basename(file_path)
