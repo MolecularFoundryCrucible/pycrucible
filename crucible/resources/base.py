@@ -31,15 +31,21 @@ class BaseResource:
                   limit: int = DEFAULT_LIMIT, offset: int = 0) -> list:
         """Fetch all matching records from a paginated envelope endpoint.
 
-        Fires the first request to get the total count, then fetches all
-        remaining pages in parallel. Each response must be a paginated envelope
-        with 'total', 'limit', 'offset', and 'items' fields.
+        Supports both pagination styles transparently, detected from the first
+        response:
+
+        * Keyset (cursor) pagination — used by '/datasets' and '/samples'. The
+          response carries a 'next_cursor' token; pages are followed
+          sequentially until the cursor is exhausted.
+        * Offset pagination — every other endpoint. The first response carries
+          'total'; remaining pages are fetched in parallel by offset.
 
         Args:
             endpoint: API path (e.g. '/datasets')
-            params:   Query parameters (must NOT include 'limit' or 'offset')
+            params:   Query parameters (must NOT include 'limit', 'offset', or 'cursor')
             limit:    Maximum number of records to return. Pass None to fetch all.
-            offset:   Starting position in the full result set
+            offset:   Starting position in the full result set. Ignored by keyset
+                      endpoints, which no longer accept an offset.
 
         Returns:
             list: Raw item dicts, up to limit items (or all items if limit is None)
@@ -48,11 +54,28 @@ class BaseResource:
         from ..constants import API_PAGE_MAX
 
         page_size = API_PAGE_MAX
-        first = self._request('get', endpoint,
-                              params={**params, 'limit': page_size, 'offset': offset})
-        total = first['total']
+        first_params = {**params, 'limit': page_size}
+        if offset:
+            first_params['offset'] = offset
+        first = self._request('get', endpoint, params=first_params)
         items = list(first['items'])
 
+        # Keyset (cursor) pagination — '/datasets' and '/samples'.
+        if 'next_cursor' in first:
+            cursor = first.get('next_cursor')
+            page_len = len(items)
+            while (cursor and page_len >= page_size
+                   and (limit is None or len(items) < limit)):
+                resp = self._request('get', endpoint,
+                                     params={**params, 'limit': page_size, 'cursor': cursor})
+                page = resp['items']
+                items.extend(page)
+                cursor = resp.get('next_cursor')
+                page_len = len(page)
+            return items if limit is None else items[:limit]
+
+        # Offset pagination — all other endpoints.
+        total = first['total']
         need = total - offset if limit is None else min(total - offset, limit)
         if len(items) >= need:
             return items[:need]

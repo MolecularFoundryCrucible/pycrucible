@@ -60,10 +60,12 @@ class SampleOperations(BaseResource):
             parent_id (str, optional): Get child samples from parent (deprecated)
             include_metadata (bool): Include scientific metadata in results
             include_links (bool): Include linked resources (parents, children, associated) per sample
-            limit (int): Maximum total results to return (default: 100). Requests
-                         above API_PAGE_MAX (1000) are handled transparently via
-                         parallel pagination.
-            offset (int): Starting position in the full result set (default: 0)
+            limit (int): Maximum total results to return (default: 100). Larger
+                         requests are handled transparently by following the
+                         server's keyset cursor. Pass None to fetch all matches.
+            offset (int): Deprecated for the top-level /samples endpoint, which now
+                          uses keyset pagination and ignores offset. Still honored
+                          for the dataset_id/parent_id sub-listings.
             **kwargs: Query parameters for filtering samples
 
         Returns:
@@ -81,13 +83,20 @@ class SampleOperations(BaseResource):
             endpoint = f"/samples/{parent_id}/children"
         else:
             endpoint = "/samples"
+            if offset:
+                import warnings
+                warnings.warn(
+                    "'offset' is ignored by /samples, which now uses keyset "
+                    "pagination; results start from the newest sample.",
+                    DeprecationWarning, stacklevel=2,
+                )
         raw = self._paginate(endpoint, params, limit, offset)
         return [self._parse(s) for s in raw]
 
     def count(self, **kwargs) -> int:
         """Return the total number of samples matching the given filters without fetching items."""
         params = {k: v for k, v in kwargs.items() if v is not None}
-        result = self._request('get', '/samples', params={**params, 'limit': 1, 'offset': 0})
+        result = self._request('get', '/samples', params={**params, 'limit': 1})
         return result['total']
 
     def list_parents(self, sample_id: str, limit: int = DEFAULT_LIMIT,
