@@ -31,7 +31,10 @@ class FileOperations(BaseResource):
 
     def add_file_to_dataset(self, dsid: str, file_path: str,
                             ingestion_class: Optional[str] = None,
-                            wait_for_ingestion_response: bool = False) -> Dict:
+                            wait_for_ingestion_response: bool = False,
+                            multipart: bool = True,
+                            chunk_size_mb: Optional[int] = None,
+                            max_workers: Optional[int] = None) -> Dict:
         """Upload a file to a dataset and request ingestion.
 
         Args:
@@ -40,6 +43,8 @@ class FileOperations(BaseResource):
             ingestion_class: Ingestion class for the worker (e.g. 'lammps', 'nexus').
                 Defaults to the server-side default if omitted.
             wait_for_ingestion_response: Block until ingestion completes.
+            multipart: Use parallel multipart upload (default: True). Set to False to
+                use the sequential resumable upload (slower but simpler).
 
         Returns:
             Dict: {'associated_file': AssociatedFileRead, 'ingestion_request': IngestionRequest}
@@ -52,7 +57,10 @@ class FileOperations(BaseResource):
         filename = os.path.basename(file_path)
         
         # run file upload
-        file_record, was_existing = self._upload_file_gcs(dsid, file_path)
+        file_record, was_existing = self._upload_file_gcs(dsid, file_path, multipart=multipart,
+                                                          chunk_size_mb=chunk_size_mb,
+                                                          max_workers=max_workers)
+
 
         stored_filename = file_record.get('filename', filename)
         file_id = file_record.get('mfid')
@@ -85,11 +93,123 @@ class FileOperations(BaseResource):
         items = resp.get('items', []) if isinstance(resp, dict) else (resp or [])
         return any(r.get('status') == 'complete' for r in items)
 
+    def _upload_file_gcs(self, dsid: str, file_path: str, multipart: bool = True,
+                         chunk_size_mb: Optional[int] = None,
+                         max_workers: Optional[int] = None) -> Tuple[Dict, bool]:
+        """Upload a file to a dataset.
 
-    def _upload_file_gcs(self, dsid: str, file_path: str) -> Tuple[Dict, bool]:
-        """Upload a file to a dataset using resumable GCS chunked upload.
+        Args:
+            dsid: Dataset unique identifier
+            file_path: Local path to the file
+            multipart: If True (default), use parallel multipart upload via the GCS SDK.
+                       If False, use the sequential resumable upload.
+            chunk_size_mb: Override chunk size in MiB (uses config/default if None).
+            max_workers: Override number of upload threads (uses config/default if None).
 
-        Automatically resumes interrupted uploads.
+        Returns:
+            Tuple[Dict, bool]: (AssociatedFile record, was_existing).
+                was_existing is True when the file was a dedup hit and the upload was skipped.
+        """
+        if multipart:
+            return self._upload_file_gcs_multipart(dsid, file_path,
+                                                    chunk_size_mb=chunk_size_mb,
+                                                    max_workers=max_workers)
+        return self._upload_file_gcs_resumable(dsid, file_path)
+
+    def _upload_file_gcs_multipart(self, dsid: str, file_path: str,
+                                    chunk_size_mb: Optional[int] = None,
+                                    max_workers: Optional[int] = None) -> Tuple[Dict, bool]:
+        """Upload using the GCS SDK's parallel multipart upload (upload_chunks_concurrently).
+
+        Requires google-cloud-storage>=2.7.0 (pip install nano-crucible[gcs]).
+        The API vends a short-lived OAuth2 token so no GCS credentials are needed.
+
+        Args:
+            dsid: Dataset unique identifier
+            file_path: Local path to the file
+
+        Returns:
+            Dict: AssociatedFile record for the uploaded file.
+        """
+        import hashlib
+        import base64
+        import google_crc32c
+        from google.cloud import storage
+        from google.cloud.storage import transfer_manager
+        from google.oauth2.credentials import Credentials
+
+        cfg      = self._client._config
+        _CHUNK   = (chunk_size_mb or cfg.upload_chunk_size_mb) * 1024 * 1024
+        _WORKERS = max_workers or cfg.upload_max_workers
+
+        file_size = os.path.getsize(file_path)
+        filename  = os.path.basename(file_path)
+
+        logger.info(f"Uploading {filename} ({file_size / 1024**2:.1f} MB) "
+                    f"to dataset {dsid} [parallel, {_WORKERS} workers]")
+
+        # Single pre-pass: SHA256 for Crucible dedup/verify + CRC32C for
+        # post-upload integrity check against the GCS-assembled object.
+        sha = hashlib.sha256()
+        crc = google_crc32c.Checksum()
+        with open(file_path, 'rb') as f:
+            for block in iter(lambda: f.read(_CHUNK), b''):
+                sha.update(block)
+                crc.update(block)
+        sha256_hash      = sha.hexdigest()
+        local_crc32c_b64 = base64.b64encode(crc.digest()).decode()
+
+        # Initiate: get upload token (or dedup hit)
+        init = self._request('post', f'/datasets/{dsid}/upload/initiate/multipart',
+                             json={'filename': filename, 'size': file_size,
+                                   'sha256_hash': sha256_hash})
+
+        if init.get('existing_file') is not None:
+            logger.info(f"{filename} already exists in dataset {dsid}, skipping upload")
+            return init['existing_file'], True
+
+        upload_id = init['upload_id']
+
+        # Build GCS client from vended token — no user credentials needed
+        gcs = storage.Client(
+            credentials=Credentials(token=init['access_token']),
+            project=init['project'],
+        )
+        blob = gcs.bucket(init['bucket']).blob(f"{init['object_prefix']}{filename}")
+
+        logger.debug(f"Starting parallel upload: upload_id={upload_id}, "
+                     f"chunk={_CHUNK >> 20} MiB, workers={_WORKERS}")
+
+        # No per-chunk checksum flag — the SDK has a known bug where it sends
+        # the CRC32C in a way GCS rejects. We verify the final assembled object
+        # below instead, which is a stronger guarantee.
+        transfer_manager.upload_chunks_concurrently(
+            file_path,
+            blob,
+            chunk_size=_CHUNK,
+            max_workers=_WORKERS,
+            worker_type=transfer_manager.THREAD,
+        )
+
+        # Verify the assembled GCS object's CRC32C matches our local hash.
+        # GCS computes CRC32C over the full assembled byte stream, identical
+        # to a local sequential hash, so this catches any corruption in
+        # upload or server-side assembly.
+        blob.reload()
+        if blob.crc32c and blob.crc32c != local_crc32c_b64:
+            raise RuntimeError(
+                f"CRC32C mismatch for {filename} after assembly: "
+                f"local={local_crc32c_b64} gcs={blob.crc32c}"
+            )
+        logger.debug(f"CRC32C verified: {local_crc32c_b64}")
+
+        logger.info(f"Completing upload for {filename} (upload_id={upload_id})")
+        file_record = self._request('post', f'/datasets/{dsid}/upload/complete',
+                                    json={'upload_id': upload_id, 'sha256_hash': sha256_hash})
+        return file_record, False
+
+    def _upload_file_gcs_resumable(self, dsid: str, file_path: str) -> Tuple[Dict, bool]:
+        """Upload using a GCS resumable session URI (sequential, no extra dependencies).
 
         Args:
             dsid: Dataset unique identifier

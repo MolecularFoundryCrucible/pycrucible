@@ -47,6 +47,9 @@ class Config:
         'connect_timeout':    {'env': 'CRUCIBLE_CONNECT_TIMEOUT',    'ini': 'connect_timeout',    'section': 'network'},
         'read_timeout':       {'env': 'CRUCIBLE_READ_TIMEOUT',       'ini': 'read_timeout',       'section': 'network'},
         'default_limit':      {'env': 'CRUCIBLE_DEFAULT_LIMIT',      'ini': 'default_limit',      'section': 'network'},
+        # [upload] – multipart upload tuning
+        'upload_chunk_size_mb': {'env': 'CRUCIBLE_UPLOAD_CHUNK_SIZE_MB', 'ini': 'chunk_size_mb', 'section': 'upload'},
+        'upload_max_workers':   {'env': 'CRUCIBLE_UPLOAD_MAX_WORKERS',   'ini': 'max_workers',   'section': 'upload'},
     }
 
     def __init__(self):
@@ -247,6 +250,26 @@ class Config:
             return int(raw)
         except (TypeError, ValueError):
             return 100
+
+    @property
+    def upload_chunk_size_mb(self) -> int:
+        """Multipart upload chunk size in MiB (default 64)."""
+        from ..constants import UPLOAD_CHUNK_SIZE_MB
+        raw = self._data.get('upload_chunk_size_mb')
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return UPLOAD_CHUNK_SIZE_MB
+
+    @property
+    def upload_max_workers(self) -> int:
+        """Concurrent upload threads for multipart upload (default 8)."""
+        from ..constants import UPLOAD_MAX_WORKERS
+        raw = self._data.get('upload_max_workers')
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return UPLOAD_MAX_WORKERS
 
     @property
     def client(self):
