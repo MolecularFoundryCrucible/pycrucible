@@ -50,7 +50,7 @@ class UserOperations(BaseResource):
         elif email:
             matches = self._paginate('/users', {'email': email, 'permissive': False})
             if not matches:
-                raise ValueError(f"No user found with email: {email}")
+                raise ValueError(f"You do not have access to any users found with email: {email}")
             if len(matches) > 1:
                 raise ValueError(
                     f"Multiple users match email '{email}' - use ORCID to identify unambiguously"
@@ -216,16 +216,18 @@ class UserOperations(BaseResource):
         """
         return self._request('post', f'/users/{orcid}/access_groups/{group_name}')
 
-    def get_projects(self, orcid: str) -> List[Dict]:
+    def get_projects(self, orcid: str, limit: int = DEFAULT_LIMIT, offset: int = 0) -> List[Dict]:
         """List projects associated with a user.
 
         Args:
             orcid (str): User ORCID identifier
+            limit (int): Maximum number of results to return (default: 100)
+            offset (int): Starting position in the full result set (default: 0)
 
         Returns:
             List[Dict]: Project objects the user is associated with
         """
-        return self._request('get', f'/users/{orcid}/projects')
+        return self._paginate(f'/users/{orcid}/projects', {}, limit, offset)
 
     def update(self, orcid: str, **kwargs) -> Dict:
         """Partially update a user record.
