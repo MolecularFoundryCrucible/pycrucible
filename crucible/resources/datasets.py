@@ -97,7 +97,7 @@ class DatasetOperations(FileOperations):
         if sample_id:
             if limit:
                 params['limit'] = limit
-            raw = self._request('get', f'/samples/{sample_id}/datasets', params=params)
+            raw = self._request('get', f'/samples/{sample_id}/datasets', params=params) 
         else:
             if offset:
                 import warnings
