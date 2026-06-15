@@ -101,7 +101,7 @@ class BaseResource:
 
         Args:
             q: Plain-text search query (English-language stemmed).
-            limit: Max results to return (default 50, max 200).
+            limit: Max results to return.
         """
         params = {"q": q}
         if limit is not None:
