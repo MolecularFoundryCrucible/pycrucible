@@ -59,6 +59,23 @@ class UserOperations(BaseResource):
         else:
             raise ValueError('provide orcid, username, or email')
 
+    def search(self, q: str) -> List[Dict]:
+        """Search for users by name or username. Available to all authenticated users.
+
+        Matches the query term against username, first name, and last name
+        simultaneously (case-insensitive). Returns UserPublicRead — no email
+        exposed. Hard-capped at 50 results.
+
+        Use client.users.list() for admin-level field-specific filtering.
+
+        Args:
+            q: Search term (e.g. "fabrice", "ron")
+
+        Returns:
+            List[Dict]: Matching users (username, first_name, last_name, orcid)
+        """
+        return self._request('get', '/users/search', params={'q': q})
+
     @_deprecated("client.account.profile()")
     def me(self) -> Dict:
         """Deprecated: use client.account.profile() instead."""

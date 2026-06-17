@@ -499,6 +499,14 @@ def create_config_file(api_key, api_url=None, cache_dir=None,
         else:
             f.write("# default_limit = 100\n")
 
+        # ── [upload] ─────────────────────────────────────────────────────────
+        f.write("\n[upload]\n")
+        f.write("# Multipart upload chunk size in MiB (benchmarked optimum: 64)\n")
+        f.write("# chunk_size_mb = 64\n")
+        f.write("\n")
+        f.write("# Concurrent upload threads (benchmarked optimum: 8)\n")
+        f.write("# max_workers = 8\n")
+
     logger.info(f"Created config file: {config_file}")
 
     # Reload the global config
