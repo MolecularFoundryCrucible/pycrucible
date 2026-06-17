@@ -399,7 +399,19 @@ class DatasetOperations(FileOperations):
         """
         result = self._request('post', f"/datasets/{dsid}/insitu_spec_aggregation")
         return result
-    
+
+    def request_rga_analysis(self, dsid: str) -> Dict:
+        """Request RGA analysis for a dataset.
+
+        Args:
+            dsid (str): Dataset unique identifier
+
+        Returns:
+            Dict: RGA analysis request information
+        """
+        result = self._request('post', f"/datasets/{dsid}/rga_analysis")
+        return result
+
 
     def graph(self, dataset_id: str, recursive: bool = False, as_networkx: bool = False):
         """Return the graph of entities connected to this dataset.
