@@ -298,6 +298,11 @@ def cmd_show(args):
     _p("read_timeout",         config.read_timeout)
     _p("default_limit",        config.default_limit)
 
+    # [upload] — multipart upload tuning
+    term.subheader("[upload]  multipart upload")
+    _p("upload_chunk_size_mb", config.upload_chunk_size_mb)
+    _p("upload_max_workers",   config.upload_max_workers)
+
     from crucible.config.config import Config
     env_overrides = {
         mapping['env']: os.environ.get(mapping['env'])

@@ -39,6 +39,7 @@ def register_subcommand(subparsers):
 
     # Register individual user commands
     _register_get(user_subparsers)
+    _register_search(user_subparsers)
     _register_create(user_subparsers)
     _register_update(user_subparsers)
     _register_list(user_subparsers)
@@ -73,6 +74,51 @@ Examples:
     parser.add_argument('--json', action='store_true', default=False, help='Output as JSON')
 
     parser.set_defaults(func=_execute_get)
+
+
+def _register_search(subparsers):
+    parser = subparsers.add_parser(
+        'search',
+        help='Search for users by name or username',
+        description='Search users by name or username. Available to all authenticated users — '
+                    'no admin required. Returns up to 50 results.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible user search fabrice
+    crucible user search ron
+""",
+    )
+    parser.add_argument('query', metavar='TERM', help='Search term')
+    parser.set_defaults(func=_execute_search)
+
+
+def _execute_search(args):
+    """Execute 'user search'."""
+    from crucible.client import CrucibleClient
+    try:
+        users = CrucibleClient().users.search(args.query)
+
+        term.header(f"Users matching '{args.query}' ({len(users)})")
+        if not users:
+            print(f"  {term.dim('No users found.')}")
+            return
+
+        rows = []
+        for u in users:
+            username = u.get('username') or '-'
+            name_parts = [u.get('first_name') or '', u.get('last_name') or '']
+            name  = ' '.join(p for p in name_parts if p) or '-'
+            orcid = term.orcid_link(u.get('orcid') or u.get('unique_id')) or '-'
+            rows.append((username, name, orcid))
+        term.table(rows, ['Username', 'Name', 'ORCID'], max_widths=[20, 25, 19])
+
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
 
 
 def _register_create(subparsers):
