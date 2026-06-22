@@ -658,10 +658,10 @@ class CrucibleClient:
         """Backward compatible: Use client.datasets.delete_thumbnail() instead."""
         return self.datasets.delete_thumbnail(dsid, thumbnail_id)
     
-    @_deprecated("client.datasets.get_associated_files()")
+    @_deprecated("client.datasets.list_files(dsid)")
     def get_associated_files(self, dsid: str, **kwargs) -> List[Dict]:
-        """Backward compatible: Use client.datasets.get_associated_files() instead."""
-        return self.datasets.get_associated_files(dsid)
+        """Backward compatible: Use client.datasets.list_files(dsid) instead."""
+        return self.datasets.list_files(dsid=dsid)
 
     @_deprecated("client.datasets.add_associated_file()")
     def add_associated_file(self, dsid: str, file_path: str, filename: str = None) -> Dict:

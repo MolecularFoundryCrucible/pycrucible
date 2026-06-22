@@ -262,6 +262,22 @@ class DatasetOperations(FileOperations):
                           ingestor=ingestor,
                           wait_for_ingestion_response=wait_for_ingestion_response)
 
+    @_deprecated("list_files(dsid)")
+    def get_associated_files(self, dsid: str) -> List[Dict]:
+        """Get associated files for a dataset.
+
+        .. deprecated::
+            Use :meth:`list_files` with the ``dsid`` argument instead.
+
+        Args:
+            dsid: Dataset unique identifier
+
+        Returns:
+            List[Dict]: File records (mfid, filename, storage_path, size, sha256_hash, dataset_mfid).
+                storage_path is null until the file has been ingested.
+        """
+        return self.list_files(dsid=dsid)
+
     # Keyword Methods
     def get_keywords(self, dsid: Optional[str] = None, limit: int = DEFAULT_LIMIT) -> List[Dict]:
         """List keywords, optionally filtered by dataset.

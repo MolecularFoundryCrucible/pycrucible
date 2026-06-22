@@ -330,33 +330,26 @@ class FileOperations(BaseResource):
         return file_record, False
 
 
-    def list_files(self, limit: int = DEFAULT_LIMIT,
+    def list_files(self, dsid: Optional[str] = None, limit: int = DEFAULT_LIMIT,
                    sha256_hash: Optional[str] = None) -> List[Dict]:
-        """List all files across all accessible datasets.
+        """List files, optionally scoped to a single dataset.
 
         Args:
-            limit: Maximum number of results
-            sha256_hash: Filter by SHA-256 hex digest
-
-        Returns:
-            List[Dict]: File records (mfid, filename, storage_path, size, sha256_hash, dataset_mfid)
-        """
-        params = {}
-        if sha256_hash:
-            params['sha256_hash'] = sha256_hash
-        return self._paginate('/files', params, limit=limit)
-
-    def get_associated_files(self, dsid: str) -> List[Dict]:
-        """Get associated files for a dataset.
-
-        Args:
-            dsid: Dataset unique identifier
+            dsid: If provided, list files for this dataset (GET /datasets/{dsid}/files).
+                Otherwise list files across all accessible datasets (GET /files).
+            limit: Maximum number of results (ignored when dsid is provided)
+            sha256_hash: Filter by SHA-256 hex digest (ignored when dsid is provided)
 
         Returns:
             List[Dict]: File records (mfid, filename, storage_path, size, sha256_hash, dataset_mfid).
                 storage_path is null until the file has been ingested.
         """
-        return self._request('get', f'/datasets/{dsid}/files')
+        if dsid is not None:
+            return self._request('get', f'/datasets/{dsid}/files')
+        params = {}
+        if sha256_hash:
+            params['sha256_hash'] = sha256_hash
+        return self._paginate('/files', params, limit=limit)
 
     def get_file(self, file_id: str) -> Dict:
         """Get metadata for a single associated file.
@@ -422,7 +415,7 @@ class FileOperations(BaseResource):
         """Download files for a dataset into output_dir. Returns list of downloaded paths."""
         import tempfile
 
-        all_files = self.get_associated_files(dsid)
+        all_files = self.list_files(dsid=dsid)
 
         # Only ingested files have a storage_path and are downloadable
         prefix_sp = f'mf-storage-prod/{dsid}/'
@@ -500,7 +493,7 @@ class FileOperations(BaseResource):
                 "glob syntax differs.",
                 DeprecationWarning, stacklevel=2,
             )
-            all_files = self.get_associated_files(dsid)
+            all_files = self.list_files(dsid=dsid)
             matched = [os.path.basename(f.get('storage_path') or f.get('filename', ''))
                        for f in all_files
                        if re.fullmatch(fr"({file_name})",

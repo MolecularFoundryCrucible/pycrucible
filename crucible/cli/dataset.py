@@ -115,7 +115,7 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=3) as pool:
                 f_kw    = pool.submit(client.datasets.get_keywords, dsid)
-                f_meta  = pool.submit(client.datasets.get_associated_files, dsid)
+                f_meta  = pool.submit(client.datasets.list_files, dsid)
                 f_links = pool.submit(client.datasets.get_download_links, dsid)
                 try:
                     keywords = f_kw.result()
@@ -1266,7 +1266,7 @@ def _execute_list_files(args):
         # Fetch metadata (size, hash) and signed download URLs in parallel
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=2) as pool:
-            f_meta  = pool.submit(client.datasets.get_associated_files, dsid)
+            f_meta  = pool.submit(client.datasets.list_files, dsid)
             f_links = pool.submit(client.datasets.get_download_links, dsid)
             meta_list  = f_meta.result()
             link_map   = f_links.result()   # {filepath: signed_url}

@@ -79,7 +79,7 @@ def _execute_list(args):
         client = CrucibleClient()
         dsid = getattr(args, 'dataset', None)
         if dsid:
-            files = client.datasets.get_associated_files(dsid)
+            files = client.datasets.list_files(dsid=dsid)
         else:
             files = client.datasets.list_files(limit=args.limit, sha256_hash=args.sha256)
 
