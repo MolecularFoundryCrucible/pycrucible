@@ -69,22 +69,50 @@ class FileOperations(BaseResource):
             logger.info(f"{stored_filename} already ingested successfully; skipping ingestion")
             return {'associated_file': file_record, 'ingestion_request': None}
 
-        ingest_params = {'filename': stored_filename, 'file_size': file_size}
+        ingestion_request = self._request_ingestion(
+            dsid, file_id, stored_filename, file_size,
+            ingestion_class=ingestion_class,
+            wait_for_ingestion_response=wait_for_ingestion_response,
+        )
+
+        return {'associated_file': file_record, 'ingestion_request': ingestion_request}
+
+    def _request_ingestion(self, dsid: str, file_id: str, filename: str,
+                           file_size: int, ingestion_class: Optional[str] = None,
+                           wait_for_ingestion_response: bool = False) -> Dict:
+        """Request ingestion of an already-uploaded file.
+
+        Internal: callers should go through add_file_to_dataset(), which uploads
+        the bytes and then requests ingestion.
+
+        Args:
+            dsid: Dataset unique identifier
+            file_id: MFID of the uploaded file
+            filename: Stored filename of the uploaded file
+            file_size: Size of the file in bytes
+            ingestion_class: Ingestion class for the worker (e.g. 'lammps', 'nexus').
+                Defaults to the server-side default if omitted.
+            wait_for_ingestion_response: Block until ingestion completes.
+
+        Returns:
+            Dict: IngestionRequest record (id, status, ...)
+        """
+        ingest_params = {'filename': filename, 'file_size': file_size}
         if ingestion_class:
             ingest_params['ingestion_class'] = ingestion_class
 
-        logger.info(f"Requesting ingestion for {stored_filename}"
+        logger.info(f"Requesting ingestion for {filename}"
                     + (f" (class={ingestion_class})" if ingestion_class else ""))
 
         ingestion_request = self._request('post', f'/datasets/{dsid}/files/{file_id}/ingest', params=ingest_params)
-        
+
         logger.debug(f"Ingestion request created: id={ingestion_request.get('id')}, "
                      f"status={ingestion_request.get('status')}")
 
         if wait_for_ingestion_response and ingestion_request:
             self._client._wait_for_request_completion(ingestion_request['id'])
 
-        return {'associated_file': file_record, 'ingestion_request': ingestion_request}
+        return ingestion_request
 
     def _has_successful_ingestion(self, file_id: Optional[str]) -> bool:
         if not file_id:
