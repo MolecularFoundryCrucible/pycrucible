@@ -93,7 +93,7 @@ class BaseResource:
 
         return items[:need]
 
-    def search_scientific_metadata(self, q: str, limit: int = None) -> list:
+    def search_scientific_metadata(self, q: str, limit: int = 50) -> list:
         """Full-text search across scientific metadata of all accessible resources.
 
         Results are ranked by relevance and may include datasets or samples.
@@ -101,12 +101,10 @@ class BaseResource:
 
         Args:
             q: Plain-text search query (English-language stemmed).
-            limit: Max results to return.
+            limit: Max results to return (default 50, max 200).
         """
-        params = {"q": q}
-        if limit is not None:
-            params["limit"] = limit
-        return self._request('get', '/resources/metadata/search', params=params)
+        return self._request('get', '/resources/metadata/search',
+                             params={"q": q, "limit": limit})
 
     def get_scientific_metadata(self, resource_id: str) -> dict:
         """Get scientific metadata for a resource."""
