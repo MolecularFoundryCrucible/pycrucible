@@ -124,238 +124,29 @@ class FileOperations(BaseResource):
     def _upload_file_gcs(self, dsid: str, file_path: str, multipart: bool = True,
                          chunk_size_mb: Optional[int] = None,
                          max_workers: Optional[int] = None) -> Tuple[Dict, bool]:
-        """Upload a file to a dataset.
+        """Dispatch to multipart or resumable GCS upload.
 
-        Args:
-            dsid: Dataset unique identifier
-            file_path: Local path to the file
-            multipart: If True (default), use parallel multipart upload via the GCS SDK.
-                       If False, use the sequential resumable upload.
-            chunk_size_mb: Override chunk size in MiB (uses config/default if None).
-            max_workers: Override number of upload threads (uses config/default if None).
-
-        Returns:
-            Tuple[Dict, bool]: (AssociatedFile record, was_existing).
-                was_existing is True when the file was a dedup hit and the upload was skipped.
+        Delegates to crucible.resources.gcs.upload — see that module for full docs.
         """
-        if multipart:
-            return self._upload_file_gcs_multipart(dsid, file_path,
-                                                    chunk_size_mb=chunk_size_mb,
-                                                    max_workers=max_workers)
-        return self._upload_file_gcs_resumable(dsid, file_path)
+        from .gcs.upload import upload_file_gcs
+        return upload_file_gcs(self._client, dsid, file_path,
+                                multipart=multipart,
+                                chunk_size_mb=chunk_size_mb,
+                                max_workers=max_workers)
 
     def _upload_file_gcs_multipart(self, dsid: str, file_path: str,
                                     chunk_size_mb: Optional[int] = None,
                                     max_workers: Optional[int] = None) -> Tuple[Dict, bool]:
-        """Upload using the GCS SDK's parallel multipart upload (upload_chunks_concurrently).
-
-        Requires google-cloud-storage>=2.7.0 (pip install nano-crucible[gcs]).
-        The API vends a short-lived OAuth2 token so no GCS credentials are needed.
-
-        Args:
-            dsid: Dataset unique identifier
-            file_path: Local path to the file
-
-        Returns:
-            Dict: AssociatedFile record for the uploaded file.
-        """
-        import hashlib
-        import base64
-        import google_crc32c
-        from google.cloud import storage
-        from google.cloud.storage import transfer_manager
-        from google.oauth2.credentials import Credentials
-
-        cfg      = self._client._config
-        _CHUNK   = (chunk_size_mb or cfg.upload_chunk_size_mb) * 1024 * 1024
-        _WORKERS = max_workers or cfg.upload_max_workers
-
-        file_size = os.path.getsize(file_path)
-        filename  = os.path.basename(file_path)
-
-        logger.info(f"Uploading {filename} ({file_size / 1024**2:.1f} MB) "
-                    f"to dataset {dsid} [parallel, {_WORKERS} workers]")
-
-        # Single pre-pass: SHA256 for Crucible dedup/verify + CRC32C for
-        # post-upload integrity check against the GCS-assembled object.
-        sha = hashlib.sha256()
-        crc = google_crc32c.Checksum()
-        with open(file_path, 'rb') as f:
-            for block in iter(lambda: f.read(_CHUNK), b''):
-                sha.update(block)
-                crc.update(block)
-        sha256_hash      = sha.hexdigest()
-        local_crc32c_b64 = base64.b64encode(crc.digest()).decode()
-
-        # Initiate: get upload token (or dedup hit)
-        init = self._request('post', f'/datasets/{dsid}/upload/initiate/multipart',
-                             json={'filename': filename, 'size': file_size,
-                                   'sha256_hash': sha256_hash})
-
-        if init.get('existing_file') is not None:
-            logger.info(f"{filename} already exists in dataset {dsid}, skipping upload")
-            return init['existing_file'], True
-
-        upload_id = init['upload_id']
-
-        # Build GCS client from vended token — no user credentials needed
-        gcs = storage.Client(
-            credentials=Credentials(token=init['access_token']),
-            project=init['project'],
-        )
-        blob = gcs.bucket(init['bucket']).blob(f"{init['object_prefix']}{filename}")
-
-        logger.debug(f"Starting parallel upload: upload_id={upload_id}, "
-                     f"chunk={_CHUNK >> 20} MiB, workers={_WORKERS}")
-
-        # No per-chunk checksum flag — the SDK has a known bug where it sends
-        # the CRC32C in a way GCS rejects. We verify the final assembled object
-        # below instead, which is a stronger guarantee.
-        transfer_manager.upload_chunks_concurrently(
-            file_path,
-            blob,
-            chunk_size=_CHUNK,
-            max_workers=_WORKERS,
-            worker_type=transfer_manager.THREAD,
-        )
-
-        # Verify the assembled GCS object's CRC32C matches our local hash.
-        # GCS computes CRC32C over the full assembled byte stream, identical
-        # to a local sequential hash, so this catches any corruption in
-        # upload or server-side assembly.
-        blob.reload()
-        if blob.crc32c and blob.crc32c != local_crc32c_b64:
-            raise RuntimeError(
-                f"CRC32C mismatch for {filename} after assembly: "
-                f"local={local_crc32c_b64} gcs={blob.crc32c}"
-            )
-        logger.debug(f"CRC32C verified: {local_crc32c_b64}")
-
-        logger.info(f"Completing upload for {filename} (upload_id={upload_id})")
-        file_record = self._request('post', f'/datasets/{dsid}/upload/complete',
-                                    json={'upload_id': upload_id, 'sha256_hash': sha256_hash})
-        return file_record, False
+        """Parallel multipart upload. Delegates to crucible.resources.gcs.upload."""
+        from .gcs.upload import upload_file_gcs_multipart
+        return upload_file_gcs_multipart(self._client, dsid, file_path,
+                                          chunk_size_mb=chunk_size_mb,
+                                          max_workers=max_workers)
 
     def _upload_file_gcs_resumable(self, dsid: str, file_path: str) -> Tuple[Dict, bool]:
-        """Upload using a GCS resumable session URI (sequential, no extra dependencies).
-
-        Args:
-            dsid: Dataset unique identifier
-            file_path: Local path to the file
-
-        Returns:
-            Tuple[Dict, bool]: (AssociatedFile record, was_existing). was_existing is
-                True when the file already existed in the dataset and the byte upload
-                was skipped via server-side dedup.
-        """
-        import hashlib
-        import base64
-        import google_crc32c
-        _256K      = 256 * 1024
-        _MIN_CHUNK = 32 * 1024 * 1024  # 32 MiB floor - overrides server hint for throughput
-        _MAX_RETRIES = 3
-
-        file_size = os.path.getsize(file_path)
-        filename  = os.path.basename(file_path)
-
-        logger.info(f"Uploading {filename} ({file_size / 1024**2:.1f} MB) to dataset {dsid}")
-
-        # SHA256 for server-side dedup; CRC32C for end-to-end integrity vs GCS's
-        # response. Per-chunk x-goog-hash is unusable here — GCS treats it as the
-        # whole-object hash and rejects any multi-chunk upload.
-        sha = hashlib.sha256()
-        crc = google_crc32c.Checksum()
-        with open(file_path, 'rb') as f:
-            for block in iter(lambda: f.read(_MIN_CHUNK), b''):
-                sha.update(block)
-                crc.update(block)
-        sha256_hash = sha.hexdigest()
-        local_crc32c_b64 = base64.b64encode(crc.digest()).decode()
-
-        # Initiate resumable upload session; server returns existing_file if hash matches
-        init = self._request('post', f'/datasets/{dsid}/upload/initiate',
-                             json={'filename': filename, 'size': file_size,
-                                   'sha256_hash': sha256_hash})
-
-        if init.get('existing_file', None) is not None:
-            logger.info(f"File {filename} already exists in dataset {dsid}, skipping upload")
-            return init['existing_file'], True
-
-        upload_id  = init['upload_id']
-        uri        = init['resumable_uri']
-        raw_hint   = init.get('chunk_size_hint', _MIN_CHUNK)
-        # Use the larger of server hint and our minimum; align to GCS 256 KiB boundary
-        chunk_size = max((max(raw_hint, _MIN_CHUNK) // _256K) * _256K, _256K)
-
-        logger.debug(f"Chunked upload initiated: upload_id={upload_id}, chunk_size={chunk_size >> 20} MiB")
-
-        # Upload chunks directly to GCS (no Crucible auth needed)
-        with open(file_path, 'rb') as f:
-            offset = 0
-            while offset < file_size:
-                f.seek(offset)
-                chunk = f.read(chunk_size)
-                chunk_end = offset + len(chunk) - 1
-
-                for attempt in range(_MAX_RETRIES):
-                    resp = requests.put(
-                        uri,
-                        data=chunk,
-                        headers={
-                            'Content-Range': f'bytes {offset}-{chunk_end}/{file_size}',
-                            'Content-Length': str(len(chunk)),
-                        },
-                        timeout=120,
-                    )
-                    if resp.status_code in (200, 201):
-                        # Final chunk: response body is the GCS object resource.
-                        # Verify GCS-computed crc32c matches what we hashed locally.
-                        try:
-                            remote_crc32c = resp.json().get('crc32c')
-                        except ValueError:
-                            remote_crc32c = None
-                        if remote_crc32c and remote_crc32c != local_crc32c_b64:
-                            raise RuntimeError(
-                                f"GCS crc32c mismatch for {filename}: "
-                                f"local={local_crc32c_b64} remote={remote_crc32c}"
-                            )
-                        offset = file_size
-                        break
-                    elif resp.status_code == 308:
-                        offset = chunk_end + 1
-                        logger.debug(f"Chunk accepted, offset={offset}/{file_size}")
-                        break
-                    else:
-                        logger.warning(
-                            f"{filename} GCS chunk rejected offset={offset} "
-                            f"status={resp.status_code} attempt={attempt+1}/{_MAX_RETRIES} "
-                            f"body={resp.text[:300]}"
-                        )
-                        if attempt == _MAX_RETRIES - 1:
-                            raise RuntimeError(
-                                f"GCS chunk upload failed after {_MAX_RETRIES} attempts "
-                                f"(status {resp.status_code}): {resp.text}"
-                            )
-                        # Query GCS for confirmed offset and retry from there
-                        probe = requests.put(uri,
-                                             headers={'Content-Range': f'bytes */{file_size}'},
-                                             timeout=30)
-                        if probe.status_code in (200, 201):
-                            offset = file_size
-                            break
-                        elif probe.status_code == 308 and 'Range' in probe.headers:
-                            last_byte = int(probe.headers['Range'].split('-')[1])
-                            offset = last_byte + 1
-                        f.seek(offset)
-                        chunk = f.read(chunk_size)
-                        chunk_end = offset + len(chunk) - 1
-
-        # Register the AssociatedFile record
-        logger.info(f"Completing upload for {filename} (upload_id={upload_id})")
-        file_record = self._request('post', f'/datasets/{dsid}/upload/complete',
-                                    json={'upload_id': upload_id, 'sha256_hash': sha256_hash})
-
-        return file_record, False
+        """Sequential resumable upload. Delegates to crucible.resources.gcs.upload."""
+        from .gcs.upload import upload_file_gcs_resumable
+        return upload_file_gcs_resumable(self._client, dsid, file_path)
 
 
     def list_files(self, dsid: Optional[str] = None, limit: int = DEFAULT_LIMIT,
