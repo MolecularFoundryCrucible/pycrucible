@@ -79,9 +79,9 @@ def _execute_list(args):
         client = CrucibleClient()
         dsid = getattr(args, 'dataset', None)
         if dsid:
-            files = client.datasets.list_files(dsid=dsid)
+            files = client.datasets.get_associated_files(dsid)
         else:
-            files = client.datasets.list_files(limit=args.limit, sha256_hash=args.sha256)
+            files = client.files.list(limit=args.limit, sha256_hash=args.sha256)
 
         sha256_filter = getattr(args, 'sha256', None)
         if sha256_filter and dsid:
@@ -133,7 +133,7 @@ def _execute_get(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        f = client.datasets.get_file(args.file_id)
+        f = client.files.get(args.file_id)
 
         _p = term.field_printer(12)
         term.header("File")
@@ -192,7 +192,7 @@ def _execute_download(args):
     try:
         client = CrucibleClient()
 
-        f    = client.datasets.get_file(args.file_id)
+        f    = client.files.get(args.file_id)
         name = _bare_name(f)
 
         if not f.get('storage_path'):

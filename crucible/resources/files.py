@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-File operations for Crucible datasets: upload, download, thumbnails, ingestion.
+File resource operations — scoped to a single file MFID (/files/* endpoints).
 
-Accessible as client.files.* or via client.datasets.* (DatasetOperations inherits
-this class so all methods are available on both namespaces).
+For dataset-scoped file operations (upload, download, thumbnails, ingestion)
+see DatasetOperations (client.datasets.*).
 """
 
-import os
-import re
-import fnmatch
 import logging
-import requests
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict
 
 from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
@@ -21,157 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 class FileOperations(BaseResource):
-    """File operations scoped to a dataset: upload, download, thumbnails, ingestion.
+    """Operations on individual files by MFID.
 
-    Access via client.files.* or client.datasets.* (DatasetOperations inherits this).
-    All methods take a dataset unique ID (dsid) as their first argument.
+    Access via: client.files.get(), client.files.list(), etc.
     """
 
-    #%% Upload Methods
-
-    def add_file_to_dataset(self, dsid: str, file_path: str,
-                            ingestion_class: Optional[str] = None,
-                            wait_for_ingestion_response: bool = False,
-                            multipart: bool = True,
-                            chunk_size_mb: Optional[int] = None,
-                            max_workers: Optional[int] = None) -> Dict:
-        """Upload a file to a dataset and request ingestion.
-
-        Args:
-            dsid: Dataset unique identifier
-            file_path: Local path to the file
-            ingestion_class: Ingestion class for the worker (e.g. 'lammps', 'nexus').
-                Defaults to the server-side default if omitted.
-            wait_for_ingestion_response: Block until ingestion completes.
-            multipart: Use parallel multipart upload (default: True). Set to False to
-                use the sequential resumable upload (slower but simpler).
-
-        Returns:
-            Dict: {'associated_file': AssociatedFileRead, 'ingestion_request': IngestionRequest}
-                AssociatedFileRead includes: mfid, filename, storage_path, size, sha256_hash, dataset_mfid
-                ingestion_request is None when the file was already present and a prior
-                ingestion for it had completed, so ingestion was skipped.
-        """
-        # get file information
-        file_size = os.path.getsize(file_path)
-        filename = os.path.basename(file_path)
-        
-        # run file upload
-        file_record, was_existing = self._upload_file_gcs(dsid, file_path, multipart=multipart,
-                                                          chunk_size_mb=chunk_size_mb,
-                                                          max_workers=max_workers)
-
-
-        stored_filename = file_record.get('filename', filename)
-        file_id = file_record.get('mfid')
-
-        if was_existing and self._has_successful_ingestion(file_id):
-            logger.info(f"{stored_filename} already ingested successfully; skipping ingestion")
-            return {'associated_file': file_record, 'ingestion_request': None}
-
-        ingestion_request = self._request_ingestion(
-            dsid, file_id, stored_filename, file_size,
-            ingestion_class=ingestion_class,
-            wait_for_ingestion_response=wait_for_ingestion_response,
-        )
-
-        return {'associated_file': file_record, 'ingestion_request': ingestion_request}
-
-    def _request_ingestion(self, dsid: str, file_id: str, filename: str,
-                           file_size: int, ingestion_class: Optional[str] = None,
-                           wait_for_ingestion_response: bool = False) -> Dict:
-        """Request ingestion of an already-uploaded file.
-
-        Internal: callers should go through add_file_to_dataset(), which uploads
-        the bytes and then requests ingestion.
-
-        Args:
-            dsid: Dataset unique identifier
-            file_id: MFID of the uploaded file
-            filename: Stored filename of the uploaded file
-            file_size: Size of the file in bytes
-            ingestion_class: Ingestion class for the worker (e.g. 'lammps', 'nexus').
-                Defaults to the server-side default if omitted.
-            wait_for_ingestion_response: Block until ingestion completes.
-
-        Returns:
-            Dict: IngestionRequest record (id, status, ...)
-        """
-        ingest_params = {'filename': filename, 'file_size': file_size}
-        if ingestion_class:
-            ingest_params['ingestion_class'] = ingestion_class
-
-        logger.info(f"Requesting ingestion for {filename}"
-                    + (f" (class={ingestion_class})" if ingestion_class else ""))
-
-        ingestion_request = self._request('post', f'/datasets/{dsid}/files/{file_id}/ingest', params=ingest_params)
-
-        logger.debug(f"Ingestion request created: id={ingestion_request.get('id')}, "
-                     f"status={ingestion_request.get('status')}")
-
-        if wait_for_ingestion_response and ingestion_request:
-            self._client._wait_for_request_completion(ingestion_request['id'])
-
-        return ingestion_request
-
-    def _has_successful_ingestion(self, file_id: Optional[str]) -> bool:
-        if not file_id:
-            return False
-        resp = self.get_ingestion_requests(file_id=file_id)
-        items = resp.get('items', []) if isinstance(resp, dict) else (resp or [])
-        return any(r.get('status') == 'complete' for r in items)
-
-    def _upload_file_gcs(self, dsid: str, file_path: str, multipart: bool = True,
-                         chunk_size_mb: Optional[int] = None,
-                         max_workers: Optional[int] = None) -> Tuple[Dict, bool]:
-        """Dispatch to multipart or resumable GCS upload.
-
-        Delegates to crucible.resources.gcs.upload — see that module for full docs.
-        """
-        from .gcs.upload import upload_file_gcs
-        return upload_file_gcs(self._client, dsid, file_path,
-                                multipart=multipart,
-                                chunk_size_mb=chunk_size_mb,
-                                max_workers=max_workers)
-
-    def _upload_file_gcs_multipart(self, dsid: str, file_path: str,
-                                    chunk_size_mb: Optional[int] = None,
-                                    max_workers: Optional[int] = None) -> Tuple[Dict, bool]:
-        """Parallel multipart upload. Delegates to crucible.resources.gcs.upload."""
-        from .gcs.upload import upload_file_gcs_multipart
-        return upload_file_gcs_multipart(self._client, dsid, file_path,
-                                          chunk_size_mb=chunk_size_mb,
-                                          max_workers=max_workers)
-
-    def _upload_file_gcs_resumable(self, dsid: str, file_path: str) -> Tuple[Dict, bool]:
-        """Sequential resumable upload. Delegates to crucible.resources.gcs.upload."""
-        from .gcs.upload import upload_file_gcs_resumable
-        return upload_file_gcs_resumable(self._client, dsid, file_path)
-
-
-    def list_files(self, dsid: Optional[str] = None, limit: int = DEFAULT_LIMIT,
-                   sha256_hash: Optional[str] = None) -> List[Dict]:
-        """List files, optionally scoped to a single dataset.
-
-        Args:
-            dsid: If provided, list files for this dataset (GET /datasets/{dsid}/files).
-                Otherwise list files across all accessible datasets (GET /files).
-            limit: Maximum number of results (ignored when dsid is provided)
-            sha256_hash: Filter by SHA-256 hex digest (ignored when dsid is provided)
-
-        Returns:
-            List[Dict]: File records (mfid, filename, storage_path, size, sha256_hash, dataset_mfid).
-                storage_path is null until the file has been ingested.
-        """
-        if dsid is not None:
-            return self._request('get', f'/datasets/{dsid}/files')
-        params = {}
-        if sha256_hash:
-            params['sha256_hash'] = sha256_hash
-        return self._paginate('/files', params, limit=limit)
-
-    def get_file(self, file_id: str) -> Dict:
-        """Get metadata for a single associated file.
+    def get(self, file_id: str) -> Dict:
+        """Get metadata for a single file by its MFID.
 
         Args:
             file_id: File MFID
@@ -181,11 +33,24 @@ class FileOperations(BaseResource):
         """
         return self._request('get', f'/files/{file_id}')
 
+    def list(self, limit: int = DEFAULT_LIMIT,
+             sha256_hash: Optional[str] = None) -> List[Dict]:
+        """List files across all accessible datasets.
+
+        Args:
+            limit: Maximum number of results
+            sha256_hash: Filter by SHA-256 hex digest
+
+        Returns:
+            List[Dict]: File records (mfid, filename, storage_path, size, sha256_hash, dataset_mfid)
+        """
+        params = {}
+        if sha256_hash:
+            params['sha256_hash'] = sha256_hash
+        return self._paginate('/files', params, limit=limit)
+
     def get_download_link(self, file_id: str) -> str:
         """Get a signed download URL for a single file.
-
-        Prefer this over get_download_links() when the user requests a specific
-        file — avoids signing all files in the dataset.
 
         Args:
             file_id: File MFID
@@ -198,249 +63,3 @@ class FileOperations(BaseResource):
         """
         result = self._request('get', f'/files/{file_id}/download_link')
         return result['url']
-
-    #%% Download Methods
-
-    def get_download_links(self, dsid: str) -> Dict:
-        """Get signed download URLs for all ingested files in a dataset.
-
-        URLs are valid for 1 hour, require no auth, and are safe to share.
-
-        Args:
-            dsid: Dataset unique identifier
-
-        Returns:
-            Dict: Mapping of file MFID → signed URL. Only includes ingested files.
-                Empty dict if no ingested files found.
-        """
-        try:
-            return self._request('get', f"/datasets/{dsid}/download_links")
-        except requests.exceptions.HTTPError as e:
-            if e.response is not None:
-                if e.response.status_code == 404:
-                    logger.debug(f"No ingested files in storage for dataset {dsid}")
-                    return {}
-                if e.response.status_code in (502, 503, 504):
-                    logger.warning(f"Could not retrieve download links for {dsid}: "
-                                   f"{e.response.status_code} {e.response.reason}. "
-                                   "The server may be temporarily unavailable.")
-                    return {}
-            raise
-
-    def _fetch_files(self, dsid: str, output_dir: str,
-                     overwrite_existing: bool = True,
-                     include: Optional[List[str]] = None,
-                     exclude: Optional[List[str]] = None) -> List[str]:
-        """Download files for a dataset into output_dir. Returns list of downloaded paths."""
-        import tempfile
-
-        all_files = self.list_files(dsid=dsid)
-
-        # Only ingested files have a storage_path and are downloadable
-        prefix_sp = f'mf-storage-prod/{dsid}/'
-        ingested = [f for f in all_files if f.get('storage_path')]
-
-        def _bare_name(f: Dict) -> str:
-            sp = f.get('storage_path', '')
-            return sp[len(prefix_sp):] if sp.startswith(prefix_sp) else os.path.basename(sp)
-
-        if include:
-            ingested = [f for f in ingested if any(fnmatch.fnmatch(_bare_name(f), p) for p in include)]
-        if exclude:
-            ingested = [f for f in ingested if not any(fnmatch.fnmatch(_bare_name(f), p) for p in exclude)]
-
-        if not ingested:
-            return []
-
-        # Bulk-fetch signed URLs; keys are MFIDs
-        link_map = self.get_download_links(dsid)
-
-        downloads = []
-        for file_meta in ingested:
-            name       = _bare_name(file_meta)
-            signed_url = link_map.get(file_meta.get('mfid'))
-            if not signed_url:
-                logger.warning(f"No download URL for {name}, skipping")
-                continue
-
-            download_path = os.path.join(output_dir, name)
-            if not overwrite_existing and os.path.exists(download_path):
-                downloads.append(download_path)
-                continue
-
-            os.makedirs(os.path.dirname(download_path), exist_ok=True)
-            response = self._client._session.get(signed_url, stream=True)
-            response.raise_for_status()
-            # Write to a temp file then atomically rename to avoid corrupt partial files
-            tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(download_path))
-            try:
-                with os.fdopen(tmp_fd, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=1024 * 1024):
-                        f.write(chunk)
-                os.replace(tmp_path, download_path)
-            except Exception:
-                os.unlink(tmp_path)
-                raise
-            downloads.append(download_path)
-
-        return downloads
-
-    def download(self, dsid: str, file_name: Optional[str] = None,
-                 output_dir: Optional[str] = 'crucible-downloads',
-                 overwrite_existing: bool = True,
-                 no_record: bool = False,
-                 include: Optional[List[str]] = None,
-                 exclude: Optional[List[str]] = None) -> List[str]:
-        """Download dataset files.
-
-        Args:
-            dsid: Dataset unique identifier
-            file_name: Deprecated. Use include=['pattern'] with glob syntax.
-            output_dir: Directory to save files (default: 'crucible-downloads/')
-            overwrite_existing: Overwrite existing files (default: True)
-            include: Glob patterns - only download matching files
-            exclude: Glob patterns - skip matching files
-
-        Returns:
-            List[str]: Downloaded file paths (including record.json)
-        """
-        if file_name is not None:
-            import warnings
-            warnings.warn(
-                "The 'file_name' parameter is deprecated. Use include=['pattern'] with glob "
-                "syntax instead (e.g. include=['*.h5']). Note: file_name used regex fullmatch; "
-                "glob syntax differs.",
-                DeprecationWarning, stacklevel=2,
-            )
-            all_files = self.list_files(dsid=dsid)
-            matched = [os.path.basename(f.get('storage_path') or f.get('filename', ''))
-                       for f in all_files
-                       if re.fullmatch(fr"({file_name})",
-                                       os.path.basename(f.get('storage_path') or f.get('filename', '')))]
-            include = matched
-
-        return self._client.download(dsid, output_dir=output_dir, no_files=False,
-                                     no_record=no_record,
-                                     overwrite_existing=overwrite_existing,
-                                     include=include, exclude=exclude)
-
-    # Thumbnail Methods
-    def get_thumbnails(self, dsid: str, limit: int = DEFAULT_LIMIT) -> List[Dict]:
-        """Get thumbnails for a dataset.
-
-        Args:
-            dsid: Dataset unique identifier
-            limit: Maximum number of results to return
-
-        Returns:
-            List[Dict]: Thumbnail objects with base64-encoded images
-        """
-        return self._request('get', f'/datasets/{dsid}/thumbnails')
-
-    def add_thumbnail(self, dsid: str, image, thumbnail_name: Optional[str] = None) -> Dict:
-        """Add a thumbnail to a dataset.
-
-        Args:
-            dsid: Dataset unique identifier
-            image: Image to use as thumbnail. Accepts:
-                - str or Path: path to an image file or a base64-encoded string
-                - PIL.Image.Image: PIL image object
-                - matplotlib.figure.Figure: matplotlib figure
-                - numpy.ndarray: array of shape (H, W) or (H, W, C)
-            thumbnail_name: Display name. Defaults to the filename for file paths,
-                or the dataset ID for in-memory objects.
-
-        Returns:
-            Dict: Created thumbnail object
-        """
-        import base64
-        from ..utils import data2thumbnail, is_base64
-
-        if is_base64(image):
-            thumbnail_data = {
-                'thumbnail_name': thumbnail_name or f"{dsid}_thumbnail",
-                'thumbnail_b64str': image,
-            }
-            return self._request('post', f'/datasets/{dsid}/thumbnails', json=thumbnail_data)
-
-        png_path = data2thumbnail(image)
-
-        if thumbnail_name is None:
-            thumbnail_name = os.path.basename(png_path)
-
-        with open(png_path, 'rb') as f:
-            thumbnail_b64str = base64.b64encode(f.read()).decode('utf-8')
-
-        thumbnail_data = {
-            'thumbnail_name': thumbnail_name,
-            'thumbnail_b64str': thumbnail_b64str,
-        }
-        return self._request('post', f'/datasets/{dsid}/thumbnails', json=thumbnail_data)
-
-    def delete_thumbnail(self, dsid: str, thumbnail_id: int) -> Dict:
-        """Delete a thumbnail from a dataset.
-
-        Args:
-            dsid: Dataset unique identifier
-            thumbnail_id: Integer ID of the thumbnail (from get_thumbnails())
-
-        Returns:
-            Dict: Confirmation message
-        """
-        return self._request('delete', f'/datasets/{dsid}/thumbnails/{thumbnail_id}')
-
-    # Ingestion Methods
-
-    def get_ingestion_requests(self, dsid: Optional[str] = None,
-                               file_id: Optional[str] = None,
-                               limit: int = DEFAULT_LIMIT) -> List[Dict]:
-        """Get ingestion requests, optionally filtered by dataset or file.
-
-        Args:
-            dsid: Filter by dataset ID
-            file_id: Filter by file MFID
-            limit: Maximum number of results
-        """
-        params = {}
-        if dsid:
-            params['dataset_id'] = dsid
-        if file_id:
-            params['file_id'] = file_id
-        return self._request('get', '/ingestion_requests', params=params or None)
-
-    def get_request_status(self, reqid: str) -> Dict:
-        """Get the status of an ingestion request.
-        Args:
-            reqid: Request ID
-        """
-        return self._request('get', f'/ingestion_requests/{reqid}')
-
-
-    def update_ingestion_status(self, reqid: str, status: str,
-                                ingestion_githash: str = None,
-                                ingestion_class: str = None,
-                                timezone: str = "America/Los_Angeles") -> Dict:
-        """Update the status of an ingestion request.
-
-        **Requires admin permissions.**
-
-        Args:
-            reqid: Request ID
-            status: New status ('complete', 'in_progress', 'failed')
-            timezone: Timezone for completion timestamp
-
-        Returns:
-            Dict: Updated ingestion request
-        """
-        from ..utils import get_tz_isoformat
-
-        patch_json = {'ingestion_githash': ingestion_githash,
-                      'ingestion_class': ingestion_class}
-
-        if status == "complete":
-            patch_json.update({"id": reqid, "status": status,
-                                "time_completed": get_tz_isoformat(timezone)})
-        else:
-            patch_json.update({"id": reqid, "status": status})
-
-        return self._request('patch', f'/ingestion_requests/{reqid}', json=patch_json)
