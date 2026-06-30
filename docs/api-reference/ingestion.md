@@ -7,4 +7,5 @@ Access via `client.ingestions`.
       members:
         - list
         - get
+        - wait
         - update

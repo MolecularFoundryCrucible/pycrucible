@@ -7,6 +7,7 @@ Access via: client.ingestion.list(), client.ingestion.get(), etc.
 """
 
 import logging
+import time
 from typing import Dict, List, Optional
 
 from .base import BaseResource
@@ -51,6 +52,25 @@ class IngestionOperations(BaseResource):
             Dict: IngestionRequest record (id, status, ...)
         """
         return self._request('get', f'/ingestion_requests/{request_id}')
+
+    def wait(self, request_id: str, sleep_interval: int = 1) -> Dict:
+        """Poll an ingestion request until it reaches a terminal state.
+
+        Args:
+            request_id: Ingestion request ID
+            sleep_interval: Seconds between status checks (default 1)
+
+        Returns:
+            Dict: Final IngestionRequest record
+        """
+        req = self.get(request_id)
+        logger.info("Waiting for ingestion request to complete...")
+        while req['status'] in ('requested', 'started'):
+            time.sleep(sleep_interval)
+            req = self.get(request_id)
+            logger.info(f"Current status: {req['status']}")
+        logger.info(f"Request completed with status: {req['status']}")
+        return req
 
     def update(self, request_id: str, status: str,
                ingestion_githash: Optional[str] = None,

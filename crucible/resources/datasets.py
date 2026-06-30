@@ -8,10 +8,9 @@ Provides organized access to dataset-related API endpoints.
 
 import os
 import re
-import fnmatch
 import logging
 import requests
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict
 
 import mfid
 
@@ -170,7 +169,7 @@ class DatasetOperations(BaseResource):
 
         for file in files_to_upload:
             logger.debug(f'Adding {file} to dataset {dsid}')
-            self.add_file_to_dataset(dsid, file, ingestion_class=ingestor, wait_for_ingestion_response=wait_for_ingestion_response)
+            self.add_file(dsid, file, ingestion_class=ingestor, wait_for_ingestion_response=wait_for_ingestion_response)
 
         result = {"created_record": new_ds_record, "scientific_metadata_record": scimd, "dsid": dsid}
         return result

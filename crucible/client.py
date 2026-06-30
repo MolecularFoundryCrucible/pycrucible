@@ -135,36 +135,8 @@ class CrucibleClient:
             return response
     
     def _wait_for_request_completion(self, reqid: str, sleep_interval: int = 1) -> Dict:
-        """Wait for a request to complete by polling its status.
-
-        Args:
-            reqid (str): Request ID
-            sleep_interval (int): Seconds between status checks
-
-        Returns:
-            Dict: Final request status information
-        """
-        req_info = self._get_request_status(reqid)
-        logger.info(f"Waiting for ingestion request to complete...")
-
-        while req_info['status'] in ['requested', 'started']:
-            time.sleep(sleep_interval)
-            req_info = self._get_request_status(reqid)
-            logger.info(f"Current status: {req_info['status']}")
-
-        logger.info(f"Request completed with status: {req_info['status']}")
-        return req_info
-    
-    def _get_request_status(self, reqid: str) -> Dict:
-        """Get the status of any type of request.
-
-        Args:
-            reqid (str): Request ID
-
-        Returns:
-            Dict: Request status information
-        """
-        return self._request('get', f'/ingestion_requests/{reqid}')
+        """Internal: delegate to client.ingestions.wait()."""
+        return self.ingestions.wait(reqid, sleep_interval=sleep_interval)
 
     
     #%% GENERIC METHODS
