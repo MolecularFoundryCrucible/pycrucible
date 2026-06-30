@@ -246,6 +246,7 @@ def register_subcommand(subparsers):
     _register_list_files(dataset_subparsers)
     _register_ingestion(dataset_subparsers)
     _register_search(dataset_subparsers)
+    _register_search_metadata(dataset_subparsers)
     _register_add_keyword(dataset_subparsers)
     _register_list_keywords(dataset_subparsers)
     _register_list_access_groups(dataset_subparsers)
@@ -1351,66 +1352,101 @@ def _execute_ingestion(args):
 
 
 def _register_search(subparsers):
-    """Register the 'dataset search' subcommand."""
     parser = subparsers.add_parser(
         'search',
-        help='Search datasets by scientific metadata',
-        description='Full-text search across scientific metadata of all datasets',
+        help='Fuzzy search datasets by name',
+        description='Fuzzy name search across datasets you can read. '
+                    'For scientific metadata search use search-metadata.',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset search "thermal conductivity"
-    crucible dataset search "silicon XRD 300K"
-    crucible dataset search temperature -v
-"""
+    crucible dataset search perovskite
+    crucible dataset search "silicon wafer" --project my-project
+    crucible dataset search XRD --limit 10
+""",
     )
-
-    parser.add_argument(
-        'query',
-        metavar='QUERY',
-        help='Search query string'
-    )
-
-    parser.add_argument(
-        '--limit', '-l',
-        type=int,
-        default=_config.default_limit,
-        metavar='N',
-        help='Maximum number of results to return (default: 100)'
-    )
-
+    parser.add_argument('query', metavar='QUERY', help='Search term (min 3 chars)')
+    parser.add_argument('--project', '-pid', dest='project_id', default=None, metavar='ID',
+                        help='Scope to a specific project')
+    parser.add_argument('--limit', '-l', type=int, default=20, metavar='N',
+                        help='Maximum results (default: 20, max: 50)')
     parser.set_defaults(func=_execute_search)
 
 
 def _execute_search(args):
-    """Execute the 'dataset search' subcommand."""
+    if len(args.query) < 3:
+        logger.error("Search term must be at least 3 characters")
+        sys.exit(1)
     from crucible.client import CrucibleClient
     try:
-        client = CrucibleClient()
-        results = client.datasets.search_scientific_metadata(args.query)
-
-        if args.limit:
-            results = results[:args.limit]
-
-        term.header(f"Search: {args.query} ({len(results)})")
+        client     = CrucibleClient()
+        project_id = args.project_id or _config.current_project or None
+        results    = client.datasets.search(args.query, project_id=project_id,
+                                            limit=args.limit)
+        term.header(f"Datasets matching '{args.query}' ({len(results)})")
         if not results:
             print(f"  {term.dim('No results found.')}")
-        else:
-            for r in results:
-                mfid = r.get('dataset_mfid', '-')
-                print(f"  {term.cyan(mfid)}")
-                if args.verbose:
-                    scimd = r.get('scientific_metadata', {})
-                    for key, value in scimd.items():
-                        if isinstance(value, dict):
-                            print(f"    {term.dim(key + ':')} <dict, {len(value)} keys>")
-                        elif isinstance(value, list):
-                            print(f"    {term.dim(key + ':')} <list, {len(value)} items>")
-                        else:
-                            print(f"    {term.dim(key + ':')} {value}")
-
+            return
+        from .helpers import explorer_url
+        rows = []
+        for r in results:
+            uid  = r.get('unique_id') or ''
+            pid  = r.get('project_id') or project_id or ''
+            rows.append((
+                r.get('dataset_name') or '(unnamed)',
+                term.mfid_link(uid, explorer_url(uid, pid, 'dataset')),
+                r.get('measurement') or '-',
+            ))
+        term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 20])
     except Exception as e:
-        logger.error(f"Error searching datasets: {e}")
+        logger.error(f"Error: {e}")
+        if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_search_metadata(subparsers):
+    for name in ('search-metadata', 'search-md'):
+        parser = subparsers.add_parser(
+            name,
+            help='Search datasets by scientific metadata' if name == 'search-metadata' else None,
+            description='Full-text search across scientific metadata of all accessible datasets.',
+            formatter_class=term.ColorHelpFormatter,
+            epilog="""
+Examples:
+    crucible dataset search-metadata "thermal conductivity"
+    crucible dataset search-md "silicon XRD 300K"
+""",
+        )
+        parser.add_argument('query', metavar='QUERY', help='Search query string')
+        parser.add_argument('--limit', '-l', type=int, default=50, metavar='N',
+                            help='Maximum results (default: 50)')
+        parser.set_defaults(func=_execute_search_metadata)
+
+
+def _execute_search_metadata(args):
+    from crucible.client import CrucibleClient
+    try:
+        client  = CrucibleClient()
+        results = client.datasets.search_metadata(args.query, limit=args.limit)
+        term.header(f"Metadata search: {args.query} ({len(results)})")
+        if not results:
+            print(f"  {term.dim('No results found.')}")
+            return
+        for r in results:
+            mfid  = r.get('unique_id') or r.get('dataset_mfid', '-')
+            print(f"  {term.cyan(mfid)}")
+            scimd = r.get('scientific_metadata') or {}
+            for key, value in scimd.items():
+                if isinstance(value, dict):
+                    print(f"    {term.dim(key + ':')} <dict, {len(value)} keys>")
+                elif isinstance(value, list):
+                    print(f"    {term.dim(key + ':')} <list, {len(value)} items>")
+                else:
+                    print(f"    {term.dim(key + ':')} {value}")
+    except Exception as e:
+        logger.error(f"Error: {e}")
         if getattr(args, "debug", False):
             import traceback
             traceback.print_exc()
@@ -1483,7 +1519,7 @@ def _execute_list_keywords(args):
         for kw in keywords:
             word  = kw.get('keyword', kw) if isinstance(kw, dict) else kw
             count = kw.get('num_datasets') if isinstance(kw, dict) else None
-            suffix = f"  {term.dim(f'({count} datasets)')}" if args.verbose and count is not None else ""
+            suffix = f"  {term.dim(f'({count} datasets)')}" if getattr(args, 'verbose', False) and count is not None else ""
             print(f"  {word}{suffix}")
 
     except Exception as e:
@@ -2020,7 +2056,7 @@ def _execute_parsers(args):
     builtin_names = set(PARSER_REGISTRY.keys())
 
     term.header(f"Dataset Parsers ({len(all_parsers)})")
-    if args.verbose:
+    if getattr(args, 'verbose', False):
         rows = [
             (
                 name,

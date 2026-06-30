@@ -43,6 +43,8 @@ def register_subcommand(subparsers):
 
     # Register individual instrument commands
     _register_list(instrument_subparsers)
+    _register_search(instrument_subparsers)
+    _register_search_metadata(instrument_subparsers)
     _register_get(instrument_subparsers)
     _register_create(instrument_subparsers)
     _register_update(instrument_subparsers)
@@ -533,3 +535,79 @@ def _execute_edit(args):
         logger.error(f"Error connecting: {e}")
         sys.exit(1)
     _edit_instrument(args.unique_id, client, debug=getattr(args, 'debug', False))
+
+
+def _register_search(subparsers):
+    parser = subparsers.add_parser(
+        'search',
+        help='Fuzzy search instruments by name, type, or manufacturer',
+        description='Fuzzy search across instruments.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible instrument search titan
+    crucible instrument search "electron microscope"
+    crucible instrument search XRD --limit 10
+""",
+    )
+    parser.add_argument('query', metavar='QUERY', help='Search term (min 3 chars)')
+    parser.add_argument('--limit', '-l', type=int, default=20, metavar='N',
+                        help='Maximum results (default: 20, max: 50)')
+    parser.set_defaults(func=_execute_search)
+
+
+def _execute_search(args):
+    if len(args.query) < 3:
+        logger.error("Search term must be at least 3 characters")
+        sys.exit(1)
+    from crucible.client import CrucibleClient
+    try:
+        client  = CrucibleClient()
+        results = client.instruments.search(args.query, limit=args.limit)
+        term.header(f"Instruments matching '{args.query}' ({len(results)})")
+        if not results:
+            print(f"  {term.dim('No results found.')}")
+            return
+        rows = [(r.get('instrument_name', '-'), r.get('instrument_type') or '-',
+                 r.get('manufacturer') or '-', r.get('unique_id', '-')) for r in results]
+        term.table(rows, ['Name', 'Type', 'Manufacturer', 'MFID'],
+                   max_widths=[25, 20, 20, 26])
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_search_metadata(subparsers):
+    for name in ('search-metadata', 'search-md'):
+        parser = subparsers.add_parser(
+            name,
+            help='Search instruments by scientific metadata' if name == 'search-metadata' else None,
+            description='Full-text search across scientific metadata of all accessible instruments.',
+            formatter_class=term.ColorHelpFormatter,
+        )
+        parser.add_argument('query', metavar='QUERY', help='Search query string')
+        parser.add_argument('--limit', '-l', type=int, default=50, metavar='N',
+                            help='Maximum results (default: 50)')
+        parser.set_defaults(func=_execute_search_metadata)
+
+
+def _execute_search_metadata(args):
+    from crucible.client import CrucibleClient
+    try:
+        client  = CrucibleClient()
+        results = client.instruments.search_metadata(args.query, limit=args.limit)
+        term.header(f"Metadata search: {args.query} ({len(results)})")
+        if not results:
+            print(f"  {term.dim('No results found.')}")
+            return
+        for r in results:
+            print(f"  {term.cyan(r.get('unique_id', '-'))}")
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)

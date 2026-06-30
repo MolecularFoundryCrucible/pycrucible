@@ -74,7 +74,8 @@ class UserOperations(BaseResource):
         Returns:
             List[Dict]: Matching users (username, first_name, last_name, orcid)
         """
-        return self._request('get', '/users/search', params={'q': q})
+        result = self._request('get', '/users/search', params={'q': q})
+        return result.get('items', result) if isinstance(result, dict) else result
 
     @_deprecated("client.account.profile()")
     def me(self) -> Dict:

@@ -95,6 +95,9 @@ Examples:
 
 def _execute_search(args):
     """Execute 'user search'."""
+    if len(args.query) < 3:
+        logger.error("Search term must be at least 3 characters")
+        sys.exit(1)
     from crucible.client import CrucibleClient
     try:
         users = CrucibleClient().users.search(args.query)

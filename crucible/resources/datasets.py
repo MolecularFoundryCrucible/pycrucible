@@ -20,6 +20,9 @@ from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
 from ..utils.deprecation import _deprecated
 
+# upload/download
+from .gcs.upload import upload_file_gcs
+
 # set up logging
 logger = logging.getLogger(__name__)
 
@@ -28,8 +31,6 @@ class DatasetOperations(BaseResource):
     """Dataset-related API operations.
 
     Access via: client.datasets.get(), client.datasets.list(), etc.
-    File operations (upload, download, thumbnails, ingestion) are inherited
-    from FileOperations and also available via client.files.*.
     """
 
     @staticmethod
@@ -189,89 +190,8 @@ class DatasetOperations(BaseResource):
         """
         return self._request('patch', f'/datasets/{dsid}', json=updates)
 
-    def delete(self, dsid: str) -> Dict:
-        """Delete a dataset.
-
-        Args:
-            dsid (str): Dataset unique identifier
-
-        Returns:
-            Dict: Deletion confirmation
-        """
-        return self._request('delete', f'/datasets/{dsid}')
-
-    def get_access_groups(self, dsid: str) -> List[str]:
-        """Get list of access groups for a dataset.
-
-        **Requires admin permissions.**
-
-        Args:
-            dsid (str): Dataset unique identifier
-
-        Returns:
-            List[str]: Access group names
-        """
-        groups = self._request('get', f'/datasets/{dsid}/access_groups')
-        return [group['group_name'] for group in groups]
-
-    def add_access_group(self, dsid: str, group_name: str,
-                         read: bool = True, write: bool = False) -> Dict:
-        """Add an access group to a dataset.
-
-        **Requires admin permissions.**
-
-        Args:
-            dsid (str): Dataset unique identifier
-            group_name (str): Name of the access group to add
-            read (bool): Grant read access (default: True)
-            write (bool): Grant write access (default: False)
-
-        Returns:
-            Dict: Created ACL entry
-        """
-        params = {"group_name": group_name, "read": read, "write": write}
-        return self._request('post', f'/datasets/{dsid}/access_groups', params=params)
-
-    @_deprecated("create() with files_to_upload parameter")
-    def create_from_files(self, dataset, files_to_upload: List[str],
-                         scientific_metadata: Optional[Dict] = None,
-                         keywords: Optional[List[str]] = None,
-                         get_user_info_function=None,
-                         ingestor: str = 'ApiUploadIngestor',
-                         verbose: bool = False,
-                         wait_for_ingestion_response: bool = True) -> Dict:
-        """Build a new dataset with file upload and ingestion.
-
-        .. deprecated::
-            Use :meth:`create` with files_to_upload parameter instead.
-
-        Args:
-            dataset: Dataset object with dataset details
-            files_to_upload (List[str]): List of file paths to upload
-            scientific_metadata (dict, optional): Scientific metadata
-            keywords (list, optional): Keywords to associate with dataset
-            get_user_info_function (callable, optional): Function to get user info
-            ingestor (str): Ingestion class to use (default: 'ApiUploadIngestor')
-            verbose (bool): Enable verbose output
-            wait_for_ingestion_response (bool): Wait for ingestion to complete
-
-        Returns:
-            Dict: created_record, scientific_metadata_record, ingestion_request, uploaded_files
-        """
-        return self.create(dataset=dataset,
-                          scientific_metadata=scientific_metadata,
-                          keywords=keywords,
-                          verbose=verbose,
-                          files_to_upload=files_to_upload,
-                          ingestor=ingestor,
-                          wait_for_ingestion_response=wait_for_ingestion_response)
-
-    @_deprecated("list_files(dsid)")
-    def get_associated_files(self, dsid: str) -> List[Dict]:
-        """Get associated files for a dataset.
-
-        .. deprecated::
-            Use :meth:`list_files` with the ``dsid`` argument instead.
+    def list_files(self, dsid: str) -> List[Dict]:
+        """List files attached to a dataset.
 
         Args:
             dsid: Dataset unique identifier
@@ -280,7 +200,28 @@ class DatasetOperations(BaseResource):
             List[Dict]: File records (mfid, filename, storage_path, size, sha256_hash, dataset_mfid).
                 storage_path is null until the file has been ingested.
         """
-        return self.list_files(dsid=dsid)
+        return self._request('get', f'/datasets/{dsid}/files')
+
+    def search(self, q: str, project_id: Optional[str] = None,
+               limit: int = 20) -> List[Dict]:
+        """Fuzzy name search across datasets. Available to all authenticated users.
+
+        Matches against dataset_name. Returns datasets the caller can read.
+        For scientific metadata search use search_metadata().
+
+        Args:
+            q: Search term (min 3 chars). Typo-tolerant — "pero" finds "perovskite".
+            project_id: Optional project to scope results to.
+            limit: Max results (default 20, max 50).
+
+        Returns:
+            List[Dict]: Matching DatasetResponse records, ranked by relevance.
+        """
+        params = {'q': q, 'limit': limit}
+        if project_id:
+            params['project_id'] = project_id
+        result = self._request('get', '/datasets/search', params=params)
+        return result.get('items', result) if isinstance(result, dict) else result
 
     # Keyword Methods
     def get_keywords(self, dsid: Optional[str] = None, limit: int = DEFAULT_LIMIT) -> List[Dict]:
@@ -293,10 +234,7 @@ class DatasetOperations(BaseResource):
         Returns:
             List[Dict]: Keyword objects with keyword text and num_datasets counts
         """
-        if dsid is None:
-            return self._request('get', '/keywords')
-        else:
-            return self._request('get', f'/datasets/{dsid}/keywords')
+        return self._request('get', f'/datasets/{dsid}/keywords')
 
     def add_keyword(self, dsid: str, keyword: str) -> Dict:
         """Add a keyword to a dataset.
@@ -309,7 +247,6 @@ class DatasetOperations(BaseResource):
             Dict: Keyword object with updated usage count
         """
         return self._request('post', f'/datasets/{dsid}/keywords', params={'keyword': keyword})
-
 
     # Dataset Linking Methods
     def add_sample(self, dataset_id: str, sample_id: str) -> Dict:
@@ -432,25 +369,13 @@ class DatasetOperations(BaseResource):
         result = self._request('post', f"/datasets/{dsid}/rga_analysis")
         return result
 
-
+    @_deprecated("client.graphs.get")
     def graph(self, dataset_id: str, recursive: bool = False, as_networkx: bool = False):
-        """Return the graph of entities connected to this dataset.
-
-        Delegates to client.graphs.get(). See GraphOperations.get() for full docs.
-
-        Args:
-            dataset_id (str): Dataset unique identifier.
-            recursive (bool): If True, traverse the full connected component.
-            as_networkx (bool): Return a networkx DiGraph if True.
-
-        Returns:
-            dict | networkx.DiGraph: Node-link graph data.
-        """
         return self._client.graphs.get(dataset_id, recursive=recursive, as_networkx=as_networkx)
 
     #%% Upload Methods
 
-    def add_file_to_dataset(self, dsid: str, file_path: str,
+    def add_file(self, dsid: str, file_path: str,
                             ingestion_class: Optional[str] = None,
                             wait_for_ingestion_response: bool = False,
                             multipart: bool = True,
@@ -475,76 +400,39 @@ class DatasetOperations(BaseResource):
         file_size = os.path.getsize(file_path)
         filename  = os.path.basename(file_path)
 
-        file_record, was_existing = self._upload_file_gcs(dsid, file_path, multipart=multipart,
-                                                          chunk_size_mb=chunk_size_mb,
-                                                          max_workers=max_workers)
+        file_record, was_existing = upload_file_gcs(self._client, dsid, file_path,
+                                                    multipart=multipart,
+                                                    chunk_size_mb=chunk_size_mb,
+                                                    max_workers=max_workers)
 
         stored_filename = file_record.get('filename', filename)
         file_id         = file_record.get('mfid')
 
-        if was_existing and self._has_successful_ingestion(file_id):
+        if was_existing and self._client.files._has_successful_ingestion(file_id):
             logger.info(f"{stored_filename} already ingested successfully; skipping ingestion")
             return {'associated_file': file_record, 'ingestion_request': None}
 
-        ingestion_request = self._request_ingestion(
-            dsid, file_id, stored_filename, file_size,
+        ingestion_request = self._client.files.request_ingestion(
+            file_id,
             ingestion_class=ingestion_class,
-            wait_for_ingestion_response=wait_for_ingestion_response,
+            wait_for_response=wait_for_ingestion_response,
         )
         return {'associated_file': file_record, 'ingestion_request': ingestion_request}
 
-    def _request_ingestion(self, dsid: str, file_id: str, filename: str,
-                           file_size: int, ingestion_class: Optional[str] = None,
-                           wait_for_ingestion_response: bool = False) -> Dict:
-        """Request ingestion of an already-uploaded file."""
-        ingest_params = {'filename': filename, 'file_size': file_size}
-        if ingestion_class:
-            ingest_params['ingestion_class'] = ingestion_class
+    @_deprecated("client.datasets.add_file")
+    def add_file_to_dataset(self, dsid: str, file_path: str,
+                            ingestion_class: Optional[str] = None,
+                            wait_for_ingestion_response: bool = False,
+                            multipart: bool = True,
+                            chunk_size_mb: Optional[int] = None,
+                            max_workers: Optional[int] = None) -> Dict:
+        return self.add_file(dsid=dsid, file_path=file_path,
+                             ingestion_class=ingestion_class,
+                             wait_for_ingestion_response=wait_for_ingestion_response,
+                             multipart=multipart,
+                             chunk_size_mb=chunk_size_mb,
+                             max_workers=max_workers)
 
-        logger.info(f"Requesting ingestion for {filename}"
-                    + (f" (class={ingestion_class})" if ingestion_class else ""))
-
-        ingestion_request = self._request('post', f'/datasets/{dsid}/files/{file_id}/ingest',
-                                          params=ingest_params)
-
-        logger.debug(f"Ingestion request created: id={ingestion_request.get('id')}, "
-                     f"status={ingestion_request.get('status')}")
-
-        if wait_for_ingestion_response and ingestion_request:
-            self._client._wait_for_request_completion(ingestion_request['id'])
-
-        return ingestion_request
-
-    def _has_successful_ingestion(self, file_id: Optional[str]) -> bool:
-        if not file_id:
-            return False
-        resp = self.get_ingestion_requests(file_id=file_id)
-        items = resp.get('items', []) if isinstance(resp, dict) else (resp or [])
-        return any(r.get('status') == 'complete' for r in items)
-
-    def _upload_file_gcs(self, dsid: str, file_path: str, multipart: bool = True,
-                         chunk_size_mb: Optional[int] = None,
-                         max_workers: Optional[int] = None) -> Tuple[Dict, bool]:
-        """Dispatch to multipart or resumable GCS upload."""
-        from .gcs.upload import upload_file_gcs
-        return upload_file_gcs(self._client, dsid, file_path,
-                                multipart=multipart,
-                                chunk_size_mb=chunk_size_mb,
-                                max_workers=max_workers)
-
-    def _upload_file_gcs_multipart(self, dsid: str, file_path: str,
-                                    chunk_size_mb: Optional[int] = None,
-                                    max_workers: Optional[int] = None) -> Tuple[Dict, bool]:
-        """Parallel multipart upload. Delegates to crucible.resources.gcs.upload."""
-        from .gcs.upload import upload_file_gcs_multipart
-        return upload_file_gcs_multipart(self._client, dsid, file_path,
-                                          chunk_size_mb=chunk_size_mb,
-                                          max_workers=max_workers)
-
-    def _upload_file_gcs_resumable(self, dsid: str, file_path: str) -> Tuple[Dict, bool]:
-        """Sequential resumable upload. Delegates to crucible.resources.gcs.upload."""
-        from .gcs.upload import upload_file_gcs_resumable
-        return upload_file_gcs_resumable(self._client, dsid, file_path)
 
     #%% Download Methods
 
@@ -572,73 +460,36 @@ class DatasetOperations(BaseResource):
                      include: Optional[List[str]] = None,
                      exclude: Optional[List[str]] = None) -> List[str]:
         """Download ingested files for a dataset. Returns list of downloaded paths."""
-        import tempfile
-
-        all_files = self.get_associated_files(dsid)
-        prefix_sp = f'mf-storage-prod/{dsid}/'
-        ingested  = [f for f in all_files if f.get('storage_path')]
-
-        def _bare_name(f: Dict) -> str:
-            sp = f.get('storage_path', '')
-            return sp[len(prefix_sp):] if sp.startswith(prefix_sp) else os.path.basename(sp)
-
-        if include:
-            ingested = [f for f in ingested if any(fnmatch.fnmatch(_bare_name(f), p) for p in include)]
-        if exclude:
-            ingested = [f for f in ingested if not any(fnmatch.fnmatch(_bare_name(f), p) for p in exclude)]
-
-        if not ingested:
-            return []
-
-        link_map  = self.get_download_links(dsid)
-        downloads = []
-
-        for file_meta in ingested:
-            name       = _bare_name(file_meta)
-            signed_url = link_map.get(file_meta.get('mfid'))
-            if not signed_url:
-                logger.warning(f"No download URL for {name}, skipping")
-                continue
-
-            download_path = os.path.join(output_dir, name)
-            if not overwrite_existing and os.path.exists(download_path):
-                downloads.append(download_path)
-                continue
-
-            os.makedirs(os.path.dirname(download_path), exist_ok=True)
-            response = self._client._session.get(signed_url, stream=True)
-            response.raise_for_status()
-            tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(download_path))
-            try:
-                with os.fdopen(tmp_fd, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=1024 * 1024):
-                        f.write(chunk)
-                os.replace(tmp_path, download_path)
-            except Exception:
-                os.unlink(tmp_path)
-                raise
-            downloads.append(download_path)
-
-        return downloads
+        from .gcs.download import download_dataset_files
+        return download_dataset_files(
+            self._client, dsid, output_dir,
+            link_map=self.get_download_links(dsid),
+            all_files=self.list_files(dsid),
+            overwrite_existing=overwrite_existing,
+            include=include, exclude=exclude,
+        )
 
     def download(self, dsid: str, file_name: Optional[str] = None,
-                 output_dir: Optional[str] = 'crucible-downloads',
-                 overwrite_existing: bool = True,
+                 output_dir: str = 'crucible-downloads',
+                 no_files: bool = False,
                  no_record: bool = False,
+                 overwrite_existing: bool = True,
                  include: Optional[List[str]] = None,
                  exclude: Optional[List[str]] = None) -> List[str]:
-        """Download dataset files.
+        """Download a dataset's files and optionally save its record as JSON.
 
         Args:
             dsid: Dataset unique identifier
             file_name: Deprecated. Use include=['pattern'] with glob syntax.
             output_dir: Directory to save files (default: 'crucible-downloads/')
+            no_files: Skip file download, save record.json only.
+            no_record: Skip saving record.json, just download files.
             overwrite_existing: Overwrite existing files (default: True)
             include: Glob patterns - only download matching files
             exclude: Glob patterns - skip matching files
 
         Returns:
-            List[str]: Downloaded file paths
+            List[str]: Paths of all downloaded items (record.json + data files)
         """
         if file_name is not None:
             import warnings
@@ -646,17 +497,35 @@ class DatasetOperations(BaseResource):
                 "The 'file_name' parameter is deprecated. Use include=['pattern'] instead.",
                 DeprecationWarning, stacklevel=2,
             )
-            all_files = self.get_associated_files(dsid)
-            matched   = [os.path.basename(f.get('storage_path') or f.get('filename', ''))
-                         for f in all_files
-                         if re.fullmatch(fr"({file_name})",
-                                         os.path.basename(f.get('storage_path') or f.get('filename', '')))]
+            matched = [os.path.basename(f.get('storage_path') or f.get('filename', ''))
+                       for f in self.list_files(dsid)
+                       if re.fullmatch(fr"({file_name})",
+                                       os.path.basename(f.get('storage_path') or f.get('filename', '')))]
             include = matched
 
-        return self._client.download(dsid, output_dir=output_dir, no_files=False,
-                                     no_record=no_record,
-                                     overwrite_existing=overwrite_existing,
-                                     include=include, exclude=exclude)
+        os.makedirs(output_dir, exist_ok=True)
+        downloaded = []
+
+        if not no_record:
+            record      = self.get(dsid, include_metadata=True)
+            record_dir  = os.path.join(output_dir, dsid)
+            os.makedirs(record_dir, exist_ok=True)
+            json_path   = os.path.join(record_dir, 'record.json')
+            with open(json_path, 'w') as fh:
+                import json as _json
+                _json.dump(record, fh, indent=2)
+            logger.info(f"Saved record to {json_path}")
+            downloaded.append(json_path)
+
+        if not no_files:
+            files = self._fetch_files(dsid, output_dir=output_dir,
+                                      overwrite_existing=overwrite_existing,
+                                      include=include, exclude=exclude)
+            downloaded.extend(files)
+            if files:
+                logger.info(f"Downloaded {len(files)} file(s) to {output_dir}")
+
+        return downloaded
 
     #%% Thumbnail Methods
 
@@ -690,41 +559,27 @@ class DatasetOperations(BaseResource):
         """Delete a thumbnail from a dataset."""
         return self._request('delete', f'/datasets/{dsid}/thumbnails/{thumbnail_id}')
 
-    #%% Ingestion Methods
+    #%% Ingestion Methods — deprecated, use client.ingestions.*
 
+    @_deprecated("client.ingestions.list(dsid=dsid, file_id=file_id)")
     def get_ingestion_requests(self, dsid: Optional[str] = None,
                                file_id: Optional[str] = None,
                                limit: int = DEFAULT_LIMIT) -> List[Dict]:
-        """Get ingestion requests, optionally filtered by dataset or file.
+        """Deprecated: use client.ingestions.list() instead."""
+        return self._client.ingestions.list(dsid=dsid, file_id=file_id, limit=limit)
 
-        Args:
-            dsid: Filter by dataset ID
-            file_id: Filter by file MFID
-            limit: Maximum number of results
-        """
-        params = {}
-        if dsid:
-            params['dataset_id'] = dsid
-        if file_id:
-            params['file_id'] = file_id
-        return self._request('get', '/ingestion_requests', params=params or None)
-
+    @_deprecated("client.ingestions.get(reqid)")
     def get_request_status(self, reqid: str) -> Dict:
-        """Get the status of an ingestion request."""
-        return self._request('get', f'/ingestion_requests/{reqid}')
+        """Deprecated: use client.ingestions.get() instead."""
+        return self._client.ingestions.get(reqid)
 
+    @_deprecated("client.ingestions.update(reqid, status)")
     def update_ingestion_status(self, reqid: str, status: str,
                                 ingestion_githash: str = None,
                                 ingestion_class: str = None,
                                 timezone: str = "America/Los_Angeles") -> Dict:
-        """Update the status of an ingestion request. Admin only."""
-        from ..utils import get_tz_isoformat
-
-        patch_json = {'ingestion_githash': ingestion_githash, 'ingestion_class': ingestion_class}
-        if status == "complete":
-            patch_json.update({"id": reqid, "status": status,
-                                "time_completed": get_tz_isoformat(timezone)})
-        else:
-            patch_json.update({"id": reqid, "status": status})
-
-        return self._request('patch', f'/ingestion_requests/{reqid}', json=patch_json)
+        """Deprecated: use client.ingestions.update() instead."""
+        return self._client.ingestions.update(reqid, status,
+                                             ingestion_githash=ingestion_githash,
+                                             ingestion_class=ingestion_class,
+                                             timezone=timezone)

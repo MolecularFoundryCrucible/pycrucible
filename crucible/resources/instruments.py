@@ -117,33 +117,21 @@ class InstrumentOperations(BaseResource):
         """
         return self._request('patch', f'/instruments/{unique_id}', json=kwargs)
 
-    def add_scientific_metadata(self, instrument_id: str, metadata: Dict) -> Dict:
-        """Create scientific metadata for an instrument.
+    def search(self, q: str, limit: int = 20) -> List[Dict]:
+        """Fuzzy search across instruments. Available to all authenticated users.
+
+        Matches against instrument_name, instrument_type, and manufacturer
+        (best score across the three).
 
         Args:
-            instrument_id (str): Instrument unique identifier
-            metadata (Dict): Scientific metadata dictionary
+            q: Search term (min 3 chars). Typo-tolerant.
+            limit: Max results (default 20, max 50).
 
         Returns:
-            Dict: Created metadata object
+            List[Dict]: Matching instrument records, ranked by relevance.
         """
-        return self._request('post', f'/resources/{instrument_id}/metadata', json=metadata)
-
-    def update_scientific_metadata(self, instrument_id: str, metadata: Dict,
-                                   overwrite: bool = False) -> Dict:
-        """Update scientific metadata for an instrument.
-
-        Args:
-            instrument_id (str): Instrument unique identifier
-            metadata (Dict): Scientific metadata dictionary
-            overwrite (bool): If True, replace all metadata (POST); if False, merge with existing (PATCH)
-
-        Returns:
-            Dict: Updated metadata object
-        """
-        if overwrite:
-            return self._request('post', f'/resources/{instrument_id}/metadata', json=metadata)
-        return self._request('patch', f'/resources/{instrument_id}/metadata', json=metadata)
+        result = self._request('get', '/instruments/search', params={'q': q, 'limit': limit})
+        return result.get('items', result) if isinstance(result, dict) else result
 
     def get_or_create(self, instrument_name: str, location: Optional[str] = None,
                      instrument_owner: Optional[str] = None) -> Dict:

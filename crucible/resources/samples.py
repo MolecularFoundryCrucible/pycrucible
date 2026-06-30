@@ -355,6 +355,27 @@ class SampleOperations(BaseResource):
         """
         return self._request('post', f"/samples/{parent_id}/children/{child_id}")
 
+    def search(self, q: str, project_id: Optional[str] = None,
+               limit: int = 20) -> List[Dict]:
+        """Fuzzy name search across samples. Available to all authenticated users.
+
+        Matches against sample_name. Returns samples the caller can read.
+        For scientific metadata search use search_metadata().
+
+        Args:
+            q: Search term (min 3 chars). Typo-tolerant.
+            project_id: Optional project to scope results to.
+            limit: Max results (default 20, max 50).
+
+        Returns:
+            List[Dict]: Matching SampleResponse records, ranked by relevance.
+        """
+        params = {'q': q, 'limit': limit}
+        if project_id:
+            params['project_id'] = project_id
+        result = self._request('get', '/samples/search', params=params)
+        return result.get('items', result) if isinstance(result, dict) else result
+
     def graph(self, sample_id: str, recursive: bool = False, as_networkx: bool = False):
         """Return the graph of entities connected to this sample.
 
@@ -369,3 +390,25 @@ class SampleOperations(BaseResource):
             dict | networkx.DiGraph: Node-link graph data.
         """
         return self._client.graphs.get(sample_id, recursive=recursive, as_networkx=as_networkx)
+
+    def download(self, sample_id: str, output_dir: str = 'crucible-downloads') -> List[str]:
+        """Save the sample record as record.json.
+
+        Args:
+            sample_id: Sample unique identifier
+            output_dir: Directory to save the record (default: 'crucible-downloads/')
+
+        Returns:
+            List[str]: Path to the saved record.json
+        """
+        import json as _json
+        import os
+
+        record     = self.get(sample_id, include_metadata=True)
+        record_dir = os.path.join(output_dir, sample_id)
+        os.makedirs(record_dir, exist_ok=True)
+        json_path  = os.path.join(record_dir, 'record.json')
+        with open(json_path, 'w') as fh:
+            _json.dump(record, fh, indent=2)
+        logger.info(f"Saved record to {json_path}")
+        return [json_path]

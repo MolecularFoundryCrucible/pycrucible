@@ -49,6 +49,88 @@ class FileOperations(BaseResource):
             params['sha256_hash'] = sha256_hash
         return self._paginate('/files', params, limit=limit)
 
+    def download(self, file_id: str, output_dir: str = '.') -> str:
+        """Download a single file by MFID to a local directory.
+
+        Args:
+            file_id: File MFID
+            output_dir: Directory to save the file (default: current directory)
+
+        Returns:
+            str: Path of the downloaded file
+
+        Raises:
+            RuntimeError: If the file has not been ingested yet.
+        """
+        import tempfile
+
+        file_record = self.get(file_id)
+        if not file_record.get('storage_path'):
+            raise RuntimeError(f"File {file_id} has not been ingested yet — cannot download")
+
+        url = self.get_download_link(file_id)
+
+        sp       = file_record.get('storage_path', '')
+        prefix   = 'mf-storage-prod/'
+        if sp.startswith(prefix):
+            after  = sp[len(prefix):]
+            _, _, name = after.partition('/')
+        else:
+            import os as _os
+            name = _os.path.basename(file_record.get('filename') or file_id)
+
+        import os
+        output_path = os.path.join(output_dir, name)
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+
+        response = self._client._session.get(url, stream=True)
+        response.raise_for_status()
+
+        tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(output_path)))
+        try:
+            with os.fdopen(tmp_fd, 'wb') as fh:
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    fh.write(chunk)
+            os.replace(tmp_path, output_path)
+        except Exception:
+            os.unlink(tmp_path)
+            raise
+
+        logger.info(f"Downloaded {name} to {output_path}")
+        return output_path
+
+    def request_ingestion(self, file_id: str,
+                          ingestion_class: Optional[str] = None,
+                          wait_for_response: bool = False) -> Dict:
+        """Request ingestion of an uploaded file.
+
+        Args:
+            file_id: File MFID
+            ingestion_class: Ingestion class for the worker (e.g. 'lammps', 'nexus').
+                Defaults to the server-side default if omitted.
+            wait_for_response: Block until ingestion completes.
+
+        Returns:
+            Dict: IngestionRequest record (id, status, ...)
+        """
+        params = {}
+        if ingestion_class:
+            params['ingestion_class'] = ingestion_class
+
+        logger.info(f"Requesting ingestion for file {file_id}"
+                    + (f" (class={ingestion_class})" if ingestion_class else ""))
+
+        ingestion_request = self._request('post', f'/files/{file_id}/ingest',
+                                          params=params or None)
+
+        logger.debug(f"Ingestion request created: id={ingestion_request.get('id')}, "
+                     f"status={ingestion_request.get('status')}")
+
+        if wait_for_response and ingestion_request:
+            self._client._wait_for_request_completion(ingestion_request['id'])
+
+        return ingestion_request
+
     def get_download_link(self, file_id: str) -> str:
         """Get a signed download URL for a single file.
 
