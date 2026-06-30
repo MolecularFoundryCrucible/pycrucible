@@ -40,7 +40,7 @@ class IngestionOperations(BaseResource):
             params['dataset_id'] = dsid
         if file_id:
             params['file_id'] = file_id
-        return self._request('get', '/ingestion_requests', params=params or None)
+        return self._paginate('/ingestion_requests', params, limit=limit)
 
     def get(self, request_id: str) -> Dict:
         """Get the status of a single ingestion request.
