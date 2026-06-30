@@ -1229,7 +1229,7 @@ def _execute_add_file(args):
         rows = []
         for fpath in files:
             print(f"  Uploading {fpath.name} ...", flush=True)
-            client.datasets.add_file_to_dataset(dsid, str(fpath),
+            client.datasets.add_file(dsid, str(fpath),
                                                 ingestion_class=ingestor,
                                                 wait_for_ingestion_response=wait)
             rows.append((fpath.name, term.fmt_size(fpath.stat().st_size), '✓'))
@@ -1322,7 +1322,7 @@ def _execute_ingestion(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        reqs = client.datasets.get_ingestion_requests(dsid=args.dataset_id)
+        reqs = client.ingestions.list(dsid=args.dataset_id)
 
         term.header(f"Ingestion Requests · {args.dataset_id} ({len(reqs)})")
         if not reqs:

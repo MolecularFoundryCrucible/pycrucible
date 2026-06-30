@@ -234,7 +234,7 @@ def _execute_ingestion(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        reqs = client.datasets.get_ingestion_requests(file_id=args.file_id)
+        reqs = client.ingestions.list(file_id=args.file_id)
 
         term.header(f"Ingestion Requests · {args.file_id} ({len(reqs)})")
         if not reqs:
