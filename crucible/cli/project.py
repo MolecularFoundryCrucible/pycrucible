@@ -501,7 +501,7 @@ def _execute_list_users(args):
             for u in users:
                 name_parts = [u.get('first_name') or '', u.get('last_name') or '']
                 name  = ' '.join(p for p in name_parts if p) or '-'
-                orcid = u.get('orcid') or u.get('unique_id') or '-'
+                orcid = u.get('orcid') or '-'
                 email = u.get('email') or '-'
                 rows.append((name, orcid, email))
             term.table(rows, ['Name', 'ORCID', 'Email'], max_widths=[25, 19, 35])
@@ -537,7 +537,7 @@ def _execute_add_user(args):
         name = orcid or username or email
         if isinstance(users, list):
             match = next((u for u in users if
-                          (orcid and (u.get('orcid') or u.get('unique_id')) == orcid) or
+                          (orcid and (u.get('orcid')) == orcid) or
                           (username and u.get('username') == username) or
                           (email and u.get('email') == email)), None)
             if match:

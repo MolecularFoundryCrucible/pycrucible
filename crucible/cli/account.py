@@ -136,7 +136,7 @@ def _show_profile(user):
     first = user.get('first_name') or ''
     last  = user.get('last_name') or ''
     _p("Name",  ' '.join(p for p in (first, last) if p) or None)
-    uid = user.get('orcid') or user.get('unique_id')
+    uid = user.get('orcid')
     _p("ORCID",  term.orcid_link(uid))
     _p("Email",  user.get('email'))
     if user.get('is_service_account'):

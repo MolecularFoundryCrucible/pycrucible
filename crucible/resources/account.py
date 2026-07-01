@@ -31,16 +31,7 @@ class AccountOperations(BaseResource):
         Returns:
             Dict: user_unique_id, access_group_ids, user_info (UserRead)
         """
-        result = self._request('get', '/account')
-        # Normalize field renames from API v2 transition so callers work against
-        # both API versions without separate handling.
-        user_info = result.get('user_info') or {}
-        is_service = user_info.get('is_service_account', False)
-        if not is_service and 'orcid' not in user_info and 'unique_id' in user_info:
-            user_info['orcid'] = user_info['unique_id']
-        if 'user_unique_id' in result and 'access_group_name' not in result:
-            result['access_group_name'] = result['user_unique_id']
-        return result
+        return self._request('get', '/account')
 
     def profile(self) -> Dict:
         """Return the authenticated caller's own user profile.

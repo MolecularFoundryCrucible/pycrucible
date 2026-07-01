@@ -4,7 +4,7 @@
 Pydantic models for Crucible API request and response objects.
 """
 
-from pydantic import BaseModel, ConfigDict, Field, AliasChoices
+from pydantic import BaseModel, ConfigDict
 from typing import Dict, List, Optional
 
 #%% Models
@@ -17,10 +17,7 @@ class Sample(BaseModel):
     owner_orcid: Optional[str] = None
     # timestamp: user-settable date; accepts legacy 'date_created' from the API
     # until the server-side rename is complete
-    timestamp: Optional[str] = Field(
-        default=None,
-        validation_alias=AliasChoices("timestamp", "date_created")
-    )
+    timestamp: Optional[str] = None
     # server-assigned; backfilled on existing records, present on new ones
     creation_time: Optional[str] = None
     modification_time: Optional[str] = None
@@ -45,10 +42,7 @@ class Dataset(BaseModel):
     measurement: Optional[str] = None
     data_type: Optional[str] = None
     session_name: Optional[str] = None
-    timestamp: Optional[str] = Field(
-        default=None,
-        validation_alias=AliasChoices("timestamp", "creation_date")
-    )
+    timestamp: Optional[str] = None
     # server-assigned; backfilled on existing records, present on new ones
     creation_time: Optional[str] = None
     modification_time: Optional[str] = None
@@ -79,10 +73,7 @@ class Project(BaseModel):
 
 class User(BaseModel):
     id: Optional[int] = None
-    unique_id: Optional[str] = Field(
-        default=None,
-        validation_alias=AliasChoices("unique_id", "orcid"),
-    )
+    orcid: Optional[str] = None
     username: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -90,11 +81,6 @@ class User(BaseModel):
     is_service_account: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
-
-    @property
-    def orcid(self) -> Optional[str]:
-        """Backward-compat alias for unique_id."""
-        return self.unique_id
 
 
 class Instrument(BaseModel):
