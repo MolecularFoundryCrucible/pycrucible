@@ -58,10 +58,10 @@ def setup_logging(verbose=False):
 
 
 from .client import CrucibleClient
-from .models import Dataset, Sample, Project, User, Instrument, AssociatedFile
+from .models import CrucibleResource, Dataset, Sample, Project, User, Instrument, AssociatedFile
 from . import config
 
-__all__ = ['CrucibleClient', 'Dataset', 'Sample', 'Project', 'User', 'Instrument', 'AssociatedFile',
+__all__ = ['CrucibleClient', 'CrucibleResource', 'Dataset', 'Sample', 'Project', 'User', 'Instrument', 'AssociatedFile',
            'config', 'setup_logging', '__version__', '__author__']
 
 
