@@ -100,7 +100,7 @@ class AssociatedFile(BaseModel):
     size: Optional[int] = None
     sha256_hash: Optional[str] = None
 
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='ignore')
 
 
 class DeletionRequest(BaseModel):
