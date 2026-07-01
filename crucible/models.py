@@ -10,18 +10,14 @@ from typing import Dict, List, Optional
 #%% Base model
 
 class CrucibleResource(BaseModel):
-    """Shared fields for all Crucible resources (datasets, samples, instruments)."""
+    """Shared fields common to all Crucible resources."""
 
     unique_id: Optional[str] = None
-    owner_orcid: Optional[str] = None
     public: Optional[bool] = False
-    timestamp: Optional[str] = None
     creation_time: Optional[str] = None
     modification_time: Optional[str] = None
     resource_type: Optional[str] = None
     scientific_metadata: Optional[Dict] = None
-    deletion_request: Optional[Dict] = None
-    links: Optional[List[Dict]] = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
 
@@ -31,13 +27,18 @@ class CrucibleResource(BaseModel):
 class Sample(CrucibleResource):
     sample_name: Optional[str] = None
     sample_type: Optional[str] = None
+    owner_orcid: Optional[str] = None
     project_id: Optional[str] = None
     description: Optional[str] = None
+    timestamp: Optional[str] = None
     datasets: Optional[List[Dict]] = None
+    deletion_request: Optional[Dict] = None
+    links: Optional[List[Dict]] = None
 
 
 class Dataset(CrucibleResource):
     dataset_name: Optional[str] = None
+    owner_orcid: Optional[str] = None
     project_id: Optional[str] = None
     instrument_name: Optional[str] = None
     measurement: Optional[str] = None
@@ -45,6 +46,9 @@ class Dataset(CrucibleResource):
     session_name: Optional[str] = None
     data_format: Optional[str] = None
     size: Optional[int] = None
+    timestamp: Optional[str] = None
+    deletion_request: Optional[Dict] = None
+    links: Optional[List[Dict]] = None
 
 
 class Instrument(CrucibleResource):
@@ -62,11 +66,12 @@ class Instrument(CrucibleResource):
 class Project(BaseModel):
     project_id: str
     organization: str
+    lead: Optional[Dict] = None
     project_lead_orcid: Optional[str] = None
+    project_lead_email: Optional[str] = None
+    project_lead_username: Optional[str] = None
     status: Optional[str] = None
     title: Optional[str] = None
-    project_lead_name: Optional[str] = None
-    lead: Optional[Dict] = None
     scientific_metadata: Optional[Dict] = None
     creation_time: Optional[str] = None
     modification_time: Optional[str] = None
