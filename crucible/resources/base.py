@@ -6,9 +6,12 @@ Base resource class for Crucible API operations.
 Provides shared functionality for all resource operation classes.
 """
 
+# typing
+from typing import Optional, List, Dict, Tuple
 
+# internal modules
 from ..constants import DEFAULT_LIMIT
-
+from ..utils.deprecation import _deprecated
 
 class BaseResource:
     """Base class for resource-specific operations.
@@ -93,7 +96,7 @@ class BaseResource:
 
         return items[:need]
 
-    def search_scientific_metadata(self, q: str, limit: int = 50) -> list:
+    def search_metadata(self, q: str, limit: int = 50) -> list:
         """Full-text search across scientific metadata of all accessible resources.
 
         Results are ranked by relevance and may include datasets or samples.
@@ -105,6 +108,11 @@ class BaseResource:
         """
         return self._request('get', '/resources/metadata/search',
                              params={"q": q, "limit": limit})
+
+    @_deprecated("search_metadata()")
+    def search_scientific_metadata(self, q: str, limit: int = 50) -> list:
+        """Deprecated: use search_metadata() instead."""
+        return self.search_metadata(q, limit=limit)
 
     def get_scientific_metadata(self, resource_id: str) -> dict:
         """Get scientific metadata for a resource."""
@@ -125,3 +133,38 @@ class BaseResource:
         if overwrite:
             return self._request('post', f'/resources/{resource_id}/metadata', json=metadata, params = {'overwrite':overwrite})
         return self._request('patch', f'/resources/{resource_id}/metadata', json=metadata)
+
+
+#%% access group methods
+
+    def get_access_groups(self, mfid: str) -> List[str]:
+        """Get list of access groups for a dataset.
+
+        **Requires admin permissions.**
+
+        Args:
+            dsid (str): Dataset unique identifier
+
+        Returns:
+            List[str]: Access group names
+        """
+        groups = self._request('get', f'/resources/{mfid}/access_groups')
+        return [group['group_name'] for group in groups]
+
+    def add_access_group(self, mfid: str, group_name: str,
+                         read: bool = True, write: bool = False) -> Dict:
+        """Add an access group to a dataset.
+
+        **Requires admin permissions.**
+
+        Args:
+            dsid (str): Dataset unique identifier
+            group_name (str): Name of the access group to add
+            read (bool): Grant read access (default: True)
+            write (bool): Grant write access (default: False)
+
+        Returns:
+            Dict: Created ACL entry
+        """
+        params = {"group_name": group_name, "read": read, "write": write}
+        return self._request('post', f'/resources/{mfid}/access_groups', params=params)

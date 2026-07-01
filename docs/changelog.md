@@ -1,5 +1,100 @@
 # Changelog
 
+## 3.0.0
+
+This is a major release. The flat `client.*` API that was deprecated in 2.x has been
+removed. All operations now live under typed resource namespaces.
+
+!!! danger "Breaking changes"
+    **Before upgrading**, update any code that uses the old flat API:
+
+    | Old (removed) | New |
+    |---|---|
+    | `client.get_dataset(dsid)` | `client.datasets.get(dsid)` |
+    | `client.create_new_dataset(...)` | `client.datasets.create(...)` |
+    | `client.list_datasets(...)` | `client.datasets.list(...)` |
+    | `client.get_sample(sid)` | `client.samples.get(sid)` |
+    | `client.add_sample(...)` | `client.samples.create(...)` |
+    | `client.list_samples(...)` | `client.samples.list(...)` |
+    | `client.get_project(pid)` | `client.projects.get(pid)` |
+    | `client.get_user(orcid=...)` | `client.users.get(orcid=...)` |
+    | `client.download(resource_id)` | `client.datasets.download(dsid)` or `client.samples.download(sid)` |
+    | `pip install nano-crucible[shell]` | `pip install nano-crucible` (now core) |
+    | `pip install nano-crucible[gcs]` | `pip install nano-crucible` (now core) |
+    | `pip install nano-crucible[all]` | `pip install nano-crucible` |
+
+### New resource namespaces
+
+- **`client.account`** — self-service profile management (`profile()`, `update_profile()`,
+  `api_key()`, `verify()`, `whoami()`). No admin required.
+- **`client.ingestions`** — ingestion request management (`list()`, `get()`, `wait()`, `update()`).
+- **`client.files`** is now a proper peer resource (previously a base class for `DatasetOperations`).
+  Scoped to file MFIDs: `get()`, `list()`, `download()`, `get_download_link()`, `request_ingestion()`.
+
+### Architecture changes
+
+- `DatasetOperations` no longer inherits from `FileOperations`. All dataset-scoped file
+  operations (`add_file`, `list_files`, `get_download_links`, `download`, thumbnails,
+  ingestion) now live directly on `DatasetOperations`.
+- Upload logic extracted to `crucible/resources/gcs/upload.py` — standalone functions
+  testable in isolation.
+- Download logic extracted to `crucible/resources/gcs/download.py` — parallel file downloads
+  via `ThreadPoolExecutor`.
+- Scientific metadata methods (`search_metadata`, `get_scientific_metadata`,
+  `update_scientific_metadata`, `get_access_groups`, `add_access_group`) unified on
+  `BaseResource` — available on all resource types.
+- `search_scientific_metadata()` renamed to `search_metadata()` (deprecated alias kept).
+
+### New features
+
+- **Parallel GCS multipart upload** — `add_file()` uses `transfer_manager.upload_chunks_concurrently()`
+  by default (8 workers, 64 MiB chunks, benchmarked). Falls back to sequential resumable upload
+  with `multipart=False`. Upload settings configurable via `crucible config set upload_chunk_size_mb`
+  and `upload_max_workers`.
+- **Parallel dataset downloads** — `_fetch_files` now downloads concurrently (4 workers).
+- **Fuzzy name search** — `datasets.search(q)`, `samples.search(q)`, `projects.search(q)`,
+  `instruments.search(q)` via new API endpoints. Typo-tolerant, returns top-N by relevance.
+- **Scientific metadata search** renamed — `search_metadata(q)` on all resources.
+- **Username support** — `users.get(username=...)`, `users.search(q)`, `user set-username`,
+  `project add-user -u USERNAME`.
+- **`samples.download(sid)`** — saves sample record as `record.json`.
+- **`files.download(file_id)`** — single-file download by MFID.
+- **`ingestions.wait(request_id)`** — public polling method.
+
+### Packaging
+
+- `google-cloud-storage>=2.7.0` and `prompt_toolkit>=3.0` moved to core dependencies.
+- `[shell]`, `[gcs]`, and `[all]` extras removed — `pip install nano-crucible` installs everything.
+- `[parsers]` remains optional (ASE/LAMMPS support).
+
+### CLI additions
+
+- `crucible account` — `show`, `edit`, `update`, `api-key`, `verify`
+- `crucible ingestion` — `list`, `get`, `wait`
+- `crucible user search TERM` — non-admin user lookup
+- `crucible {dataset,sample,project,instrument} search TERM` — fuzzy name search
+- `crucible {dataset,sample,project,instrument} search-metadata TERM` (also `search-md`)
+- `crucible dataset list-access-groups`, `add-access-group`
+- `crucible user add-access-group`, `remove-access-group`
+- `crucible deletion list-deleted`, `get-deleted`, `delete --force`
+- `--json` flag on all `get` and `list` commands (replaces `--output json`)
+- `sample update` — named flags (`-n`, `-t`, `--description`, `--project`, `--public`)
+
+### Deprecations (still work, emit warnings)
+
+- `client.download()` → `client.datasets.download()` or `client.samples.download()`
+- `datasets.get_associated_files()` → `datasets.list_files()`
+- `datasets.search_scientific_metadata()` → `datasets.search_metadata()`
+- `datasets.add_file_to_dataset()` → `datasets.add_file()`
+- `datasets.graph()` → `client.graphs.get()`
+- `datasets.get_ingestion_requests()` → `client.ingestions.list()`
+- `datasets.get_request_status()` → `client.ingestions.get()`
+- `datasets.update_ingestion_status()` → `client.ingestions.update()`
+- `users.me()` → `client.account.profile()`
+- `users.get_api_key()` → `client.account.api_key()`
+
+---
+
 ## 2.1.0 → 2.1.2
 
 Although versioned as a patch series, this span (late March to mid-May) is effectively a

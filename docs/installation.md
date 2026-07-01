@@ -16,13 +16,9 @@ pip install nano-crucible
 ```bash
 # Parser support (includes ASE for LAMMPS/MatEnsemble parsers)
 pip install nano-crucible[parsers]
-
-# Interactive shell with tab-completion
-pip install nano-crucible[shell]
-
-# Everything (recommended)
-pip install nano-crucible[all]
 ```
+
+> **Note:** `google-cloud-storage` (GCS parallel upload) and `prompt_toolkit` (interactive shell) are included as core dependencies — no extra needed.
 
 ### Development install
 

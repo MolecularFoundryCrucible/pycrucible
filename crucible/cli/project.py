@@ -44,6 +44,8 @@ def register_subcommand(subparsers):
 
     # Register individual project commands
     _register_list(project_subparsers)
+    _register_search(project_subparsers)
+    _register_search_metadata(project_subparsers)
     _register_get(project_subparsers)
     _register_create(project_subparsers)
     _register_update(project_subparsers)
@@ -744,3 +746,77 @@ def _execute_edit(args):
         logger.error(f"Error connecting: {e}")
         sys.exit(1)
     _edit_project(args.project_id, client, debug=getattr(args, 'debug', False))
+
+
+def _register_search(subparsers):
+    parser = subparsers.add_parser(
+        'search',
+        help='Fuzzy search projects by name or ID',
+        description='Fuzzy search across projects you are a member of.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible project search alphafold
+    crucible project search "10k"
+""",
+    )
+    parser.add_argument('query', metavar='QUERY', help='Search term (min 3 chars)')
+    parser.add_argument('--limit', '-l', type=int, default=20, metavar='N',
+                        help='Maximum results (default: 20, max: 50)')
+    parser.set_defaults(func=_execute_search)
+
+
+def _execute_search(args):
+    if len(args.query) < 3:
+        logger.error("Search term must be at least 3 characters")
+        sys.exit(1)
+    from crucible.client import CrucibleClient
+    try:
+        client  = CrucibleClient()
+        results = client.projects.search(args.query, limit=args.limit)
+        term.header(f"Projects matching '{args.query}' ({len(results)})")
+        if not results:
+            print(f"  {term.dim('No results found.')}")
+            return
+        rows = [(r.get('project_id', '-'), r.get('title') or '-',
+                 r.get('organization') or '-') for r in results]
+        term.table(rows, ['ID', 'Title', 'Organization'], max_widths=[20, 30, 20])
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_search_metadata(subparsers):
+    for name in ('search-metadata', 'search-md'):
+        parser = subparsers.add_parser(
+            name,
+            help='Search projects by scientific metadata' if name == 'search-metadata' else None,
+            description='Full-text search across scientific metadata of all accessible projects.',
+            formatter_class=term.ColorHelpFormatter,
+        )
+        parser.add_argument('query', metavar='QUERY', help='Search query string')
+        parser.add_argument('--limit', '-l', type=int, default=50, metavar='N',
+                            help='Maximum results (default: 50)')
+        parser.set_defaults(func=_execute_search_metadata)
+
+
+def _execute_search_metadata(args):
+    from crucible.client import CrucibleClient
+    try:
+        client  = CrucibleClient()
+        results = client.projects.search_metadata(args.query, limit=args.limit)
+        term.header(f"Metadata search: {args.query} ({len(results)})")
+        if not results:
+            print(f"  {term.dim('No results found.')}")
+            return
+        for r in results:
+            print(f"  {term.cyan(r.get('unique_id', '-'))}")
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)

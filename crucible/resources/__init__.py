@@ -8,7 +8,8 @@ while maintaining backward compatibility with the original flat API.
 """
 
 from .files import FileOperations
-from .datasets import DatasetOperations
+from .datasets import DatasetOperations  # no longer inherits FileOperations
+from .ingestion import IngestionOperations
 from .samples import SampleOperations
 from .projects import ProjectOperations
 from .users import UserOperations

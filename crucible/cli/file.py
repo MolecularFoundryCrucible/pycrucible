@@ -79,9 +79,9 @@ def _execute_list(args):
         client = CrucibleClient()
         dsid = getattr(args, 'dataset', None)
         if dsid:
-            files = client.datasets.list_files(dsid=dsid)
+            files = client.datasets.list_files(dsid)
         else:
-            files = client.datasets.list_files(limit=args.limit, sha256_hash=args.sha256)
+            files = client.files.list(limit=args.limit, sha256_hash=args.sha256)
 
         sha256_filter = getattr(args, 'sha256', None)
         if sha256_filter and dsid:
@@ -133,7 +133,7 @@ def _execute_get(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        f = client.datasets.get_file(args.file_id)
+        f = client.files.get(args.file_id)
 
         _p = term.field_printer(12)
         term.header("File")
@@ -146,7 +146,7 @@ def _execute_get(args):
         if f.get('storage_path'):
             _p("Status", term.green("Ingested"))
             try:
-                url = client.datasets.get_download_link(args.file_id)
+                url = client.files.get_download_link(args.file_id)
                 _p("Download", term.hyperlink(term.cyan("link"), url))
             except Exception:
                 _p("Download", term.dim("unavailable"))
@@ -186,44 +186,21 @@ Examples:
 
 def _execute_download(args):
     """Execute 'crucible file download'."""
-    import tempfile
     import requests as _requests
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-
-        f    = client.datasets.get_file(args.file_id)
-        name = _bare_name(f)
-
-        if not f.get('storage_path'):
-            logger.error(f"{name} has not been ingested yet - cannot download")
-            sys.exit(1)
-
         try:
-            url = client.datasets.get_download_link(args.file_id)
+            output_path = client.files.download(args.file_id, output_dir=args.output_dir)
+        except RuntimeError as e:
+            logger.error(str(e))
+            sys.exit(1)
         except _requests.exceptions.HTTPError as e:
             if e.response is not None and e.response.status_code == 404:
-                logger.error(f"{name} is not yet available for download")
+                logger.error(f"File {args.file_id} is not yet available for download")
             else:
-                logger.error(f"Failed to get download link: {e}")
+                logger.error(f"Failed to download: {e}")
             sys.exit(1)
-
-        output_path = os.path.join(args.output_dir, name)
-        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-
-        logger.info(f"Downloading {name}...")
-        response = client._session.get(url, stream=True)
-        response.raise_for_status()
-
-        tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(output_path)))
-        try:
-            with os.fdopen(tmp_fd, 'wb') as out:
-                for chunk in response.iter_content(chunk_size=1024 * 1024):
-                    out.write(chunk)
-            os.replace(tmp_path, output_path)
-        except Exception:
-            os.unlink(tmp_path)
-            raise
 
         print(f"  {term.green('✓')} {output_path}")
 
@@ -257,7 +234,7 @@ def _execute_ingestion(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        reqs = client.datasets.get_ingestion_requests(file_id=args.file_id)
+        reqs = client.ingestions.list(file_id=args.file_id)
 
         term.header(f"Ingestion Requests · {args.file_id} ({len(reqs)})")
         if not reqs:

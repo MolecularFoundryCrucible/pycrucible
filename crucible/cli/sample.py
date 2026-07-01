@@ -45,6 +45,8 @@ def register_subcommand(subparsers):
 
     # Register individual sample commands
     _register_list(sample_subparsers)
+    _register_search(sample_subparsers)
+    _register_search_metadata(sample_subparsers)
     _register_get(sample_subparsers)
     _register_create(sample_subparsers)
     _register_update(sample_subparsers)
@@ -1078,6 +1080,93 @@ def _execute_remove_dataset(args):
         logger.info(f"✓ Unlinked sample {args.sample_id} from dataset {args.dataset}")
     except Exception as e:
         logger.error(f"Error unlinking dataset from sample: {e}")
+        if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_search(subparsers):
+    parser = subparsers.add_parser(
+        'search',
+        help='Fuzzy search samples by name',
+        description='Fuzzy name search across samples you can read. '
+                    'For scientific metadata search use search-metadata.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible sample search silicon
+    crucible sample search "wafer" --project my-project
+""",
+    )
+    parser.add_argument('query', metavar='QUERY', help='Search term (min 3 chars)')
+    parser.add_argument('--project', '-pid', dest='project_id', default=None, metavar='ID',
+                        help='Scope to a specific project')
+    parser.add_argument('--limit', '-l', type=int, default=20, metavar='N',
+                        help='Maximum results (default: 20, max: 50)')
+    parser.set_defaults(func=_execute_search)
+
+
+def _execute_search(args):
+    if len(args.query) < 3:
+        logger.error("Search term must be at least 3 characters")
+        sys.exit(1)
+    from crucible.client import CrucibleClient
+    try:
+        client     = CrucibleClient()
+        project_id = args.project_id or _config.current_project or None
+        results    = client.samples.search(args.query, project_id=project_id,
+                                           limit=args.limit)
+        term.header(f"Samples matching '{args.query}' ({len(results)})")
+        if not results:
+            print(f"  {term.dim('No results found.')}")
+            return
+        from .helpers import explorer_url
+        rows = []
+        for r in results:
+            uid = r.get('unique_id') or ''
+            pid = r.get('project_id') or project_id or ''
+            rows.append((
+                r.get('sample_name') or '(unnamed)',
+                term.mfid_link(uid, explorer_url(uid, pid, 'sample')),
+                r.get('sample_type') or '-',
+            ))
+        term.table(rows, ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_search_metadata(subparsers):
+    for name in ('search-metadata', 'search-md'):
+        parser = subparsers.add_parser(
+            name,
+            help='Search samples by scientific metadata' if name == 'search-metadata' else None,
+            description='Full-text search across scientific metadata of all accessible samples.',
+            formatter_class=term.ColorHelpFormatter,
+        )
+        parser.add_argument('query', metavar='QUERY', help='Search query string')
+        parser.add_argument('--limit', '-l', type=int, default=50, metavar='N',
+                            help='Maximum results (default: 50)')
+        parser.set_defaults(func=_execute_search_metadata)
+
+
+def _execute_search_metadata(args):
+    from crucible.client import CrucibleClient
+    try:
+        client  = CrucibleClient()
+        results = client.samples.search_metadata(args.query, limit=args.limit)
+        term.header(f"Metadata search: {args.query} ({len(results)})")
+        if not results:
+            print(f"  {term.dim('No results found.')}")
+            return
+        for r in results:
+            print(f"  {term.cyan(r.get('unique_id') or r.get('sample_mfid', '-'))}")
+    except Exception as e:
+        logger.error(f"Error: {e}")
         if getattr(args, "debug", False):
             import traceback
             traceback.print_exc()

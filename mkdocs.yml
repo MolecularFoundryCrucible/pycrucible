@@ -83,6 +83,9 @@ nav:
     - Projects: api-reference/projects.md
     - Instruments: api-reference/instruments.md
     - Users: api-reference/users.md
+    - Files: api-reference/files.md
+    - Account: api-reference/account.md
+    - Ingestion: api-reference/ingestion.md
     - Graphs: api-reference/graphs.md
     - Models: api-reference/models.md
   - Changelog: changelog.md
