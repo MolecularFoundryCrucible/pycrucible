@@ -117,6 +117,19 @@ class Instrument(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AssociatedFile(BaseModel):
+    '''A file attached to a dataset.'''
+
+    mfid: Optional[str] = None
+    dataset_mfid: Optional[str] = None
+    filename: Optional[str] = None
+    storage_path: Optional[str] = None
+    size: Optional[int] = None
+    sha256_hash: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
+
+
 class DeletionRequest(BaseModel):
     '''A pending or resolved request to delete a resource.'''
 

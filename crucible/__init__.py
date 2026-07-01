@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-nano-crucible: National Archive for NSRC Observations - Crucible
+nano-crucible
 
-Python client library for the Crucible API - the Molecular Foundry data lakehouse.
+Python client library for the Crucible API - the Molecular Foundry data
+management system.
 """
 
 __version__ = "3.0.0"
@@ -57,10 +58,10 @@ def setup_logging(verbose=False):
 
 
 from .client import CrucibleClient
-from .models import Dataset, Sample, Project, User, Instrument
+from .models import Dataset, Sample, Project, User, Instrument, AssociatedFile
 from . import config
 
-__all__ = ['CrucibleClient', 'Dataset', 'Sample', 'Project', 'User', 'Instrument',
+__all__ = ['CrucibleClient', 'Dataset', 'Sample', 'Project', 'User', 'Instrument', 'AssociatedFile',
            'config', 'setup_logging', '__version__', '__author__']
 
 
