@@ -37,8 +37,6 @@ DATASET_FIELDS: List[FieldDef] = [
     FieldDef('owner_orcid',                'Owner ORCID',   editable=False, verbose=True),
     FieldDef('data_format',                'Data Format',   editable=False, verbose=True),
     FieldDef('size',                       'Size',          editable=False, verbose=True),
-    FieldDef('source_folder',              'Source',        editable=False, verbose=True),
-    FieldDef('sha256_hash_file_to_upload', 'SHA256',        editable=False, verbose=True),
     FieldDef('creation_time',              'Created',       editable=False, verbose=True),
     FieldDef('modification_time',          'Modified',      editable=False, verbose=True),
 ]

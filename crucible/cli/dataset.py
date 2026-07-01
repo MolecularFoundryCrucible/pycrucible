@@ -100,8 +100,6 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
         term.subheader("File")
         _p("Data Format", dataset.get('data_format'))
         _p("Size",        term.fmt_size(dataset.get('size')))
-        _p("Source",      dataset.get('source_folder'))
-        _p("SHA256",        dataset.get('sha256_hash_file_to_upload'))
 
         term.subheader("Timing")
         _p("Created",  term.fmt_ts(dataset.get('creation_time')))

@@ -53,10 +53,7 @@ class Dataset(BaseModel):
     creation_time: Optional[str] = None
     modification_time: Optional[str] = None
     data_format: Optional[str] = None
-    #file_to_upload: Optional[str] = None
     size: Optional[int] = None
-    #sha256_hash_file_to_upload: Optional[str] = None
-    source_folder: Optional[str] = None
     resource_type: Optional[str] = None
     scientific_metadata: Optional[Dict] = None
     deletion_request: Optional[Dict] = None
