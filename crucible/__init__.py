@@ -63,19 +63,3 @@ from . import config
 
 __all__ = ['CrucibleClient', 'CrucibleResource', 'Dataset', 'Sample', 'Project', 'User', 'Instrument', 'AssociatedFile',
            'config', 'setup_logging', '__version__', '__author__']
-
-
-def __getattr__(name: str):
-    import warnings
-    _aliases = {
-        'BaseDataset': Dataset,
-        'BaseSample':  Sample,
-    }
-    if name in _aliases:
-        warnings.warn(
-            f"'{name}' is deprecated; use '{_aliases[name].__name__}' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return _aliases[name]
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

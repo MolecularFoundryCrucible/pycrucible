@@ -140,20 +140,3 @@ class DeletionAuditLog(BaseModel):
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
 
-
-#%% Backward-compatibility aliases (deprecated)
-
-def __getattr__(name: str):
-    import warnings
-    _aliases = {
-        'BaseDataset': Dataset,
-        'BaseSample':  Sample,
-    }
-    if name in _aliases:
-        warnings.warn(
-            f"'{name}' is deprecated; use '{_aliases[name].__name__}' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return _aliases[name]
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
