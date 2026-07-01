@@ -112,7 +112,7 @@ def _execute_search(args):
             username = u.get('username') or '-'
             name_parts = [u.get('first_name') or '', u.get('last_name') or '']
             name  = ' '.join(p for p in name_parts if p) or '-'
-            orcid = term.orcid_link(u.get('orcid') or u.get('unique_id')) or '-'
+            orcid = term.orcid_link(u.get('unique_id')) or '-'
             rows.append((username, name, orcid))
         term.table(rows, ['Username', 'Name', 'ORCID'], max_widths=[20, 25, 19])
 
@@ -188,7 +188,7 @@ def _show_user(user):
 
     name_parts = [user.get('first_name') or '', user.get('last_name') or '']
     full_name = ' '.join(p for p in name_parts if p) or None
-    uid = user.get('orcid') or user.get('unique_id')
+    uid = user.get('unique_id')
 
     term.header("User")
     _p("Username", user.get('username') or term.dim('(not set)'))
@@ -452,7 +452,7 @@ def _execute_list(args):
         for user in users:
             name_parts = [user.get('first_name') or '', user.get('last_name') or '']
             name     = ' '.join(p for p in name_parts if p) or '-'
-            orcid    = term.orcid_link(user.get('orcid') or user.get('unique_id')) or '-'
+            orcid    = term.orcid_link(user.get('unique_id')) or '-'
             email    = user.get('email') or '-'
             username = user.get('username') or '-'
             rows.append((username, name, orcid, email))

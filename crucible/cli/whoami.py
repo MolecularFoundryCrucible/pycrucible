@@ -41,7 +41,7 @@ def execute(args):
         first = user.get('first_name', '')
         last  = user.get('last_name', '')
         name  = f"{first} {last}".strip() or None
-        uid = user.get('unique_id') or user.get('orcid')
+        uid = user.get('unique_id')
         _p("Username", user.get('username') or term.dim('(not set)'))
         _p("Name",     name)
         _p("ORCID",    term.orcid_link(uid) if not user.get('is_service_account') else uid)
