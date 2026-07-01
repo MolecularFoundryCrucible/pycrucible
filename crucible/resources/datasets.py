@@ -84,11 +84,10 @@ class DatasetOperations(BaseResource):
             include_metadata (bool): Include scientific metadata in results
             include_links (bool): Include linked resources (parents, children, associated) per dataset
             **kwargs (Any): Query parameters for filtering. Supported fields include:
-                keyword, unique_id, public, dataset_name, file_to_upload, owner_orcid,
-                project_id, instrument_name, source_folder, timestamp,
-                size, data_format, data_type, measurement, session_name, sha256_hash_file_to_upload.
-                Filters expect exact matches (case sensitive) except for keywords;
-                keywords are case insensitive and match substrings.
+                keyword, unique_id, public, dataset_name, owner_orcid, project_id,
+                instrument_name, timestamp, size, data_format, data_type, measurement,
+                session_name. Filters expect exact matches (case sensitive) except for
+                keywords, which are case insensitive and match substrings.
 
         Returns:
             List[Dict]: Dataset objects matching filter criteria
