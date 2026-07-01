@@ -80,7 +80,7 @@ class Project(BaseModel):
 
 
 class User(BaseModel):
-    orcid: Optional[str] = None
+    unique_id: Optional[str] = None
     username: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
