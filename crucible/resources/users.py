@@ -59,7 +59,7 @@ class UserOperations(BaseResource):
         else:
             raise ValueError('provide orcid, username, or email')
 
-    def search(self, q: str) -> List[Dict]:
+    def search(self, q: str, limit: int = 50) -> List[Dict]:
         """Search for users by name or username. Available to all authenticated users.
 
         Matches the query term against username, first name, and last name
@@ -74,7 +74,7 @@ class UserOperations(BaseResource):
         Returns:
             List[Dict]: Matching users (username, first_name, last_name, orcid)
         """
-        result = self._request('get', '/users/search', params={'q': q})
+        result = self._request('get', '/users/search', params={'q': q, 'limit': limit})
         return result.get('items', result) if isinstance(result, dict) else result
 
     @_deprecated("client.account.profile()")
