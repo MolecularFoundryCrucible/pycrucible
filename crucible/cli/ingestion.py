@@ -72,8 +72,8 @@ def _execute_list(args):
                 str(r.get('id', '-')),
                 color(status),
                 r.get('ingestion_class') or '-',
-                r.get('file_id') or '-',
-                term.fmt_ts(r.get('created_at') or r.get('creation_time')) or '-',
+                r.get('file_mfid') or '-',
+                term.fmt_ts(r.get('time_created')) or '-',
             ))
         term.table(rows, ['ID', 'Status', 'Class', 'File MFID', 'Created'],
                    max_widths=[8, 12, 25, 30, 20])
@@ -115,9 +115,9 @@ def _execute_get(args):
         term.header(f"Ingestion Request #{r.get('id')}")
         _p("Status",  color(status))
         _p("Class",   r.get('ingestion_class') or '-')
-        _p("File",    r.get('file_id') or '-')
-        _p("Dataset", r.get('dataset_id') or '-')
-        _p("Created", term.fmt_ts(r.get('created_at') or r.get('creation_time')))
+        _p("File",    r.get('file_mfid') or '-')
+        _p("Dataset", r.get('dataset_mfid') or '-')
+        _p("Created", term.fmt_ts(r.get('time_created')))
         if r.get('time_completed'):
             _p("Completed", term.fmt_ts(r.get('time_completed')))
         if r.get('error_message'):
