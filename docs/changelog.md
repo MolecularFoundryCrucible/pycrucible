@@ -51,7 +51,9 @@ removed. All operations now live under typed resource namespaces.
   by default (8 workers, 64 MiB chunks, benchmarked). Falls back to sequential resumable upload
   with `multipart=False`. Upload settings configurable via `crucible config set upload_chunk_size_mb`
   and `upload_max_workers`.
-- **Parallel dataset downloads** — `_fetch_files` now downloads concurrently (4 workers).
+- **Sequential per-dataset downloads** — files within a dataset download sequentially; to
+  parallelise across datasets, wrap `datasets.download()` in a `ThreadPoolExecutor` at the
+  caller level.
 - **Fuzzy name search** — `datasets.search(q)`, `samples.search(q)`, `projects.search(q)`,
   `instruments.search(q)` via new API endpoints. Typo-tolerant, returns top-N by relevance.
 - **Scientific metadata search** renamed — `search_metadata(q)` on all resources.
