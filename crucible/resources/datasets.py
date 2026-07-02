@@ -406,8 +406,8 @@ class DatasetOperations(BaseResource):
         stored_filename = file_record.get('filename', filename)
         file_id         = file_record.get('mfid')
 
-        if was_existing and self._client.files._has_successful_ingestion(file_id):
-            logger.info(f"{stored_filename} already ingested successfully; skipping ingestion")
+        if was_existing:
+            logger.info(f"{stored_filename} already exists in dataset {dsid}, skipping ingestion")
             return {'associated_file': file_record, 'ingestion_request': None}
 
         ingestion_request = self._client.files.request_ingestion(
