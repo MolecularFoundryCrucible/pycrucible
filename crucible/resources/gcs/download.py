@@ -5,13 +5,16 @@ GCS download helpers for Crucible datasets.
 
 Standalone functions — take an explicit `client` argument so they can be
 tested in isolation and reused outside of any resource class.
+
+Note on parallelism: file downloads within a single dataset are sequential.
+To download multiple datasets concurrently, use ThreadPoolExecutor at the
+caller level wrapping datasets.download().
 """
 
 import fnmatch
 import logging
 import os
 import tempfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -37,9 +40,12 @@ def download_dataset_files(client, dsid: str, output_dir: str,
                            all_files: List[Dict],
                            overwrite_existing: bool = True,
                            include: Optional[List[str]] = None,
-                           exclude: Optional[List[str]] = None,
-                           max_workers: int = 4) -> List[str]:
+                           exclude: Optional[List[str]] = None) -> List[str]:
     """Download ingested files for a dataset into output_dir.
+
+    Files are downloaded sequentially. To parallelise across multiple
+    datasets, wrap datasets.download() in a ThreadPoolExecutor at the
+    caller level.
 
     Args:
         client:            CrucibleClient instance.
@@ -50,12 +56,10 @@ def download_dataset_files(client, dsid: str, output_dir: str,
         overwrite_existing: Overwrite existing local files (default True).
         include:           Glob patterns — only download matching filenames.
         exclude:           Glob patterns — skip matching filenames.
-        max_workers:       Concurrent download threads (default 4).
 
     Returns:
         List[str]: Paths of all downloaded files.
     """
-    # Build (file_record, name, signed_url) candidates using mfid as key
     candidates = []
     for f in all_files:
         name = bare_name(f, dsid)
@@ -75,12 +79,13 @@ def download_dataset_files(client, dsid: str, output_dir: str,
     if not candidates:
         return []
 
-    def _download_one(args):
-        _, name, signed_url = args
+    downloads = []
+    for _, name, signed_url in candidates:
         download_path = os.path.join(output_dir, name)
 
         if not overwrite_existing and os.path.exists(download_path):
-            return download_path
+            downloads.append(download_path)
+            continue
 
         dest_dir = os.path.dirname(download_path) or output_dir
         os.makedirs(dest_dir, exist_ok=True)
@@ -99,16 +104,6 @@ def download_dataset_files(client, dsid: str, output_dir: str,
             raise
 
         logger.debug(f"Downloaded {name}")
-        return download_path
+        downloads.append(download_path)
 
-    downloads = []
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = {pool.submit(_download_one, c): c[1] for c in candidates}
-        for future in as_completed(futures):
-            name = futures[future]
-            try:
-                downloads.append(future.result())
-            except Exception as e:
-                logger.error(f"Failed to download {name}: {e}")
-
-    return sorted(downloads)
+    return downloads
