@@ -78,7 +78,6 @@ def test_dataset_get_metadata(client, new_dataset):
     assert md.get('readable') == 'yes'
 
 
-@pytest.mark.xfail(reason="API returns 500 on GET metadata for fresh resource (known bug)")
 def test_dataset_get_metadata_null_when_absent(client, project_id, test_tag):
     """GET should return null (200) for a resource with no metadata."""
     from crucible.models import Dataset
