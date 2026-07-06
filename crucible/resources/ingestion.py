@@ -100,3 +100,11 @@ class IngestionOperations(BaseResource):
             patch_json["time_completed"] = get_tz_isoformat(timezone)
 
         return self._request('patch', f'/ingestion_requests/{request_id}', json=patch_json)
+
+    def list_ingestors(self) -> List[str]:
+        """List available ingestion classes.
+
+        Returns:
+            List[str]: Ingestion class names.
+        """
+        return self._request('get', '/ingestors')

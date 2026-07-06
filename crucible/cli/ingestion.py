@@ -24,6 +24,7 @@ def register_subcommand(subparsers):
     _register_list(sub)
     _register_get(sub)
     _register_wait(sub)
+    _register_list_ingestors(sub)
 
 
 def _register_list(subparsers):
@@ -77,6 +78,41 @@ def _execute_list(args):
             ))
         term.table(rows, ['ID', 'Status', 'Class', 'File MFID', 'Created'],
                    max_widths=[8, 12, 25, 30, 20])
+
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_list_ingestors(subparsers):
+    parser = subparsers.add_parser(
+        'list-ingestors',
+        help='List available ingestion classes',
+        description='List the ingestion classes available on the server.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible ingestion list-ingestors
+""",
+    )
+    parser.set_defaults(func=_execute_list_ingestors)
+
+
+def _execute_list_ingestors(args):
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+        ingestors = client.ingestions.list_ingestors()
+
+        term.header(f"Ingestors ({len(ingestors)})")
+        if not ingestors:
+            print(f"  {term.dim('No ingestors found.')}")
+            return
+        for name in ingestors:
+            print(f"  {name}")
 
     except Exception as e:
         logger.error(f"Error: {e}")
