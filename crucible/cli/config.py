@@ -140,7 +140,9 @@ Priority order (highest to lowest):
         choices=['api_key', 'api_url', 'graph_explorer_url', 'current_project',
                  'cache_dir',
                  'editor', 'sample_group_by', 'dataset_group_by',
-                 'connect_timeout', 'read_timeout', 'default_limit'],
+                 'include_metadata', 'include_links',
+                 'connect_timeout', 'read_timeout', 'default_limit',
+                 'upload_chunk_size_mb', 'upload_max_workers'],
         help='Configuration key to retrieve'
     )
     get_parser.set_defaults(func=cmd_get)
@@ -155,7 +157,9 @@ Priority order (highest to lowest):
         choices=['api_key', 'api_url', 'graph_explorer_url', 'current_project',
                  'cache_dir',
                  'editor', 'sample_group_by', 'dataset_group_by',
-                 'connect_timeout', 'read_timeout', 'default_limit'],
+                 'include_metadata', 'include_links',
+                 'connect_timeout', 'read_timeout', 'default_limit',
+                 'upload_chunk_size_mb', 'upload_max_workers'],
         help='Configuration key to set'
     )
     set_parser.add_argument(
@@ -293,6 +297,11 @@ def cmd_show(args):
     _p("connect_timeout",      config.connect_timeout)
     _p("read_timeout",         config.read_timeout)
     _p("default_limit",        config.default_limit)
+
+    # [upload] — multipart upload tuning
+    term.subheader("[upload]  multipart upload")
+    _p("upload_chunk_size_mb", config.upload_chunk_size_mb)
+    _p("upload_max_workers",   config.upload_max_workers)
 
     from crucible.config.config import Config
     env_overrides = {

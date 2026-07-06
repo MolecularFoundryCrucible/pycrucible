@@ -54,19 +54,15 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
     """Display dataset fields. Extracted for reuse by top-level 'crucible get'."""
     _p = term.field_printer(14)
 
-    try:
-        from crucible.config import config
-        _base = config.graph_explorer_url.rstrip('/')
-    except Exception:
-        _base = None
+    from .helpers import explorer_url
 
     def _ds_link(r):
         u, p = r.get('unique_id'), r.get('project_id')
-        return term.mfid_link(u, f"{_base}/{p}/dataset/{u}" if _base and u and p else None)
+        return term.mfid_link(u, explorer_url(u, p, 'dataset'))
 
     def _s_link(r):
         u, p = r.get('unique_id'), r.get('project_id')
-        return term.mfid_link(u, f"{_base}/{p}/sample-graph/{u}" if _base and u and p else None)
+        return term.mfid_link(u, explorer_url(u, p, 'sample'))
 
     term.header("Dataset")
 
@@ -83,12 +79,14 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
             msg += '  ' + term.dim(f"(request #{rid})")
         print(f"  {msg}")
 
+    pub = dataset.get('public')
     _p("Name",        dataset.get('dataset_name') or '(unnamed)')
     _p("MFID",        _ds_link(dataset))
     _p("Measurement", dataset.get('measurement'))
     _p("Data Type",   dataset.get('data_type'))
     _p("Session",     dataset.get('session_name'))
     _p("Instrument",  dataset.get('instrument_name'))
+    _p("Public",      "yes" if pub else ("no" if pub is not None else None))
     _p("Project",     dataset.get('project_id'))
     _p("Timestamp",   term.fmt_ts(dataset.get('timestamp')))
     _p("Description", dataset.get('description'))
@@ -97,15 +95,11 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
 
     if verbose:
         term.subheader("Ownership")
-        pub = dataset.get('public')
-        _p("Public",      "Yes" if pub else ("No" if pub is not None else None))
         _p("Owner ORCID", term.orcid_link(dataset.get('owner_orcid')))
 
         term.subheader("File")
         _p("Data Format", dataset.get('data_format'))
         _p("Size",        term.fmt_size(dataset.get('size')))
-        _p("Source",      dataset.get('source_folder'))
-        _p("SHA256",        dataset.get('sha256_hash_file_to_upload'))
 
         term.subheader("Timing")
         _p("Created",  term.fmt_ts(dataset.get('creation_time')))
@@ -119,7 +113,7 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=3) as pool:
                 f_kw    = pool.submit(client.datasets.get_keywords, dsid)
-                f_meta  = pool.submit(client.datasets.get_associated_files, dsid)
+                f_meta  = pool.submit(client.datasets.list_files, dsid)
                 f_links = pool.submit(client.datasets.get_download_links, dsid)
                 try:
                     keywords = f_kw.result()
@@ -173,24 +167,21 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
             term.subheader(f"Linked Samples ({len(linked_samples)})")
             for s in linked_samples:
                 uid = s['unique_id']
-                url = f"{_base}/{proj}/sample-graph/{uid}" if _base and proj else None
-                print(f"  {term.mfid_link(uid, url)}  {s.get('name') or '(unnamed)'}")
+                print(f"  {term.mfid_link(uid, explorer_url(uid, proj, 'sample'))}  {s.get('name') or '(unnamed)'}")
             if not linked_samples:
                 print(f"  {term.dim('(none)')}")
 
             term.subheader(f"Parents ({len(parent_datasets)})")
             for p in parent_datasets:
                 uid = p['unique_id']
-                url = f"{_base}/{proj}/dataset/{uid}" if _base and proj else None
-                print(f"  {term.mfid_link(uid, url)}  {p.get('name') or '(unnamed)'}")
+                print(f"  {term.mfid_link(uid, explorer_url(uid, proj, 'dataset'))}  {p.get('name') or '(unnamed)'}")
             if not parent_datasets:
                 print(f"  {term.dim('(none)')}")
 
             term.subheader(f"Children ({len(child_datasets)})")
             for c in child_datasets:
                 uid = c['unique_id']
-                url = f"{_base}/{proj}/dataset/{uid}" if _base and proj else None
-                print(f"  {term.mfid_link(uid, url)}  {c.get('name') or '(unnamed)'}")
+                print(f"  {term.mfid_link(uid, explorer_url(uid, proj, 'dataset'))}  {c.get('name') or '(unnamed)'}")
             if not child_datasets:
                 print(f"  {term.dim('(none)')}")
 
@@ -251,9 +242,13 @@ def register_subcommand(subparsers):
     _register_download(dataset_subparsers)
     _register_add_file(dataset_subparsers)
     _register_list_files(dataset_subparsers)
+    _register_ingestion(dataset_subparsers)
     _register_search(dataset_subparsers)
+    _register_search_metadata(dataset_subparsers)
     _register_add_keyword(dataset_subparsers)
     _register_list_keywords(dataset_subparsers)
+    _register_list_access_groups(dataset_subparsers)
+    _register_add_access_group(dataset_subparsers)
     _register_parsers(dataset_subparsers)
     _register_ingestors(dataset_subparsers)
 
@@ -362,9 +357,10 @@ Examples:
     )
 
     parser.add_argument(
-        '-v', '--verbose',
+        '--json',
         action='store_true',
-        help='Verbose output'
+        default=False,
+        help='Output as JSON array'
     )
 
     parser.set_defaults(func=_execute_list)
@@ -408,12 +404,11 @@ def _register_get(subparsers):
     parser.set_defaults(graph=True)
 
     parser.add_argument(
-        '-o', '--output',
-        dest='output',
-        choices=['json'],
-        default=None,
-        metavar='FORMAT',
-        help='Output format: json (always includes scientific metadata)'
+        '--json',
+        dest='json',
+        action='store_true',
+        default=False,
+        help='Output as JSON (always includes scientific metadata)'
     )
 
     parser.set_defaults(func=_execute_get)
@@ -509,11 +504,6 @@ Examples:
     )
 
     # Verbose output
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Verbose output'
-    )
 
     # Measurement type
     parser.add_argument(
@@ -640,7 +630,6 @@ def _register_update(subparsers):
                        help='Scientific metadata as JSON string or path to JSON file')
         p.add_argument('--overwrite', action='store_true',
                        help='Replace all existing scientific metadata instead of merging (only with --metadata)')
-        p.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
 
     parser = subparsers.add_parser(
         'update',
@@ -786,7 +775,6 @@ Examples:
     )
     if ARGCOMPLETE_AVAILABLE:
         did_arg.completer = argcomplete.completers.SuppressCompleter()
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     parser.set_defaults(func=_execute_edit)
 
 
@@ -879,12 +867,6 @@ def _register_link(subparsers):
         help='Child dataset ID'
     )
 
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Verbose output'
-    )
-
     parser.set_defaults(func=_execute_link)
 
 
@@ -902,7 +884,6 @@ Examples:
     )
     parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
     parser.add_argument('-s', '--sample', required=True, metavar='SAMPLE_ID', help='Sample ID')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     parser.set_defaults(func=_execute_add_sample)
 
 
@@ -1003,7 +984,6 @@ Examples:
     parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
     parser.add_argument('--limit', type=int, default=_config.default_limit, metavar='N',
                         help=f'Maximum number of results (default: {_config.default_limit})')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     parser.set_defaults(func=_execute_list_parents)
 
 
@@ -1023,7 +1003,6 @@ Examples:
     parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
     parser.add_argument('--limit', type=int, default=_config.default_limit, metavar='N',
                         help=f'Maximum number of results (default: {_config.default_limit})')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     parser.set_defaults(func=_execute_list_children)
 
 
@@ -1042,7 +1021,6 @@ Examples:
     parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
     parser.add_argument('--limit', type=int, default=_config.default_limit, metavar='N',
                         help=f'Maximum number of results (default: {_config.default_limit})')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     parser.set_defaults(func=_execute_list_samples)
 
 
@@ -1124,12 +1102,6 @@ Examples:
         action='store_true',
         dest='overwrite',
         help='Re-download and overwrite files that already exist locally'
-    )
-
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Verbose output'
     )
 
     parser.set_defaults(func=_execute_download)
@@ -1255,7 +1227,7 @@ def _execute_add_file(args):
         rows = []
         for fpath in files:
             print(f"  Uploading {fpath.name} ...", flush=True)
-            client.datasets.add_file_to_dataset(dsid, str(fpath),
+            client.datasets.add_file(dsid, str(fpath),
                                                 ingestion_class=ingestor,
                                                 wait_for_ingestion_response=wait)
             rows.append((fpath.name, term.fmt_size(fpath.stat().st_size), '✓'))
@@ -1293,7 +1265,7 @@ def _execute_list_files(args):
         # Fetch metadata (size, hash) and signed download URLs in parallel
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=2) as pool:
-            f_meta  = pool.submit(client.datasets.get_associated_files, dsid)
+            f_meta  = pool.submit(client.datasets.list_files, dsid)
             f_links = pool.submit(client.datasets.get_download_links, dsid)
             meta_list  = f_meta.result()
             link_map   = f_links.result()   # {filepath: signed_url}
@@ -1328,73 +1300,151 @@ def _execute_list_files(args):
         sys.exit(1)
 
 
-def _register_search(subparsers):
-    """Register the 'dataset search' subcommand."""
+def _register_ingestion(subparsers):
     parser = subparsers.add_parser(
-        'search',
-        help='Search datasets by scientific metadata',
-        description='Full-text search across scientific metadata of all datasets',
+        'ingestion',
+        help='Show ingestion requests for a dataset',
+        description='List ingestion requests for all files in a dataset.',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset search "thermal conductivity"
-    crucible dataset search "silicon XRD 300K"
-    crucible dataset search temperature -v
-"""
+    crucible dataset ingestion DSID
+""",
     )
+    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.set_defaults(func=_execute_ingestion)
 
-    parser.add_argument(
-        'query',
-        metavar='QUERY',
-        help='Search query string'
+
+def _execute_ingestion(args):
+    """Execute 'crucible dataset ingestion'."""
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+        reqs = client.ingestions.list(dsid=args.dataset_id)
+
+        term.header(f"Ingestion Requests · {args.dataset_id} ({len(reqs)})")
+        if not reqs:
+            print(f"  {term.dim('No ingestion requests found.')}")
+            return
+
+        rows = []
+        for r in reqs:
+            status = r.get('status') or '-'
+            color  = term.green if status == 'complete' else (term.red if status == 'failed' else term.yellow)
+            rows.append((
+                str(r.get('id', '-')),
+                color(status),
+                r.get('ingestion_class') or '-',
+                r.get('file_id') or '-',
+                term.fmt_ts(r.get('created_at') or r.get('creation_time')) or '-',
+            ))
+        term.table(rows, ['ID', 'Status', 'Class', 'File MFID', 'Created'],
+                   max_widths=[8, 12, 25, 30, 20])
+
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_search(subparsers):
+    parser = subparsers.add_parser(
+        'search',
+        help='Fuzzy search datasets by name',
+        description='Fuzzy name search across datasets you can read. '
+                    'For scientific metadata search use search-metadata.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible dataset search perovskite
+    crucible dataset search "silicon wafer" --project my-project
+    crucible dataset search XRD --limit 10
+""",
     )
-
-    parser.add_argument(
-        '--limit', '-l',
-        type=int,
-        default=_config.default_limit,
-        metavar='N',
-        help='Maximum number of results to return (default: 100)'
-    )
-
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Verbose output (show full metadata for each result)'
-    )
-
+    parser.add_argument('query', metavar='QUERY', help='Search term (min 3 chars)')
+    parser.add_argument('--project', '-pid', dest='project_id', default=None, metavar='ID',
+                        help='Scope to a specific project')
+    parser.add_argument('--limit', '-l', type=int, default=20, metavar='N',
+                        help='Maximum results (default: 20, max: 50)')
     parser.set_defaults(func=_execute_search)
 
 
 def _execute_search(args):
-    """Execute the 'dataset search' subcommand."""
+    if len(args.query) < 3:
+        logger.error("Search term must be at least 3 characters")
+        sys.exit(1)
     from crucible.client import CrucibleClient
     try:
-        client = CrucibleClient()
-        results = client.datasets.search_scientific_metadata(args.query)
-
-        if args.limit:
-            results = results[:args.limit]
-
-        term.header(f"Search: {args.query} ({len(results)})")
+        client     = CrucibleClient()
+        project_id = args.project_id or _config.current_project or None
+        results    = client.datasets.search(args.query, project_id=project_id,
+                                            limit=args.limit)
+        term.header(f"Datasets matching '{args.query}' ({len(results)})")
         if not results:
             print(f"  {term.dim('No results found.')}")
-        else:
-            for r in results:
-                mfid = r.get('dataset_mfid', '-')
-                print(f"  {term.cyan(mfid)}")
-                if args.verbose:
-                    scimd = r.get('scientific_metadata', {})
-                    for key, value in scimd.items():
-                        if isinstance(value, dict):
-                            print(f"    {term.dim(key + ':')} <dict, {len(value)} keys>")
-                        elif isinstance(value, list):
-                            print(f"    {term.dim(key + ':')} <list, {len(value)} items>")
-                        else:
-                            print(f"    {term.dim(key + ':')} {value}")
-
+            return
+        from .helpers import explorer_url
+        rows = []
+        for r in results:
+            uid  = r.get('unique_id') or ''
+            pid  = r.get('project_id') or project_id or ''
+            rows.append((
+                r.get('dataset_name') or '(unnamed)',
+                term.mfid_link(uid, explorer_url(uid, pid, 'dataset')),
+                r.get('measurement') or '-',
+            ))
+        term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 20])
     except Exception as e:
-        logger.error(f"Error searching datasets: {e}")
+        logger.error(f"Error: {e}")
+        if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_search_metadata(subparsers):
+    for name in ('search-metadata', 'search-md'):
+        parser = subparsers.add_parser(
+            name,
+            help='Search datasets by scientific metadata' if name == 'search-metadata' else None,
+            description='Full-text search across scientific metadata of all accessible datasets.',
+            formatter_class=term.ColorHelpFormatter,
+            epilog="""
+Examples:
+    crucible dataset search-metadata "thermal conductivity"
+    crucible dataset search-md "silicon XRD 300K"
+""",
+        )
+        parser.add_argument('query', metavar='QUERY', help='Search query string')
+        parser.add_argument('--limit', '-l', type=int, default=50, metavar='N',
+                            help='Maximum results (default: 50)')
+        parser.set_defaults(func=_execute_search_metadata)
+
+
+def _execute_search_metadata(args):
+    from crucible.client import CrucibleClient
+    try:
+        client  = CrucibleClient()
+        results = client.datasets.search_metadata(args.query, limit=args.limit)
+        term.header(f"Metadata search: {args.query} ({len(results)})")
+        if not results:
+            print(f"  {term.dim('No results found.')}")
+            return
+        for r in results:
+            mfid  = r.get('unique_id') or r.get('dataset_mfid', '-')
+            print(f"  {term.cyan(mfid)}")
+            scimd = r.get('scientific_metadata') or {}
+            for key, value in scimd.items():
+                if isinstance(value, dict):
+                    print(f"    {term.dim(key + ':')} <dict, {len(value)} keys>")
+                elif isinstance(value, list):
+                    print(f"    {term.dim(key + ':')} <list, {len(value)} items>")
+                else:
+                    print(f"    {term.dim(key + ':')} {value}")
+    except Exception as e:
+        logger.error(f"Error: {e}")
         if getattr(args, "debug", False):
             import traceback
             traceback.print_exc()
@@ -1417,7 +1467,6 @@ Examples:
 
     parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
     parser.add_argument('keyword', metavar='KEYWORD', help='Keyword to add')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     parser.set_defaults(func=_execute_add_keyword)
 
 
@@ -1444,7 +1493,6 @@ def _register_list_keywords(subparsers):
 
     def _add_args(p):
         p.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
-        p.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
 
     parser = subparsers.add_parser(
         'list-keywords',
@@ -1469,12 +1517,83 @@ def _execute_list_keywords(args):
         for kw in keywords:
             word  = kw.get('keyword', kw) if isinstance(kw, dict) else kw
             count = kw.get('num_datasets') if isinstance(kw, dict) else None
-            suffix = f"  {term.dim(f'({count} datasets)')}" if args.verbose and count is not None else ""
+            suffix = f"  {term.dim(f'({count} datasets)')}" if getattr(args, 'verbose', False) and count is not None else ""
             print(f"  {word}{suffix}")
 
     except Exception as e:
         logger.error(f"Error retrieving keywords: {e}")
         if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_list_access_groups(subparsers):
+    parser = subparsers.add_parser(
+        'list-access-groups',
+        help='List access groups for a dataset (admin)',
+        description='List access groups that have been granted access to a dataset.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible dataset list-access-groups DSID
+""",
+    )
+    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.set_defaults(func=_execute_list_access_groups)
+
+
+def _execute_list_access_groups(args):
+    """Execute 'crucible dataset list-access-groups'."""
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+        groups = client.datasets.get_access_groups(args.dataset_id)
+        term.header(f"Access Groups · {args.dataset_id} ({len(groups)})")
+        if not groups:
+            print(f"  {term.dim('No access groups found.')}")
+        else:
+            for g in groups:
+                print(f"  {g}")
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_add_access_group(subparsers):
+    parser = subparsers.add_parser(
+        'add-access-group',
+        help='Grant an access group access to a dataset (admin)',
+        description='Add an access group to a dataset with read and/or write permissions.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible dataset add-access-group DSID my-group
+    crucible dataset add-access-group DSID my-group --write
+""",
+    )
+    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('group_name', metavar='GROUP',      help='Access group name')
+    parser.add_argument('--read',  action='store_true', default=True,  help='Grant read access (default: on)')
+    parser.add_argument('--write', action='store_true', default=False, help='Grant write access (default: off)')
+    parser.set_defaults(func=_execute_add_access_group)
+
+
+def _execute_add_access_group(args):
+    """Execute 'crucible dataset add-access-group'."""
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+        client.datasets.add_access_group(args.dataset_id, args.group_name,
+                                         read=args.read, write=args.write)
+        perms = 'read+write' if args.write else 'read'
+        logger.info(f"✓ Access group '{args.group_name}' added to {args.dataset_id} ({perms})")
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
             import traceback
             traceback.print_exc()
         sys.exit(1)
@@ -1492,12 +1611,6 @@ Examples:
     crucible dataset parsers
     crucible dataset parsers -v
 """
-    )
-
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Show additional parser details'
     )
 
     parser.set_defaults(func=_execute_parsers)
@@ -1547,6 +1660,10 @@ def _execute_list(args):
                 for p in args.exclude
             )]
 
+        if getattr(args, 'json', False):
+            print(json.dumps(datasets, indent=2, default=str))
+            return
+
         title = f"Datasets · {project_id} ({len(datasets)})" if project_id else f"Datasets ({len(datasets)})"
         term.header(title)
         if filters:
@@ -1555,11 +1672,7 @@ def _execute_list(args):
         if not datasets:
             print(f"  {term.dim('No datasets found.')}")
         else:
-            try:
-                from crucible.config import config as _cfg
-                _base = _cfg.graph_explorer_url.rstrip('/')
-            except Exception:
-                _base = None
+            from .helpers import explorer_url
 
             _GROUP_FIELD = {
                 'measurement': 'measurement',
@@ -1573,10 +1686,9 @@ def _execute_list(args):
             def _make_row(ds):
                 uid = ds.get('unique_id') or ''
                 pid = ds.get('project_id') or project_id
-                url = f"{_base}/{pid}/dataset/{uid}" if _base and uid and pid else None
                 return (
                     ds.get('dataset_name') or '(unnamed)',
-                    term.mfid_link(uid, url) if uid else '-',
+                    term.mfid_link(uid, explorer_url(uid, pid, 'dataset')) if uid else '-',
                     ds.get('measurement') or '-',
                     ds.get('session_name') or '-',
                 )
@@ -1611,8 +1723,8 @@ def _execute_list(args):
 def _execute_get(args):
     """Execute the 'dataset get' subcommand."""
     from crucible.client import CrucibleClient
-    output = getattr(args, 'output', None)
-    include_metadata = output == 'json' or getattr(args, 'include_metadata', False) or _config.include_metadata
+    as_json = getattr(args, 'json', False)
+    include_metadata = as_json or getattr(args, 'include_metadata', False) or _config.include_metadata
     try:
         client = CrucibleClient()
         graph   = getattr(args, 'graph', False)
@@ -1625,7 +1737,7 @@ def _execute_get(args):
         cache_resource(getattr(args, '_shell_state', None), client, dataset, 'dataset',
                        args.dataset_id, verbose=getattr(args, 'verbose', False),
                        graph=getattr(args, 'graph', False), include_metadata=include_metadata)
-        if output == 'json':
+        if as_json:
             print(json.dumps(dataset, indent=2, default=str))
         else:
             _show_dataset(dataset, client,
@@ -1942,7 +2054,7 @@ def _execute_parsers(args):
     builtin_names = set(PARSER_REGISTRY.keys())
 
     term.header(f"Dataset Parsers ({len(all_parsers)})")
-    if args.verbose:
+    if getattr(args, 'verbose', False):
         rows = [
             (
                 name,
@@ -1990,12 +2102,6 @@ Use the ingestor name with:
         default=None,
         metavar='TEXT',
         help='Filter ingestors by name (case-insensitive substring match)'
-    )
-
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Verbose output'
     )
 
     parser.set_defaults(func=_execute_ingestors)

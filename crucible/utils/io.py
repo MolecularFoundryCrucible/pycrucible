@@ -9,7 +9,7 @@ import os
 import pytz
 import subprocess as sp
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def run_shell(cmd, checkflag=True, background=False):
@@ -73,6 +73,26 @@ def get_tz_isoformat(timezone="America/Los_Angeles"):
     return curr_pct_time
 
 
+def hash_file(file_path: str, block_size: int = 32 * 1024 * 1024):
+    """Compute SHA256 and CRC32C of a file in a single pass.
+
+    Args:
+        file_path: Path to the file.
+        block_size: Read block size in bytes (default 32 MiB).
+
+    Returns:
+        Tuple[str, str]: (sha256_hex, crc32c_base64)
+    """
+    import google_crc32c
+    sha = hashlib.sha256()
+    crc = google_crc32c.Checksum()
+    with open(file_path, 'rb') as f:
+        for block in iter(lambda: f.read(block_size), b''):
+            sha.update(block)
+            crc.update(block)
+    return sha.hexdigest(), base64.b64encode(crc.digest()).decode()
+
+
 def parse_timestamp(value: str) -> str:
     """Parse a human-readable date/time string and return an ISO 8601 string.
 
@@ -94,7 +114,7 @@ def parse_timestamp(value: str) -> str:
     from datetime import timedelta
 
     v = value.strip().lower()
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
 
     if v in ("now", "today"):
         return now.replace(microsecond=0).isoformat()
@@ -103,6 +123,8 @@ def parse_timestamp(value: str) -> str:
 
     try:
         dt = _duparser.parse(value)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
         return dt.replace(microsecond=0).isoformat()
     except (ValueError, OverflowError):
         raise ValueError(

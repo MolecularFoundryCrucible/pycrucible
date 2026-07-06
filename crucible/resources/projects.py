@@ -99,34 +99,6 @@ class ProjectOperations(BaseResource):
             self.update_scientific_metadata(result['project_id'], scientific_metadata)
         return result
 
-    def add_scientific_metadata(self, project_id: str, metadata: Dict) -> Dict:
-        """Create scientific metadata for a project.
-
-        Args:
-            project_id (str): Project unique identifier
-            metadata (Dict): Scientific metadata dictionary
-
-        Returns:
-            Dict: Created metadata object
-        """
-        return self._request('post', f'/resources/{project_id}/metadata', json=metadata)
-
-    def update_scientific_metadata(self, project_id: str, metadata: Dict,
-                                   overwrite: bool = False) -> Dict:
-        """Update scientific metadata for a project.
-
-        Args:
-            project_id (str): Project unique identifier
-            metadata (Dict): Scientific metadata dictionary
-            overwrite (bool): If True, replace all metadata (POST); if False, merge (PATCH)
-
-        Returns:
-            Dict: Updated metadata object
-        """
-        if overwrite:
-            return self._request('post', f'/resources/{project_id}/metadata', json=metadata)
-        return self._request('patch', f'/resources/{project_id}/metadata', json=metadata)
-
     def get_users(self, project_id: str, limit: int = DEFAULT_LIMIT,
                   offset: int = 0) -> List[Dict]:
         """Get users associated with a project.
@@ -159,52 +131,76 @@ class ProjectOperations(BaseResource):
         return self._request('patch', f'/projects/{project_id}', json=kwargs)
 
     def remove_user(self, project_id: str, orcid: Optional[str] = None,
-                    email: Optional[str] = None) -> Dict:
+                    email: Optional[str] = None, username: Optional[str] = None) -> Dict:
         """Remove a user from a project.
 
         **Requires admin permissions.**
 
-        Provide either ``orcid`` or ``email`` to identify the user.
-        When ``email`` is given, the ORCID is resolved automatically.
+        Provide one of ``orcid``, ``email``, or ``username`` to identify the user.
 
         Args:
             project_id (str): Unique project identifier
             orcid (str, optional): User's ORCID identifier
-            email (str, optional): User's email address (alternative to orcid)
+            email (str, optional): User's email address
+            username (str, optional): User's username
 
         Returns:
             Dict: Response message
         """
-        if not orcid and not email:
-            raise ValueError("provide either orcid or email")
-        if email and not orcid:
-            return self._request('delete', f'/projects/{project_id}/users/me',
-                                 params={'email': email})
+        if not orcid and not email and not username:
+            raise ValueError("provide orcid, email, or username")
+        if not orcid:
+            params = {}
+            if email:
+                params['email'] = email
+            if username:
+                params['username'] = username
+            return self._request('delete', f'/projects/{project_id}/users/me', params=params)
         return self._request('delete', f'/projects/{project_id}/users/{orcid}')
 
     def add_user(self, orcid: Optional[str] = None, project_id: str = None,
-                email: Optional[str] = None) -> List[Dict]:
+                email: Optional[str] = None, username: Optional[str] = None) -> List[Dict]:
         """Add a user to a project.
 
         **Requires admin permissions.**
 
-        Provide either ``orcid`` or ``email`` to identify the user.
-        When ``email`` is given, the ORCID is resolved automatically.
+        Provide one of ``orcid``, ``email``, or ``username`` to identify the user.
 
         Args:
             orcid (str, optional): User's ORCID identifier
             project_id (str): Unique project identifier
-            email (str, optional): User's email address (alternative to orcid)
+            email (str, optional): User's email address
+            username (str, optional): User's username
 
         Returns:
             List[Dict]: Updated list of project users
         """
-        if not orcid and not email:
-            raise ValueError("provide either orcid or email")
-        if email and not orcid:
-            return self._request('post', f'/projects/{project_id}/users/me',
-                                 params={'email': email})
+        if not orcid and not email and not username:
+            raise ValueError("provide orcid, email, or username")
+        if not orcid:
+            params = {}
+            if email:
+                params['email'] = email
+            if username:
+                params['username'] = username
+            return self._request('post', f'/projects/{project_id}/users/me', params=params)
         return self._request('post', f'/projects/{project_id}/users/{orcid}')
+
+    def search(self, q: str, limit: int = 20) -> List[Dict]:
+        """Fuzzy search across projects. Available to all authenticated users.
+
+        Matches against both title and project_id. Returns only projects
+        the caller is a member of.
+
+        Args:
+            q: Search term (min 3 chars). Typo-tolerant.
+            limit: Max results (default 20, max 50).
+
+        Returns:
+            List[Dict]: Matching ProjectRead records, ranked by relevance.
+        """
+        result = self._request('get', '/projects/search', params={'q': q, 'limit': limit})
+        return result.get('items', result) if isinstance(result, dict) else result
 
     def get_or_create(self, project_id: str, get_project_info_function=_build_project_from_args,
                      **kwargs) -> Dict:

@@ -170,8 +170,8 @@ Examples:
 
     # Import subcommands
     from . import (
-        dataset, sample, project, instrument, user, file as file_cmd,  # Resource commands
-        upload, completion, config as config_cmd, open as open_cmd, link, unlink, whoami, cache, download, get, edit, status, deletion, tree, cast, qr  # Utility commands
+        dataset, sample, project, instrument, user, file as file_cmd, ingestion,  # Resource commands
+        upload, completion, config as config_cmd, open as open_cmd, link, unlink, whoami, account, cache, download, get, edit, status, deletion, tree, cast, qr  # Utility commands
     )
 
     # Register resource commands (new structure)
@@ -181,6 +181,7 @@ Examples:
     instrument.register_subcommand(subparsers)
     user.register_subcommand(subparsers)
     file_cmd.register_subcommand(subparsers)
+    ingestion.register_subcommand(subparsers)
 
     # Register utility commands (backward compatibility)
     upload.register_subcommand(subparsers)
@@ -190,6 +191,7 @@ Examples:
     link.register_subcommand(subparsers)
     unlink.register_subcommand(subparsers)
     whoami.register_subcommand(subparsers)
+    account.register_subcommand(subparsers)
     cache.register_subcommand(subparsers)
     download.register_subcommand(subparsers)
     get.register_subcommand(subparsers)

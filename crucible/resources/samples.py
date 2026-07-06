@@ -60,10 +60,12 @@ class SampleOperations(BaseResource):
             parent_id (str, optional): Get child samples from parent (deprecated)
             include_metadata (bool): Include scientific metadata in results
             include_links (bool): Include linked resources (parents, children, associated) per sample
-            limit (int): Maximum total results to return (default: 100). Requests
-                         above API_PAGE_MAX (1000) are handled transparently via
-                         parallel pagination.
-            offset (int): Starting position in the full result set (default: 0)
+            limit (int): Maximum total results to return (default: 100). Larger
+                         requests are handled transparently by following the
+                         server's keyset cursor. Pass None to fetch all matches.
+            offset (int): Deprecated for the top-level /samples endpoint, which now
+                          uses keyset pagination and ignores offset. Still honored
+                          for the dataset_id/parent_id sub-listings.
             **kwargs: Query parameters for filtering samples
 
         Returns:
@@ -81,13 +83,20 @@ class SampleOperations(BaseResource):
             endpoint = f"/samples/{parent_id}/children"
         else:
             endpoint = "/samples"
+            if offset:
+                import warnings
+                warnings.warn(
+                    "'offset' is ignored by /samples, which now uses keyset "
+                    "pagination; results start from the newest sample.",
+                    DeprecationWarning, stacklevel=2,
+                )
         raw = self._paginate(endpoint, params, limit, offset)
         return [self._parse(s) for s in raw]
 
     def count(self, **kwargs) -> int:
         """Return the total number of samples matching the given filters without fetching items."""
         params = {k: v for k, v in kwargs.items() if v is not None}
-        result = self._request('get', '/samples', params={**params, 'limit': 1, 'offset': 0})
+        result = self._request('get', '/samples', params={**params, 'limit': 1})
         return result['total']
 
     def list_parents(self, sample_id: str, limit: int = DEFAULT_LIMIT,
@@ -177,6 +186,7 @@ class SampleOperations(BaseResource):
             raise Exception('Please provide either a unique ID or a sample name for your sample')
 
         sample_info = {
+            "unique_id": unique_id,
             "sample_name": sample_name,
             "sample_type": sample_type,
             "owner_orcid": owner_orcid,
@@ -345,6 +355,27 @@ class SampleOperations(BaseResource):
         """
         return self._request('post', f"/samples/{parent_id}/children/{child_id}")
 
+    def search(self, q: str, project_id: Optional[str] = None,
+               limit: int = 20) -> List[Dict]:
+        """Fuzzy name search across samples. Available to all authenticated users.
+
+        Matches against sample_name. Returns samples the caller can read.
+        For scientific metadata search use search_metadata().
+
+        Args:
+            q: Search term (min 3 chars). Typo-tolerant.
+            project_id: Optional project to scope results to.
+            limit: Max results (default 20, max 50).
+
+        Returns:
+            List[Dict]: Matching SampleResponse records, ranked by relevance.
+        """
+        params = {'q': q, 'limit': limit}
+        if project_id:
+            params['project_id'] = project_id
+        result = self._request('get', '/samples/search', params=params)
+        return result.get('items', result) if isinstance(result, dict) else result
+
     def graph(self, sample_id: str, recursive: bool = False, as_networkx: bool = False):
         """Return the graph of entities connected to this sample.
 
@@ -359,3 +390,25 @@ class SampleOperations(BaseResource):
             dict | networkx.DiGraph: Node-link graph data.
         """
         return self._client.graphs.get(sample_id, recursive=recursive, as_networkx=as_networkx)
+
+    def download(self, sample_id: str, output_dir: str = 'crucible-downloads') -> List[str]:
+        """Save the sample record as record.json.
+
+        Args:
+            sample_id: Sample unique identifier
+            output_dir: Directory to save the record (default: 'crucible-downloads/')
+
+        Returns:
+            List[str]: Path to the saved record.json
+        """
+        import json as _json
+        import os
+
+        record     = self.get(sample_id, include_metadata=True)
+        record_dir = os.path.join(output_dir, sample_id)
+        os.makedirs(record_dir, exist_ok=True)
+        json_path  = os.path.join(record_dir, 'record.json')
+        with open(json_path, 'w') as fh:
+            _json.dump(record, fh, indent=2)
+        logger.info(f"Saved record to {json_path}")
+        return [json_path]

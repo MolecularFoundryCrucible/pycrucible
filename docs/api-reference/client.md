@@ -14,11 +14,14 @@ client = CrucibleClient(api_url="https://crucible.lbl.gov/api/v2", api_key="your
 
 | Attribute | Type | Description |
 |---|---|---|
-| `client.datasets` | `DatasetOperations` | Dataset CRUD, file upload, metadata, ingestion |
+| `client.datasets` | `DatasetOperations` | Dataset CRUD, file upload/download, thumbnails, metadata |
 | `client.samples` | `SampleOperations` | Sample CRUD, hierarchies, dataset links |
 | `client.projects` | `ProjectOperations` | Project CRUD, user management |
 | `client.instruments` | `InstrumentOperations` | Instrument CRUD |
 | `client.users` | `UserOperations` | User management (admin) |
+| `client.files` | `FileOperations` | File lookup, download, and ingestion by MFID |
+| `client.account` | `AccountOperations` | Self-service profile, API key, verification |
+| `client.ingestions` | `IngestionOperations` | Ingestion request management |
 | `client.graphs` | `GraphOperations` | Entity graph traversal |
 | `client.deletions` | `DeletionOperations` | Deletion request management |
 
@@ -29,10 +32,10 @@ client = CrucibleClient(api_url="https://crucible.lbl.gov/api/v2", api_key="your
       members:
         - __init__
         - health
+        - live
         - whoami
         - get
         - get_resource_type
         - get_links
         - link
         - unlink
-        - download

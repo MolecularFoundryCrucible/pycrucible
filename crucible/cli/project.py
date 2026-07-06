@@ -44,6 +44,8 @@ def register_subcommand(subparsers):
 
     # Register individual project commands
     _register_list(project_subparsers)
+    _register_search(project_subparsers)
+    _register_search_metadata(project_subparsers)
     _register_get(project_subparsers)
     _register_create(project_subparsers)
     _register_update(project_subparsers)
@@ -76,12 +78,6 @@ def _register_list(subparsers):
         help='Include scientific metadata in results'
     )
 
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Verbose output'
-    )
-
     parser.set_defaults(func=_execute_list)
 
 
@@ -110,9 +106,10 @@ def _register_get(subparsers):
     )
 
     parser.add_argument(
-        '-v', '--verbose',
+        '--json',
         action='store_true',
-        help='Verbose output'
+        default=False,
+        help='Output as JSON'
     )
 
     parser.set_defaults(func=_execute_get)
@@ -186,12 +183,6 @@ Examples:
         help='Scientific metadata as JSON string or path to JSON file'
     )
 
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Verbose output'
-    )
-
     parser.set_defaults(func=_execute_create)
 
 
@@ -205,7 +196,6 @@ def _register_list_users(subparsers):
             pid_arg.completer = argcomplete.completers.SuppressCompleter()
         p.add_argument('--limit', type=int, default=_config.default_limit, metavar='N',
                        help=f'Maximum number of results to return (default: {_config.default_limit})')
-        p.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
 
     parser = subparsers.add_parser(
         'list-users',
@@ -245,22 +235,9 @@ Examples:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
-        '--orcid',
-        metavar='ORCID',
-        help='User ORCID identifier (format: 0000-0000-0000-000X)'
-    )
-    group.add_argument(
-        '--email',
-        metavar='EMAIL',
-        help='User email address'
-    )
-
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Verbose output'
-    )
+    group.add_argument('--orcid',    metavar='ORCID',    help='User ORCID identifier')
+    group.add_argument('--email',    metavar='EMAIL',    help='User email address')
+    group.add_argument('-u', '--username', metavar='USERNAME', help='Username')
 
     parser.set_defaults(func=_execute_add_user)
 
@@ -311,8 +288,9 @@ Examples:
     if ARGCOMPLETE_AVAILABLE:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--orcid', metavar='ORCID', help='User ORCID identifier')
-    group.add_argument('--email', metavar='EMAIL', help='User email address')
+    group.add_argument('--orcid',    metavar='ORCID',    help='User ORCID identifier')
+    group.add_argument('--email',    metavar='EMAIL',    help='User email address')
+    group.add_argument('-u', '--username', metavar='USERNAME', help='Username')
     parser.set_defaults(func=_execute_remove_user)
 
 
@@ -392,7 +370,7 @@ def _show_project(project, include_metadata=False):
 def _execute_get(args):
     """Execute the 'project get' subcommand."""
     from crucible.client import CrucibleClient
-    include_metadata = getattr(args, 'include_metadata', False) or _config.include_metadata
+    include_metadata = getattr(args, 'json', False) or getattr(args, 'include_metadata', False) or _config.include_metadata
     try:
         client = CrucibleClient()
         project = client.projects.get(args.project_id,
@@ -402,7 +380,11 @@ def _execute_get(args):
             logger.error(f"Project not found: {args.project_id}")
             sys.exit(1)
 
-        _show_project(project, include_metadata=include_metadata)
+        if getattr(args, 'json', False):
+            import json
+            print(json.dumps(project, indent=2, default=str))
+        else:
+            _show_project(project, include_metadata=include_metadata)
 
     except Exception as e:
         logger.error(f"Error retrieving project: {e}")
@@ -519,7 +501,7 @@ def _execute_list_users(args):
             for u in users:
                 name_parts = [u.get('first_name') or '', u.get('last_name') or '']
                 name  = ' '.join(p for p in name_parts if p) or '-'
-                orcid = u.get('orcid') or u.get('unique_id') or '-'
+                orcid = u.get('orcid') or '-'
                 email = u.get('email') or '-'
                 rows.append((name, orcid, email))
             term.table(rows, ['Name', 'ORCID', 'Email'], max_widths=[25, 19, 35])
@@ -537,8 +519,9 @@ def _execute_add_user(args):
     import re
     from crucible.client import CrucibleClient
 
-    orcid = getattr(args, 'orcid', None)
-    email = getattr(args, 'email', None)
+    orcid    = getattr(args, 'orcid', None)
+    email    = getattr(args, 'email', None)
+    username = getattr(args, 'username', None)
 
     if orcid and not re.match(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$', orcid):
         logger.error(f"Invalid ORCID format: {orcid}")
@@ -548,12 +531,14 @@ def _execute_add_user(args):
     try:
         import requests as _req
         client = CrucibleClient()
-        users = client.projects.add_user(orcid=orcid, project_id=args.project_id, email=email)
+        users = client.projects.add_user(orcid=orcid, project_id=args.project_id,
+                                         email=email, username=username)
 
-        name = orcid or email
+        name = orcid or username or email
         if isinstance(users, list):
             match = next((u for u in users if
-                          (orcid and (u.get('orcid') or u.get('unique_id')) == orcid) or
+                          (orcid and (u.get('orcid')) == orcid) or
+                          (username and u.get('username') == username) or
                           (email and u.get('email') == email)), None)
             if match:
                 first = match.get('first_name') or ''
@@ -564,7 +549,7 @@ def _execute_add_user(args):
 
     except _req.exceptions.HTTPError as e:
         if e.response is not None and e.response.status_code == 404:
-            identifier = orcid or email
+            identifier = orcid or username or email
             logger.error(f"Not found: check that '{identifier}' has a Crucible account "
                          f"and that project '{args.project_id}' exists")
         else:
@@ -635,26 +620,27 @@ def _execute_remove_user(args):
     import requests as _req
     from crucible.client import CrucibleClient
 
-    orcid = getattr(args, 'orcid', None)
-    email = getattr(args, 'email', None)
+    orcid    = getattr(args, 'orcid', None)
+    email    = getattr(args, 'email', None)
+    username = getattr(args, 'username', None)
 
     try:
         client = CrucibleClient()
 
         try:
-            user = client.users.get(orcid=orcid, email=email)
+            user = client.users.get(orcid=orcid, email=email, username=username)
             first = user.get('first_name') or ''
             last  = user.get('last_name') or ''
-            name  = ' '.join(p for p in (first, last) if p) or orcid or email
+            name  = ' '.join(p for p in (first, last) if p) or orcid or username or email
         except Exception:
-            name = orcid or email
+            name = orcid or username or email
 
-        client.projects.remove_user(args.project_id, orcid=orcid, email=email)
+        client.projects.remove_user(args.project_id, orcid=orcid, email=email, username=username)
         logger.info(f"Removed {name} from project '{args.project_id}'")
 
     except _req.exceptions.HTTPError as e:
         if e.response is not None and e.response.status_code == 404:
-            identifier = orcid or email
+            identifier = orcid or username or email
             logger.error(f"Not found: check that '{identifier}' is a member of '{args.project_id}'")
         else:
             logger.error(f"Error removing user from project: {e}")
@@ -696,7 +682,6 @@ Examples:
     )
     if ARGCOMPLETE_AVAILABLE:
         pid_arg.completer = argcomplete.completers.SuppressCompleter()
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     parser.set_defaults(func=_execute_edit)
 
 
@@ -761,3 +746,77 @@ def _execute_edit(args):
         logger.error(f"Error connecting: {e}")
         sys.exit(1)
     _edit_project(args.project_id, client, debug=getattr(args, 'debug', False))
+
+
+def _register_search(subparsers):
+    parser = subparsers.add_parser(
+        'search',
+        help='Fuzzy search projects by name or ID',
+        description='Fuzzy search across projects you are a member of.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible project search alphafold
+    crucible project search "10k"
+""",
+    )
+    parser.add_argument('query', metavar='QUERY', help='Search term (min 3 chars)')
+    parser.add_argument('--limit', '-l', type=int, default=20, metavar='N',
+                        help='Maximum results (default: 20, max: 50)')
+    parser.set_defaults(func=_execute_search)
+
+
+def _execute_search(args):
+    if len(args.query) < 3:
+        logger.error("Search term must be at least 3 characters")
+        sys.exit(1)
+    from crucible.client import CrucibleClient
+    try:
+        client  = CrucibleClient()
+        results = client.projects.search(args.query, limit=args.limit)
+        term.header(f"Projects matching '{args.query}' ({len(results)})")
+        if not results:
+            print(f"  {term.dim('No results found.')}")
+            return
+        rows = [(r.get('project_id', '-'), r.get('title') or '-',
+                 r.get('organization') or '-') for r in results]
+        term.table(rows, ['ID', 'Title', 'Organization'], max_widths=[20, 30, 20])
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_search_metadata(subparsers):
+    for name in ('search-metadata', 'search-md'):
+        parser = subparsers.add_parser(
+            name,
+            help='Search projects by scientific metadata' if name == 'search-metadata' else None,
+            description='Full-text search across scientific metadata of all accessible projects.',
+            formatter_class=term.ColorHelpFormatter,
+        )
+        parser.add_argument('query', metavar='QUERY', help='Search query string')
+        parser.add_argument('--limit', '-l', type=int, default=50, metavar='N',
+                            help='Maximum results (default: 50)')
+        parser.set_defaults(func=_execute_search_metadata)
+
+
+def _execute_search_metadata(args):
+    from crucible.client import CrucibleClient
+    try:
+        client  = CrucibleClient()
+        results = client.projects.search_metadata(args.query, limit=args.limit)
+        term.header(f"Metadata search: {args.query} ({len(results)})")
+        if not results:
+            print(f"  {term.dim('No results found.')}")
+            return
+        for r in results:
+            print(f"  {term.cyan(r.get('unique_id', '-'))}")
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)

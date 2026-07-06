@@ -2,25 +2,29 @@
 
 Access via `client.datasets`.
 
+File operations are also available via `client.files` (by MFID) and ingestion via `client.ingestions`.
+
 ::: crucible.resources.datasets.DatasetOperations
     options:
       members:
         - get
         - list
+        - count
+        - search
         - create
         - update
         - delete
-        - upload_file
+        - add_file
+        - list_files
         - get_download_links
         - download
-        - add_associated_file
-        - get_associated_files
         - get_scientific_metadata
         - update_scientific_metadata
         - replace_scientific_metadata
-        - search_scientific_metadata
+        - search_metadata
         - add_thumbnail
         - get_thumbnails
+        - delete_thumbnail
         - add_keyword
         - get_keywords
         - add_sample
@@ -29,5 +33,6 @@ Access via `client.datasets`.
         - remove_child
         - list_parents
         - list_children
-        - request_ingestion
+        - get_access_groups
+        - add_access_group
         - graph

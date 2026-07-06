@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-nano-crucible: National Archive for NSRC Observations - Crucible
+nano-crucible
 
-Python client library for the Crucible API - the Molecular Foundry data lakehouse.
+Python client library for the Crucible API - the Molecular Foundry data
+management system.
 """
 
-__version__ = "2.1.2"
+__version__ = "3.0.0"
 __author__ = "mkywall","roncofaber"
 
 import logging
@@ -57,24 +58,8 @@ def setup_logging(verbose=False):
 
 
 from .client import CrucibleClient
-from .models import Dataset, Sample, Project, User, Instrument
+from .models import CrucibleResource, Dataset, Sample, Project, User, Instrument, AssociatedFile
 from . import config
 
-__all__ = ['CrucibleClient', 'Dataset', 'Sample', 'Project', 'User', 'Instrument',
+__all__ = ['CrucibleClient', 'CrucibleResource', 'Dataset', 'Sample', 'Project', 'User', 'Instrument', 'AssociatedFile',
            'config', 'setup_logging', '__version__', '__author__']
-
-
-def __getattr__(name: str):
-    import warnings
-    _aliases = {
-        'BaseDataset': Dataset,
-        'BaseSample':  Sample,
-    }
-    if name in _aliases:
-        warnings.warn(
-            f"'{name}' is deprecated; use '{_aliases[name].__name__}' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return _aliases[name]
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
