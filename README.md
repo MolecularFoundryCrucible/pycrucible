@@ -167,7 +167,7 @@ This project is licensed under the BSD-3-Clause License - see the [LICENSE](LICE
 
 - **Crucible API**: [https://crucible.lbl.gov/api/v2](https://crucible.lbl.gov/api/v2)
 - **Documentation**: [https://MolecularFoundryCrucible.github.io/nano-crucible/](https://MolecularFoundryCrucible.github.io/nano-crucible/)
-- **Crucible Web Interface**: [https://crucible-graph-explorer-776258882599.us-central1.run.app](https://crucible-graph-explorer-776258882599.us-central1.run.app)
+- **Crucible Web Interface**: [https://crucible.lbl.gov/explore](https://crucible.lbl.gov/explore)
 
 ## 💬 Support
 
