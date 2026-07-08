@@ -1,20 +1,22 @@
 name: Publish Python distribution to PyPI
 
 on:
+  release:
+    types: [published]
   workflow_dispatch
-    
+
 jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-latest
-  
+
     steps:
         - uses: actions/checkout@v4
           with:
             fetch-depth: 0
         - name: Check version matches tag
           run: |
-            TAG_VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
+            TAG_VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
             INIT_VERSION=$(grep -Po '(?<=__version__ = ")[^"]*' crucible/__init__.py)
             if [ "$TAG_VERSION" != "$INIT_VERSION" ]; then
               echo "Version mismatch: tag=$TAG_VERSION, __init__.py=$INIT_VERSION"
