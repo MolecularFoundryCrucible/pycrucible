@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0.1
+
+- Fix `datasets.download()`: data files now saved inside `output_dir/{dsid}/` alongside `record.json`, not directly in `output_dir/`.
+
 ## 3.0.0
 
 This is a major release. The flat `client.*` API that was deprecated in 2.x has been
