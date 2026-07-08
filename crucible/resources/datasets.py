@@ -516,12 +516,14 @@ class DatasetOperations(BaseResource):
             downloaded.append(json_path)
 
         if not no_files:
-            files = self._fetch_files(dsid, output_dir=output_dir,
+            dest = os.path.join(output_dir, dsid)
+            os.makedirs(dest, exist_ok=True)
+            files = self._fetch_files(dsid, output_dir=dest,
                                       overwrite_existing=overwrite_existing,
                                       include=include, exclude=exclude)
             downloaded.extend(files)
             if files:
-                logger.info(f"Downloaded {len(files)} file(s) to {output_dir}")
+                logger.info(f"Downloaded {len(files)} file(s) to {dest}")
 
         return downloaded
 
