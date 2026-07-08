@@ -500,11 +500,12 @@ def _execute_list_users(args):
             rows = []
             for u in users:
                 name_parts = [u.get('first_name') or '', u.get('last_name') or '']
-                name  = ' '.join(p for p in name_parts if p) or '-'
-                orcid = u.get('orcid') or '-'
-                email = u.get('email') or '-'
-                rows.append((name, orcid, email))
-            term.table(rows, ['Name', 'ORCID', 'Email'], max_widths=[25, 19, 35])
+                name     = ' '.join(p for p in name_parts if p) or '-'
+                username = u.get('username') or '-'
+                orcid    = u.get('unique_id') or '-'
+                email    = u.get('email') or '-'
+                rows.append((username, name, orcid, email))
+            term.table(rows, ['Username', 'Name', 'ORCID', 'Email'], max_widths=[20, 25, 19, 35])
 
     except Exception as e:
         logger.error(f"Error listing project users: {e}")
@@ -537,7 +538,7 @@ def _execute_add_user(args):
         name = orcid or username or email
         if isinstance(users, list):
             match = next((u for u in users if
-                          (orcid and (u.get('orcid')) == orcid) or
+                          (orcid and (u.get('unique_id')) == orcid) or
                           (username and u.get('username') == username) or
                           (email and u.get('email') == email)), None)
             if match:
