@@ -900,13 +900,16 @@ def _execute_create(args):
             sys.exit(1)
 
     try:
+        from crucible.models import Sample
         result = client.samples.create(
-            sample_name=name,
-            project_id=project_id,
-            description=description,
-            sample_type=sample_type,
-            timestamp=timestamp,
-            public=True if args.public else None,
+            Sample(
+                sample_name=name,
+                project_id=project_id,
+                description=description,
+                sample_type=sample_type,
+                timestamp=timestamp,
+                public=True if args.public else None,
+            ),
             scientific_metadata=metadata_dict,
         )
 

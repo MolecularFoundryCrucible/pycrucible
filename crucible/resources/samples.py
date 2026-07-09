@@ -131,79 +131,50 @@ class SampleOperations(BaseResource):
         params = {k: v for k, v in kwargs.items() if v is not None}
         return self._paginate(f"/samples/{sample_id}/children", params, limit, offset)
 
-    def create(self, unique_id: Optional[str] = None, sample_name: Optional[str] = None,
-               description: Optional[str] = None, timestamp: Optional[str] = None,
-               owner_orcid: Optional[str] = None,
-               project_id: Optional[str] = None, sample_type: Optional[str] = None,
-               public: Optional[bool] = None,
+    def create(self, sample=None, scientific_metadata: Optional[Dict] = None,
                parents: List[Dict] = [], children: List[Dict] = [],
-               scientific_metadata: Optional[Dict] = None,
-               # deprecated aliases (creation_time/modification_time are server-assigned)
-               date_created: Optional[str] = None, creation_date: Optional[str] = None,
-               owner_id: Optional[int] = None,
-               owner_user_id: Optional[int] = None) -> Dict:
-        """Add a new sample with optional parent-child relationships.
+               **kwargs) -> Dict:
+        """Create a new sample record.
 
         Args:
-            sample_name (str, optional): Human-readable sample name
-            sample_type (str, optional): Category of sample (for filtering)
-            description (str, optional): Sample description
-            timestamp (str, optional): User-defined timestamp
-            owner_orcid (str, optional): Owner's ORCID
-            project_id (str, optional): Project ID
-            public (bool, optional): Whether the sample is publicly visible
-            parents (List[Dict], optional): Parent samples
-            children (List[Dict], optional): Child samples
-            scientific_metadata (Dict, optional): Scientific metadata to attach after creation
+            sample (Sample): Sample model instance with the desired fields.
+            scientific_metadata (dict, optional): Scientific metadata to attach after creation.
+            parents (list, optional): Parent samples to link ({unique_id: ...}).
+            children (list, optional): Child samples to link ({unique_id: ...}).
 
         Returns:
-            Dict: Created sample object
-
-        Raises:
-            Exception: If neither unique_id nor sample_name is provided
+            Dict: Created sample record.
         """
         import warnings
-        if date_created is not None:
-            warnings.warn(
-                "Parameter 'date_created' is deprecated and ignored; "
-                "creation_time is now assigned server-side.",
-                DeprecationWarning, stacklevel=2
-            )
-        if creation_date is not None:
-            warnings.warn(
-                "Parameter 'creation_date' is deprecated and ignored; "
-                "creation_time is now assigned server-side.",
-                DeprecationWarning, stacklevel=2
-            )
-        if owner_id is not None or owner_user_id is not None:
-            warnings.warn(
-                "Parameters 'owner_id'/'owner_user_id' are deprecated and ignored; "
-                "use 'owner_orcid' instead.",
-                DeprecationWarning, stacklevel=2
-            )
+        from crucible.models import Sample
 
-        if unique_id is None and sample_name is None:
-            raise Exception('Please provide either a unique ID or a sample name for your sample')
+        if sample is None or not isinstance(sample, Sample):
+            if sample is not None:
+                # positional arg was not a Sample — treat it as a mistake
+                raise TypeError(
+                    f"Expected a Sample model, got {type(sample).__name__}. "
+                    "Use: samples.create(Sample(sample_name=..., project_id=...))"
+                )
+            if kwargs:
+                warnings.warn(
+                    "Passing keyword arguments to samples.create() is deprecated. "
+                    "Pass a Sample model instead: samples.create(Sample(...))",
+                    DeprecationWarning, stacklevel=2
+                )
+                # strip keys the model doesn't know
+                _dropped = {'date_created', 'creation_date', 'owner_id', 'owner_user_id'}
+                kwargs = {k: v for k, v in kwargs.items() if k not in _dropped}
+                sample = Sample(**kwargs)
+            else:
+                raise ValueError("Pass a Sample model: samples.create(Sample(...))")
 
-        sample_info = {
-            "unique_id": unique_id,
-            "sample_name": sample_name,
-            "sample_type": sample_type,
-            "owner_orcid": owner_orcid,
-            "description": description,
-            "project_id": project_id,
-            "timestamp": timestamp,
-        }
-        if public is not None:
-            sample_info["public"] = public
-        sample_info = {k: v for k, v in sample_info.items() if v is not None}
+        sample_info = {k: v for k, v in sample.model_dump().items() if v is not None}
 
         new_samp = self._request('post', "/samples", json=sample_info)
         sid = new_samp['unique_id']
 
         for p in parents:
             self._request('post', f"/samples/{p['unique_id']}/children/{sid}")
-
         for chd in children:
             self._request('post', f"/samples/{sid}/children/{chd['unique_id']}")
 

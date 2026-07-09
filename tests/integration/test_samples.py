@@ -64,11 +64,12 @@ def test_sample_download(client, existing_sample):
 # ── create / update / link ────────────────────────────────────────────────────
 
 def test_sample_create_and_update(client, project_id, test_tag):
-    s = client.samples.create(
+    from crucible.models import Sample
+    s = client.samples.create(Sample(
         sample_name=f'{test_tag}-create-test',
         project_id=project_id,
         sample_type='test',
-    )
+    ))
     sid = s.get('unique_id')
     assert sid
 
@@ -77,8 +78,9 @@ def test_sample_create_and_update(client, project_id, test_tag):
 
 
 def test_sample_link_parent_child(client, project_id, test_tag):
-    parent = client.samples.create(sample_name=f'{test_tag}-parent', project_id=project_id)
-    child  = client.samples.create(sample_name=f'{test_tag}-child',  project_id=project_id)
+    from crucible.models import Sample
+    parent = client.samples.create(Sample(sample_name=f'{test_tag}-parent', project_id=project_id))
+    child  = client.samples.create(Sample(sample_name=f'{test_tag}-child',  project_id=project_id))
     pid, cid = parent.get('unique_id'), child.get('unique_id')
 
     client.samples.link(pid, cid)
