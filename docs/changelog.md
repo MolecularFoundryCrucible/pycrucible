@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `client.files.delete(file_id)` and `crucible file delete FILE_ID` to delete a file by MFID (`DELETE /files/{file_id}`).
+- `samples.create()` now takes a `Sample` model as its first argument, consistent with `datasets.create()`. Passing keyword arguments still works but raises a `DeprecationWarning`.
+- `crucible project list-users` now shows the username column and correctly reads `unique_id` as the ORCID (field was renamed on the API side).
+- Default graph explorer URL updated to `https://crucible.lbl.gov/explore`.
+
 ## 3.0.1
 
 - Fix `datasets.download()`: data files now saved inside `output_dir/{dsid}/` alongside `record.json`, not directly in `output_dir/`.

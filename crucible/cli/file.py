@@ -41,6 +41,7 @@ def register_subcommand(subparsers):
     _register_get(file_subparsers)
     _register_download(file_subparsers)
     _register_ingestion(file_subparsers)
+    _register_delete(file_subparsers)
 
 
 def _register_list(subparsers):
@@ -206,6 +207,36 @@ def _execute_download(args):
 
     except SystemExit:
         raise
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_delete(subparsers):
+    parser = subparsers.add_parser(
+        'delete',
+        help='Delete a file by MFID',
+        description='Permanently delete a file record and its stored data.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible file delete mf_abc123
+""",
+    )
+    parser.add_argument('file_id', metavar='FILE_ID', help='File MFID')
+    parser.set_defaults(func=_execute_delete)
+
+
+def _execute_delete(args):
+    """Execute 'crucible file delete'."""
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+        client.files.delete(args.file_id)
+        print(f"  {term.green('✓')} Deleted {args.file_id}")
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):
