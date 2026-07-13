@@ -367,6 +367,18 @@ class DatasetOperations(BaseResource):
         result = self._request('post', f"/datasets/{dsid}/rga_analysis")
         return result
 
+    def request_mosaic_stitch(self, dsid: str) -> Dict:
+        """Request mosaic stitch processing for a dataset.
+
+        Args:
+            dsid (str): Dataset unique identifier
+
+        Returns:
+            Dict: Mosaic stitch request information
+        """
+        result = self._request('post', f"/datasets/{dsid}/mosaic_stitch")
+        return result
+
     @_deprecated("client.graphs.get")
     def graph(self, dataset_id: str, recursive: bool = False, as_networkx: bool = False):
         return self._client.graphs.get(dataset_id, recursive=recursive, as_networkx=as_networkx)
