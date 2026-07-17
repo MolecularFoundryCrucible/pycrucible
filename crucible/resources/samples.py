@@ -31,13 +31,14 @@ class SampleOperations(BaseResource):
         return Sample.model_validate(raw).model_dump()
 
     def get(self, sample_id: str, include_links: bool = False,
-            include_metadata: bool = False) -> Dict:
+            include_metadata: bool = False, include_owner: bool = False) -> Dict:
         """Get sample information by ID.
 
         Args:
             sample_id (str): Sample unique identifier
             include_links (bool): Whether to include immediate parent/child/associated links
             include_metadata (bool): Whether to include scientific metadata
+            include_owner (bool): Whether to resolve owner_orcid into a full user object
 
         Returns:
             Dict: Sample information with optional links and metadata
@@ -47,12 +48,15 @@ class SampleOperations(BaseResource):
             params['include_links'] = True
         if include_metadata:
             params['include_metadata'] = True
+        if include_owner:
+            params['include_owner'] = True
         raw = self._request('get', f"/samples/{sample_id}", params=params or None)
         return self._parse(raw) if raw is not None else None
 
     def list(self, dataset_id: Optional[str] = None, parent_id: Optional[str] = None,
              include_metadata: bool = False, include_links: bool = False,
-             limit: int = DEFAULT_LIMIT, offset: int = 0, **kwargs) -> List[Dict]:
+             include_owner: bool = False, limit: int = DEFAULT_LIMIT,
+             offset: int = 0, **kwargs) -> List[Dict]:
         """List samples with optional filtering and automatic pagination.
 
         Args:
@@ -60,6 +64,7 @@ class SampleOperations(BaseResource):
             parent_id (str, optional): Get child samples from parent (deprecated)
             include_metadata (bool): Include scientific metadata in results
             include_links (bool): Include linked resources (parents, children, associated) per sample
+            include_owner (bool): Resolve owner_orcid into a full user object per sample
             limit (int): Maximum total results to return (default: 100). Larger
                          requests are handled transparently by following the
                          server's keyset cursor. Pass None to fetch all matches.
@@ -76,6 +81,8 @@ class SampleOperations(BaseResource):
             params['include_metadata'] = True
         if include_links:
             params['include_links'] = True
+        if include_owner:
+            params['include_owner'] = True
         if dataset_id:
             endpoint = f"/datasets/{dataset_id}/samples"
         elif parent_id:

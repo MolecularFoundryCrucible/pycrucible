@@ -59,6 +59,24 @@ def orcid_link(orcid: str) -> str | None:
     return hyperlink(cyan(orcid), f"https://orcid.org/{orcid}")
 
 
+def fmt_owner(resource: dict) -> str | None:
+    """Format the owner of a resource.
+
+    If include_owner was used and the owner object is present, returns
+    'First Last (@username)' with the ORCID as a clickable hyperlink.
+    Falls back to the raw owner_orcid field.
+    """
+    owner = resource.get('owner')
+    orcid = resource.get('owner_orcid')
+    if owner:
+        parts = [owner.get('first_name') or '', owner.get('last_name') or '']
+        name  = ' '.join(p for p in parts if p) or owner.get('username') or orcid or '-'
+        uname = owner.get('username')
+        label = f"{name} (@{uname})" if uname else name
+        return hyperlink(cyan(label), f"https://orcid.org/{orcid}") if orcid else cyan(label)
+    return orcid_link(orcid)
+
+
 def project_link(pid: str, url: str | None = None) -> str | None:
     """Render a project ID in cyan, optionally as a clickable OSC 8 hyperlink."""
     if not pid:

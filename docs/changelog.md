@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `include_owner=True` on `datasets.get()`, `datasets.list()`, `samples.get()`, `samples.list()` resolves `owner_orcid` into a full user object in a single server-side query. The CLI `get` commands use this by default and display the owner as "First Last (@username)" instead of a raw ORCID.
+
 - `client.files.delete(file_id)` and `crucible file delete FILE_ID` to delete a file by MFID (`DELETE /files/{file_id}`).
 - `samples.create()` now takes a `Sample` model as its first argument, consistent with `datasets.create()`. Passing keyword arguments still works but raises a `DeprecationWarning`.
 - `crucible project list-users` now shows the username column and correctly reads `unique_id` as the ORCID (field was renamed on the API side).

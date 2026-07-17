@@ -95,7 +95,7 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
 
     if verbose:
         term.subheader("Ownership")
-        _p("Owner ORCID", term.orcid_link(dataset.get('owner_orcid')))
+        _p("Owner", term.fmt_owner(dataset))
 
         term.subheader("File")
         _p("Data Format", dataset.get('data_format'))
@@ -1729,7 +1729,8 @@ def _execute_get(args):
         client = CrucibleClient()
         graph   = getattr(args, 'graph', False)
         dataset = client.datasets.get(args.dataset_id, include_metadata=include_metadata,
-                                      include_links=graph or _config.include_links)
+                                      include_links=graph or _config.include_links,
+                                      include_owner=True)
         if dataset is None:
             logger.error(f"Dataset not found: {args.dataset_id}")
             sys.exit(1)

@@ -726,7 +726,7 @@ def _show_sample(sample, client, verbose=False, graph=False, include_metadata=Fa
 
     if verbose or graph:
         term.subheader("Ownership")
-        _p("Owner ORCID", term.orcid_link(sample.get('owner_orcid')))
+        _p("Owner", term.fmt_owner(sample))
 
         term.subheader("Timing")
         _p("Created",  term.fmt_ts(sample.get('creation_time')))
@@ -789,7 +789,7 @@ def _execute_get(args):
         graph  = getattr(args, 'graph', False)
         client = CrucibleClient()
         sample = client.samples.get(args.sample_id, include_links=graph or _config.include_links,
-                                    include_metadata=include_metadata)
+                                    include_metadata=include_metadata, include_owner=True)
         if sample is None:
             logger.error(f"Sample not found: {args.sample_id}")
             sys.exit(1)

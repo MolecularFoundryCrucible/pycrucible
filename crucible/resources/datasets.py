@@ -43,13 +43,14 @@ class DatasetOperations(BaseResource):
         return Dataset.model_validate(raw).model_dump()
 
     def get(self, dsid: str, include_metadata: bool = False,
-            include_links: bool = False) -> Dict:
+            include_links: bool = False, include_owner: bool = False) -> Dict:
         """Get dataset details, optionally including scientific metadata and links.
 
         Args:
             dsid (str): Dataset unique identifier
             include_metadata (bool): Whether to include scientific metadata
             include_links (bool): Whether to include immediate parent/child/associated links
+            include_owner (bool): Whether to resolve owner_orcid into a full user object
 
         Returns:
             Dict: Dataset object with optional metadata and links
@@ -57,9 +58,10 @@ class DatasetOperations(BaseResource):
         params = {}
         if include_links:
             params['include_links'] = True
-
         if include_metadata:
             params['include_metadata'] = True
+        if include_owner:
+            params['include_owner'] = True
 
         raw = self._request('get', f'/datasets/{dsid}', params=params or None)
         if raw is None:
@@ -69,8 +71,8 @@ class DatasetOperations(BaseResource):
 
 
     def list(self, sample_id: Optional[str] = None, include_metadata: bool = False,
-             include_links: bool = False, limit: int = DEFAULT_LIMIT,
-             offset: int = 0, **kwargs) -> List[Dict]:
+             include_links: bool = False, include_owner: bool = False,
+             limit: int = DEFAULT_LIMIT, offset: int = 0, **kwargs) -> List[Dict]:
         """List datasets with optional filtering and automatic pagination.
 
         Args:
@@ -83,6 +85,7 @@ class DatasetOperations(BaseResource):
                           for the sample_id sub-listing.
             include_metadata (bool): Include scientific metadata in results
             include_links (bool): Include linked resources (parents, children, associated) per dataset
+            include_owner (bool): Resolve owner_orcid into a full user object per dataset
             **kwargs (Any): Query parameters for filtering. Supported fields include:
                 keyword, unique_id, public, dataset_name, owner_orcid, project_id,
                 instrument_name, timestamp, size, data_format, data_type, measurement,
@@ -97,6 +100,8 @@ class DatasetOperations(BaseResource):
             params['include_metadata'] = True
         if include_links:
             params['include_links'] = True
+        if include_owner:
+            params['include_owner'] = True
         if sample_id:
             if limit:
                 params['limit'] = limit
