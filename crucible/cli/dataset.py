@@ -89,14 +89,12 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
     _p("Public",      "yes" if pub else ("no" if pub is not None else None))
     _p("Project",     dataset.get('project_id'))
     _p("Timestamp",   term.fmt_ts(dataset.get('timestamp')))
+    _p("Owner",       term.fmt_owner(dataset))
     _p("Description", dataset.get('description'))
 
     dsid = dataset.get('unique_id')
 
     if verbose:
-        term.subheader("Ownership")
-        _p("Owner", term.fmt_owner(dataset))
-
         term.subheader("File")
         _p("Data Format", dataset.get('data_format'))
         _p("Size",        term.fmt_size(dataset.get('size')))

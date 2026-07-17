@@ -722,12 +722,10 @@ def _show_sample(sample, client, verbose=False, graph=False, include_metadata=Fa
     _p("Public",      "yes" if sample.get('public') else "no")
     _p("Project",     sample.get('project_id'))
     _p("Timestamp",   term.fmt_ts(sample.get('timestamp')))
+    _p("Owner",       term.fmt_owner(sample))
     _p("Description", sample.get('description'))
 
     if verbose or graph:
-        term.subheader("Ownership")
-        _p("Owner", term.fmt_owner(sample))
-
         term.subheader("Timing")
         _p("Created",  term.fmt_ts(sample.get('creation_time')))
         _p("Modified", term.fmt_ts(sample.get('modification_time')))
