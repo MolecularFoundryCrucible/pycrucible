@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- `include_owner=True` on `datasets.get()`, `datasets.list()`, `samples.get()`, `samples.list()` resolves `owner_orcid` into a full user object in a single server-side query. The CLI `get` commands use this by default and display the owner as "First Last (@username)" instead of a raw ORCID.
+- `include_owner=True` on `datasets.get()`, `datasets.list()`, `samples.get()`, `samples.list()` and `client.get()` resolves `owner_orcid` into a full user object in a single server-side query. The CLI displays the owner as "First Last (@username)" instead of a raw ORCID. Note: `client.get()` passes the flag to `GET /resources/{id}` — requires the API to support it there (pending deployment).
 
 - `client.files.delete(file_id)` and `crucible file delete FILE_ID` to delete a file by MFID (`DELETE /files/{file_id}`).
 - `samples.create()` now takes a `Sample` model as its first argument, consistent with `datasets.create()`. Passing keyword arguments still works but raises a `DeprecationWarning`.
