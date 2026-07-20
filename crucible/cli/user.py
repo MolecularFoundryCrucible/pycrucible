@@ -42,6 +42,7 @@ def register_subcommand(subparsers):
     _register_search(user_subparsers)
     _register_create(user_subparsers)
     _register_update(user_subparsers)
+    _register_edit(user_subparsers)
     _register_list(user_subparsers)
     _register_list_datasets(user_subparsers)
     _register_check_access(user_subparsers)
@@ -370,6 +371,61 @@ def _execute_update(args):
         sys.exit(1)
 
 
+
+
+def _register_edit(subparsers):
+    parser = subparsers.add_parser(
+        'edit',
+        help='Edit a user record in your editor',
+        description='Open a user record in your editor and apply changes on save (requires admin permissions)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible user edit 0000-0002-1825-0097
+""",
+    )
+    parser.add_argument('orcid', metavar='ORCID', help='User ORCID identifier')
+    parser.set_defaults(func=_execute_edit)
+
+
+def _execute_edit(args):
+    """Execute the 'user edit' subcommand."""
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+        user = client.users.get(orcid=args.orcid)
+        if user is None:
+            logger.error(f"User not found: {args.orcid}")
+            sys.exit(1)
+
+        _EDITABLE = ('first_name', 'last_name', 'email', 'username', 'is_service_account')
+        original = {k: user.get(k) for k in _EDITABLE}
+
+        try:
+            edited = term.open_editor_json(original)
+        except (RuntimeError, ValueError) as e:
+            logger.error(str(e))
+            sys.exit(1)
+
+        if edited is None:
+            logger.info("No changes.")
+            return
+
+        changes = {k: v for k, v in edited.items() if k in _EDITABLE and v != original.get(k)}
+        if not changes:
+            logger.info("No changes.")
+            return
+
+        result = client.users.update(args.orcid, **changes)
+        term.header("Changes")
+        term.diff(original, {k: result.get(k) for k in changes})
+
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
 
 
 def _register_add_access_group(subparsers):
