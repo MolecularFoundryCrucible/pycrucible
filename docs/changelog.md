@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `search_metadata()`: updated for API change — response is now unwrapped from the paginated envelope, default limit changed to 20, and each result now includes `resource_type`, `name`, `owner_orcid`, `creation_time`, `modification_time`, and `rank` alongside `scientific_metadata`.
+
 - `include_owner=True` on `datasets.get/list()`, `samples.get/list()`, and `client.get()` resolves the owner into a full user object. CLI shows "First Last (@username)" instead of a raw ORCID. Support on `GET /resources/{id}` is pending API deployment.
 
 - `client.files.delete(file_id)` and `crucible file delete FILE_ID` to delete a file by MFID (`DELETE /files/{file_id}`).
