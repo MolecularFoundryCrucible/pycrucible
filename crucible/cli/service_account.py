@@ -69,21 +69,41 @@ Examples:
     crucible sa create --username nirvana-sa --unique-id 0th7...
 """,
     )
-    parser.add_argument('--username', '-u', required=True, metavar='USERNAME',
-                        help='Unique username (lowercase, letters/digits/hyphens/underscores)')
+    parser.add_argument('--username', '-u', default=None, metavar='USERNAME',
+                        help='Unique username (lowercase, letters/digits/hyphens/underscores). '
+                             'Prompted interactively if omitted.')
     parser.add_argument('--unique-id', metavar='MFID',
                         help='Optional MFID — server generates one if omitted')
     parser.set_defaults(func=_execute_create)
 
 
 def _execute_create(args):
+    import re
     from crucible.client import CrucibleClient
+
+    username = getattr(args, 'username', None)
+    unique_id = getattr(args, 'unique_id', None)
+
+    if username is None:
+        print()
+        print("  Creating a new service account.")
+        print()
+        while not username:
+            username = input("  Username (lowercase, letters/digits/hyphens/underscores): ").strip()
+            if not username:
+                print("  Username is required.")
+            elif not re.match(r'^[a-z0-9_-]+$', username):
+                print("  Invalid format. Use lowercase letters, digits, hyphens, underscores only.")
+                username = None
+
+        uid_input = input("  MFID (optional, press Enter to skip): ").strip()
+        if uid_input:
+            unique_id = uid_input
+        print()
+
     try:
         client = CrucibleClient()
-        result = client.service_accounts.create(
-            username=args.username,
-            unique_id=getattr(args, 'unique_id', None),
-        )
+        result = client.service_accounts.create(username=username, unique_id=unique_id)
         _show_sa(result, key=result.get('api_key'))
     except Exception as e:
         logger.error(f"Error: {e}")
