@@ -381,10 +381,15 @@ def _register_edit(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible user edit 0000-0002-1825-0097
+    crucible user edit --orcid 0000-0002-1825-0097
+    crucible user edit --username fabrice
+    crucible user edit --email user@lbl.gov
 """,
     )
-    parser.add_argument('orcid', metavar='ORCID', help='User ORCID identifier')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--orcid',    '-o', metavar='ORCID',    help='User ORCID identifier')
+    group.add_argument('--username', '-u', metavar='USERNAME', help='Username')
+    group.add_argument('--email',    '-e', metavar='EMAIL',    help='Email address')
     parser.set_defaults(func=_execute_edit)
 
 
@@ -393,9 +398,18 @@ def _execute_edit(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        user = client.users.get(orcid=args.orcid)
+        user = client.users.get(
+            orcid=getattr(args, 'orcid', None),
+            username=getattr(args, 'username', None),
+            email=getattr(args, 'email', None),
+        )
         if user is None:
-            logger.error(f"User not found: {args.orcid}")
+            logger.error("User not found")
+            sys.exit(1)
+
+        orcid = user.get('unique_id')
+        if not orcid:
+            logger.error("Could not determine user ORCID")
             sys.exit(1)
 
         _EDITABLE = ('first_name', 'last_name', 'email', 'username', 'is_service_account')
@@ -416,7 +430,7 @@ def _execute_edit(args):
             logger.info("No changes.")
             return
 
-        result = client.users.update(args.orcid, **changes)
+        result = client.users.update(orcid, **changes)
         term.header("Changes")
         term.diff(original, {k: result.get(k) for k in changes})
 
