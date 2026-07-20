@@ -171,6 +171,7 @@ Examples:
     # Import subcommands
     from . import (
         dataset, sample, project, instrument, user, file as file_cmd, ingestion,  # Resource commands
+        service_account,
         upload, completion, config as config_cmd, open as open_cmd, link, unlink, whoami, account, cache, download, get, edit, status, deletion, tree, cast, qr  # Utility commands
     )
 
@@ -182,6 +183,7 @@ Examples:
     user.register_subcommand(subparsers)
     file_cmd.register_subcommand(subparsers)
     ingestion.register_subcommand(subparsers)
+    service_account.register_subcommand(subparsers)
 
     # Register utility commands (backward compatibility)
     upload.register_subcommand(subparsers)

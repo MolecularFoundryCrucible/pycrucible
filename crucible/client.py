@@ -76,7 +76,7 @@ class CrucibleClient:
         # Initialize resource operations
         from .resources import FileOperations, DatasetOperations, SampleOperations, \
         ProjectOperations, UserOperations, InstrumentOperations, DeletionOperations, \
-        GraphOperations, AccountOperations, IngestionOperations
+        GraphOperations, AccountOperations, IngestionOperations, ServiceAccountOperations
 
         self.files = FileOperations(self)
         self.datasets = DatasetOperations(self)
@@ -88,6 +88,7 @@ class CrucibleClient:
         self.graphs = GraphOperations(self)
         self.account = AccountOperations(self)
         self.ingestions = IngestionOperations(self)
+        self.service_accounts = ServiceAccountOperations(self)
     
     def _request(self, method: str, endpoint: str, **kwargs) -> Any:
         """Make an HTTP request to the API.
