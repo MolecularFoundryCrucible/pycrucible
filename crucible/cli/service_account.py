@@ -89,11 +89,11 @@ def _execute_create(args):
         print("  Creating a new service account.")
         print()
         while not username:
-            username = input("  Username (lowercase, letters/digits/hyphens/underscores): ").strip()
+            username = input("  Username: ").strip()
             if not username:
                 print("  Username is required.")
             elif not re.match(r'^[a-z0-9_-]+$', username):
-                print("  Invalid format. Use lowercase letters, digits, hyphens, underscores only.")
+                print("  Invalid format (lowercase, digits, hyphens, underscores only).")
                 username = None
 
         uid_input = input("  MFID (optional, press Enter to skip): ").strip()
