@@ -122,6 +122,25 @@ class DeletionRequest(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
 
 
+class ResourceSearchResult(BaseModel):
+    """A single result from search_metadata() (GET /resources/metadata/search).
+
+    Returned by client.datasets.search_metadata(), client.samples.search_metadata(), etc.
+    Results are ranked by relevance and may span datasets, samples, and instruments.
+    """
+
+    unique_id: Optional[str] = None
+    resource_type: Optional[str] = None
+    name: Optional[str] = None
+    owner_orcid: Optional[str] = None
+    creation_time: Optional[str] = None
+    modification_time: Optional[str] = None
+    rank: Optional[float] = None
+    scientific_metadata: Optional[Dict] = None
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
+
+
 class DeletionAuditLog(BaseModel):
     '''Permanent record of a hard-deleted resource. Written before deletion; survives it.'''
 
