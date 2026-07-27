@@ -202,6 +202,43 @@ class ProjectOperations(BaseResource):
         result = self._request('get', '/projects/search', params={'q': q, 'limit': limit})
         return result.get('items', result) if isinstance(result, dict) else result
 
+    def request_join(self, project_id: str, reason: Optional[str] = None) -> Dict:
+        """Request to join this project. Any authenticated user.
+
+        Delegates to client.access_groups.request_join() — see there for full
+        list/approve/reject operations on join requests.
+
+        Args:
+            project_id: Unique project identifier.
+            reason: Optional explanation for the request.
+
+        Returns:
+            Dict: The created JoinRequest record (status will be "pending").
+
+        Raises:
+            HTTPError 404: Project doesn't exist.
+            HTTPError 409: Already a member, or already has a pending request.
+        """
+        return self._client.access_groups.request_join(project_id, reason=reason)
+
+    def list_join_requests(self, project_id: str, status: Optional[str] = None,
+                           limit: int = DEFAULT_LIMIT, offset: int = 0) -> List[Dict]:
+        """List join requests for this project. Admin or the project lead only.
+
+        Delegates to client.access_groups.list_join_requests(group_name=project_id).
+
+        Args:
+            project_id: Unique project identifier.
+            status: Filter by "pending", "approved", or "rejected".
+            limit: Maximum number of results.
+            offset: Starting position in the full result set.
+
+        Returns:
+            List[Dict]: Matching JoinRequest records, most recent first.
+        """
+        return self._client.access_groups.list_join_requests(
+            group_name=project_id, status=status, limit=limit, offset=offset)
+
     def get_or_create(self, project_id: str, get_project_info_function=_build_project_from_args,
                      **kwargs) -> Dict:
         """Deprecated: use create() instead.

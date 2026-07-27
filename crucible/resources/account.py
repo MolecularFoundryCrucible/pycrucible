@@ -8,9 +8,11 @@ For admin operations on other users, use UserOperations (client.users).
 """
 
 import logging
-from typing import Dict
+from typing import Dict, List, Optional
 
 from .base import BaseResource
+from ..constants import DEFAULT_LIMIT
+from ..models import JoinRequest
 
 logger = logging.getLogger(__name__)
 
@@ -73,3 +75,21 @@ class AccountOperations(BaseResource):
             Dict: {valid: bool, created_at: str, expires_at: str}
         """
         return self._request('get', '/account/verify')
+
+    def join_requests(self, status: Optional[str] = None,
+                      limit: int = DEFAULT_LIMIT, offset: int = 0) -> List[Dict]:
+        """Return the caller's own join-request history, across all groups.
+
+        Args:
+            status: Filter by "pending", "approved", or "rejected".
+            limit: Maximum number of results.
+            offset: Starting position in the full result set.
+
+        Returns:
+            List[Dict]: JoinRequest records where requester_id == caller.
+        """
+        params = {}
+        if status is not None:
+            params['status'] = status
+        raw = self._paginate('/account/join_requests', params, limit, offset)
+        return [JoinRequest(**r).model_dump() for r in raw]
