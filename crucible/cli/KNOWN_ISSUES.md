@@ -17,13 +17,23 @@ Tracked here for future cleanup. Not bugs — the CLI works — but rough edges 
 
 ---
 
-## User identifier inconsistency
+## User identifier inconsistency — RESOLVED
 
-Commands that identify a user should accept `--orcid`, `--username`, `--email` as a mutually exclusive group (pattern used by `user get` and `user edit`). These commands still use positional ORCID only:
+Fixed: all `user` subcommands and `project add-user`/`remove-user` now accept a single
+identifier (ORCID, username, or email) that's format-sniffed via `helpers.parse_user_ref()`.
 
-- `crucible user update ORCID` (user.py)
-- `crucible user add-access-group ORCID GROUP` (user.py)
-- `crucible user remove-access-group ORCID GROUP` (user.py)
+- Commands with no other required positional (`user get`, `user edit`) take it as a
+  positional `USER` argument.
+- Commands with an existing positional ORCID slot (`user update`, `add-access-group`,
+  `remove-access-group`, `list-datasets`, `check-access`, `list-access-groups`,
+  `list-projects`) had that slot's accepted values widened from ORCID-only to
+  ORCID/username/email, resolved to an ORCID via `helpers.resolve_orcid()` before the
+  API call (the underlying routes are ORCID-keyed).
+- Commands with a different required positional (`project add-user PROJECT_ID`,
+  `project remove-user PROJECT_ID`) got a new `--user`/`-u` flag instead.
+
+Old `--orcid`/`--username`/`--email` flags on `user get`, `user edit`, `project add-user`,
+`project remove-user` still work but emit a `DeprecationWarning` pointing at the new form.
 
 ---
 

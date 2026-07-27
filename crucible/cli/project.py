@@ -219,12 +219,13 @@ def _register_add_user(subparsers):
     parser = subparsers.add_parser(
         'add-user',
         help='Add a user to a project',
-        description='Add a user to a project by ORCID or email (requires admin permissions)',
+        description='Add a user to a project by ORCID, username, or email (requires admin permissions)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible project add-user my-project --orcid 0000-0002-1825-0097
-    crucible project add-user my-project --email user@lbl.gov
+    crucible project add-user my-project --user 0000-0002-1825-0097
+    crucible project add-user my-project --user fabrice
+    crucible project add-user my-project --user user@lbl.gov
 """
     )
 
@@ -236,10 +237,13 @@ Examples:
     if ARGCOMPLETE_AVAILABLE:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
 
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--orcid',    metavar='ORCID',    help='User ORCID identifier')
-    group.add_argument('--email',    metavar='EMAIL',    help='User email address')
-    group.add_argument('-u', '--username', metavar='USERNAME', help='Username')
+    parser.add_argument('--user', '-u', metavar='USER', default=None,
+                        help='ORCID, username, or email of the user')
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--orcid',    metavar='ORCID',    help='(deprecated, use --user)')
+    group.add_argument('--email',    metavar='EMAIL',    help='(deprecated, use --user)')
+    group.add_argument('--username', metavar='USERNAME', help='(deprecated, use --user)')
 
     parser.set_defaults(func=_execute_add_user)
 
@@ -276,12 +280,13 @@ def _register_remove_user(subparsers):
     parser = subparsers.add_parser(
         'remove-user',
         help='Remove a user from a project',
-        description='Remove a user from a project by ORCID or email (requires admin permissions)',
+        description='Remove a user from a project by ORCID, username, or email (requires admin permissions)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible project remove-user my-project --orcid 0000-0002-1825-0097
-    crucible project remove-user my-project --email user@lbl.gov
+    crucible project remove-user my-project --user 0000-0002-1825-0097
+    crucible project remove-user my-project --user fabrice
+    crucible project remove-user my-project --user user@lbl.gov
 """
     )
     project_id_arg = parser.add_argument(
@@ -289,10 +294,14 @@ Examples:
     )
     if ARGCOMPLETE_AVAILABLE:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--orcid',    metavar='ORCID',    help='User ORCID identifier')
-    group.add_argument('--email',    metavar='EMAIL',    help='User email address')
-    group.add_argument('-u', '--username', metavar='USERNAME', help='Username')
+
+    parser.add_argument('--user', '-u', metavar='USER', default=None,
+                        help='ORCID, username, or email of the user')
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--orcid',    metavar='ORCID',    help='(deprecated, use --user)')
+    group.add_argument('--email',    metavar='EMAIL',    help='(deprecated, use --user)')
+    group.add_argument('--username', metavar='USERNAME', help='(deprecated, use --user)')
     parser.set_defaults(func=_execute_remove_user)
 
 
@@ -517,11 +526,27 @@ def _execute_list_users(args):
 def _execute_add_user(args):
     """Execute the 'project add-user' subcommand."""
     import re
+    import warnings
     from crucible.client import CrucibleClient
+    from .helpers import parse_user_ref
 
     orcid    = getattr(args, 'orcid', None)
     email    = getattr(args, 'email', None)
     username = getattr(args, 'username', None)
+    user_ref = getattr(args, 'user', None)
+
+    if orcid or email or username:
+        warnings.warn(
+            "--orcid/--email/--username are deprecated; use --user instead: "
+            "crucible project add-user PROJECT_ID --user VALUE",
+            DeprecationWarning, stacklevel=2,
+        )
+    elif user_ref:
+        ref = parse_user_ref(user_ref)
+        orcid, email, username = ref.get('orcid'), ref.get('email'), ref.get('username')
+    else:
+        logger.error("Provide a user identifier: crucible project add-user PROJECT_ID --user VALUE")
+        sys.exit(1)
 
     if orcid and not re.match(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$', orcid):
         logger.error(f"Invalid ORCID format: {orcid}")
@@ -618,11 +643,27 @@ def _execute_update(args):
 def _execute_remove_user(args):
     """Execute the 'project remove-user' subcommand."""
     import requests as _req
+    import warnings
     from crucible.client import CrucibleClient
+    from .helpers import parse_user_ref
 
     orcid    = getattr(args, 'orcid', None)
     email    = getattr(args, 'email', None)
     username = getattr(args, 'username', None)
+    user_ref = getattr(args, 'user', None)
+
+    if orcid or email or username:
+        warnings.warn(
+            "--orcid/--email/--username are deprecated; use --user instead: "
+            "crucible project remove-user PROJECT_ID --user VALUE",
+            DeprecationWarning, stacklevel=2,
+        )
+    elif user_ref:
+        ref = parse_user_ref(user_ref)
+        orcid, email, username = ref.get('orcid'), ref.get('email'), ref.get('username')
+    else:
+        logger.error("Provide a user identifier: crucible project remove-user PROJECT_ID --user VALUE")
+        sys.exit(1)
 
     try:
         client = CrucibleClient()

@@ -8,7 +8,37 @@ shell, keybindings, etc.) and don't belong in term.py (display-only) or
 shell.py (which would create circular imports).
 """
 
+import re
 from concurrent.futures import ThreadPoolExecutor
+
+_ORCID_RE = re.compile(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$')
+
+
+def parse_user_ref(value: str) -> dict:
+    """Sniff a user identifier's format and return a kwargs dict for users.get()/users.resolve().
+
+    Contains '@' -> email. Matches the ORCID pattern -> orcid. Otherwise -> username.
+    """
+    if '@' in value:
+        return {'email': value}
+    if _ORCID_RE.match(value):
+        return {'orcid': value}
+    return {'username': value}
+
+
+def resolve_orcid(client, value: str) -> str:
+    """Resolve a user identifier (ORCID, username, or email) to an ORCID.
+
+    Returns the value unchanged if it's already an ORCID (no API call).
+    Raises ValueError if the identifier doesn't resolve to a user.
+    """
+    ref = parse_user_ref(value)
+    if 'orcid' in ref:
+        return value
+    user = client.users.get(**ref)
+    if user is None:
+        raise ValueError(f"User not found: {value}")
+    return user.get('unique_id')
 
 
 def fetch_projects(client):
