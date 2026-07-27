@@ -1575,8 +1575,8 @@ Examples:
     )
     parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
     parser.add_argument('group_name', metavar='GROUP',      help='Access group name')
-    parser.add_argument('--read',  action='store_true', default=True,  help='Grant read access (default: on)')
-    parser.add_argument('--write', action='store_true', default=False, help='Grant write access (default: off)')
+    parser.add_argument('--write', action='store_true', default=False,
+                        help='Also grant write access (read access is always granted)')
     parser.set_defaults(func=_execute_add_access_group)
 
 
@@ -1586,7 +1586,7 @@ def _execute_add_access_group(args):
     try:
         client = CrucibleClient()
         client.datasets.add_access_group(args.dataset_id, args.group_name,
-                                         read=args.read, write=args.write)
+                                         read=True, write=args.write)
         perms = 'read+write' if args.write else 'read'
         logger.info(f"✓ Access group '{args.group_name}' added to {args.dataset_id} ({perms})")
     except Exception as e:

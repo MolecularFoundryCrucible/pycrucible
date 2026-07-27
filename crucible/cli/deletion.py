@@ -429,7 +429,13 @@ def _execute_get(args):
 def _execute_approve(args):
     """Execute the 'deletion approve' subcommand."""
     from crucible.client import CrucibleClient
-    client = CrucibleClient()
+    try:
+        client = CrucibleClient()
+    except Exception as e:
+        logger.error(f"Error connecting: {e}")
+        sys.exit(1)
+
+    had_error = False
     for rid in args.request_id:
         try:
             record = client.deletions.approve(rid, reviewer_notes=args.notes)
@@ -437,10 +443,14 @@ def _execute_approve(args):
             print()
             _show_deletion_request(record, client=client)
         except Exception as e:
+            had_error = True
             logger.error(f"Error approving deletion request {rid}: {e}")
             if getattr(args, 'debug', False):
                 import traceback
                 traceback.print_exc()
+
+    if had_error:
+        sys.exit(1)
 
 
 def _execute_delete(args):
@@ -474,7 +484,13 @@ def _execute_delete(args):
 def _execute_reject(args):
     """Execute the 'deletion reject' subcommand."""
     from crucible.client import CrucibleClient
-    client = CrucibleClient()
+    try:
+        client = CrucibleClient()
+    except Exception as e:
+        logger.error(f"Error connecting: {e}")
+        sys.exit(1)
+
+    had_error = False
     for rid in args.request_id:
         try:
             record = client.deletions.reject(rid, reviewer_notes=args.notes)
@@ -482,7 +498,11 @@ def _execute_reject(args):
             print()
             _show_deletion_request(record, client=client)
         except Exception as e:
+            had_error = True
             logger.error(f"Error rejecting deletion request {rid}: {e}")
             if getattr(args, 'debug', False):
                 import traceback
                 traceback.print_exc()
+
+    if had_error:
+        sys.exit(1)
