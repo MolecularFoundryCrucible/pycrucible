@@ -52,6 +52,23 @@ def resolve_orcid(client, value: str) -> str:
     return user.get('unique_id')
 
 
+def resolve_sa_id(client, value: str) -> str:
+    """Resolve a service account identifier (MFID or username) to its MFID.
+
+    A username could coincidentally match the MFID shape (usernames allow the
+    same charset), so an MFID-shaped value that isn't found is retried as a
+    username before giving up.
+    Raises ValueError if the identifier doesn't resolve to a service account.
+    """
+    ref = parse_sa_ref(value)
+    sa = client.service_accounts.get(**ref)
+    if sa is None and 'unique_id' in ref:
+        sa = client.service_accounts.get(username=value)
+    if sa is None:
+        raise ValueError(f"Service account not found: {value}")
+    return sa.get('unique_id')
+
+
 def fetch_projects(client):
     """Return [(project_id, title), ...] for all accessible projects."""
     try:

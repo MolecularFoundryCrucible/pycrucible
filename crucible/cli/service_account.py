@@ -411,16 +411,15 @@ Examples:
 
 def _execute_add_access_group(args):
     from crucible.client import CrucibleClient
-    from .helpers import parse_sa_ref
+    from .helpers import resolve_sa_id
     try:
         client = CrucibleClient()
-        ref = parse_sa_ref(args.sa)
-        sa = _resolve_sa(client, unique_id=ref.get('unique_id'), username=ref.get('username'),
-                         ambiguous='unique_id' in ref)
-        client.service_accounts.add_to_access_group(sa.get('unique_id'), args.group_name)
+        unique_id = resolve_sa_id(client, args.sa)
+        client.service_accounts.add_to_access_group(unique_id, args.group_name)
         logger.info(f"Added {args.sa} to access group '{args.group_name}'")
-    except SystemExit:
-        raise
+    except ValueError as e:
+        logger.error(str(e))
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Error: {e}")
         sys.exit(1)
@@ -443,16 +442,15 @@ Examples:
 
 def _execute_remove_access_group(args):
     from crucible.client import CrucibleClient
-    from .helpers import parse_sa_ref
+    from .helpers import resolve_sa_id
     try:
         client = CrucibleClient()
-        ref = parse_sa_ref(args.sa)
-        sa = _resolve_sa(client, unique_id=ref.get('unique_id'), username=ref.get('username'),
-                         ambiguous='unique_id' in ref)
-        client.service_accounts.remove_from_access_group(sa.get('unique_id'), args.group_name)
+        unique_id = resolve_sa_id(client, args.sa)
+        client.service_accounts.remove_from_access_group(unique_id, args.group_name)
         logger.info(f"Removed {args.sa} from access group '{args.group_name}'")
-    except SystemExit:
-        raise
+    except ValueError as e:
+        logger.error(str(e))
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Error: {e}")
         sys.exit(1)
