@@ -53,6 +53,8 @@ def register_subcommand(subparsers):
     _register_list_users(project_subparsers)
     _register_add_user(project_subparsers)
     _register_remove_user(project_subparsers)
+    _register_request_join(project_subparsers)
+    _register_list_join_requests(project_subparsers)
 
 
 def _register_list(subparsers):
@@ -652,6 +654,84 @@ def _execute_remove_user(args):
     except Exception as e:
         logger.error(f"Error removing user from project: {e}")
         if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_request_join(subparsers):
+    """Register the 'project request-join' subcommand."""
+    parser = subparsers.add_parser(
+        'request-join',
+        help='Request to join a project',
+        description='Request to join a project. Any authenticated user.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible project request-join my-project
+    crucible project request-join my-project --reason "Need access for XRD analysis"
+"""
+    )
+    parser.add_argument('project_id', metavar='PROJECT_ID', help='Project ID')
+    parser.add_argument('--reason', metavar='TEXT', default=None,
+                        help='Optional explanation for the request')
+    parser.set_defaults(func=_execute_request_join)
+
+
+def _execute_request_join(args):
+    """Execute the 'project request-join' subcommand."""
+    from crucible.client import CrucibleClient
+    from .access_group import _show_join_request
+    try:
+        client = CrucibleClient()
+        record = client.projects.request_join(args.project_id, reason=args.reason)
+        logger.info("✓ Join request submitted")
+        _show_join_request(record)
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_list_join_requests(subparsers):
+    """Register the 'project list-join-requests' subcommand."""
+    parser = subparsers.add_parser(
+        'list-join-requests',
+        help='List join requests for a project (admin or project lead)',
+        description='List join requests for a project. Requires admin or project lead permissions.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible project list-join-requests my-project
+    crucible project list-join-requests my-project --status pending
+"""
+    )
+    parser.add_argument('project_id', metavar='PROJECT_ID', help='Project ID')
+    parser.add_argument('--status', choices=['pending', 'approved', 'rejected'], default=None,
+                        help='Filter by status')
+    parser.add_argument('--limit', type=int, default=100, metavar='N')
+    parser.set_defaults(func=_execute_list_join_requests)
+
+
+def _execute_list_join_requests(args):
+    """Execute the 'project list-join-requests' subcommand."""
+    from crucible.client import CrucibleClient
+    from .access_group import _table_rows
+    try:
+        client = CrucibleClient()
+        records = client.projects.list_join_requests(args.project_id, status=args.status,
+                                                      limit=args.limit)
+        term.header(f"Join Requests · {args.project_id} ({len(records)})")
+        if not records:
+            print(f"  {term.dim('None found.')}")
+            return
+        term.table(_table_rows(records), ['ID', 'Group', 'Status', 'Requested', 'Reason'],
+                  max_widths=[6, 20, 10, 20, 30])
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
             import traceback
             traceback.print_exc()
         sys.exit(1)
