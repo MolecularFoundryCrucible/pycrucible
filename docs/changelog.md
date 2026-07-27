@@ -5,6 +5,7 @@
 - New `client.access_groups` resource for the access-group join-request workflow: `request_join()`, `list_join_requests()`, `approve_join_request()`, `reject_join_request()`. Requires the `feat/access-group-join-requests` API branch (not yet merged) and its migration.
 - `client.projects.request_join(project_id)` and `client.projects.list_join_requests(project_id)` delegate to `access_groups` for convenience.
 - `client.account.join_requests()` lists the caller's own join-request history.
+- New `crucible access-group` CLI (alias `crucible ag`): `request`, `list`, `mine`, `approve`, `reject`. Same pending-branch caveat as above.
 - Fix `deletion approve`/`deletion reject`: batch commands now exit 1 if any request in the batch fails, instead of always exiting 0.
 - Fix `dataset add-access-group`: removed the `--read` flag, which could never be turned off and gave the false impression that write-only access was possible. Read access is always granted; `--write` adds write.
 
