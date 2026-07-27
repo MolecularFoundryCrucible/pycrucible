@@ -10,6 +10,7 @@
 - Fix `access_groups.request_join()`: always send a JSON body — the API rejects a missing body even when `reason` is omitted.
 - Join request displays (`ag list`, `ag mine`, `project list-join-requests`, and single-record views) now show the requester's/reviewer's username instead of a raw ORCID, resolved via `users.resolve()`. List tables drop the `reason` column (still shown on single-record views) and show dates as `YYYY-MM-DD` instead of full timestamps.
 - `deletion list` and `deletion list-deleted` now resolve requester ORCID to username as well, and `deletion list` drops the reason column from its table (matching join requests). New shared helpers: `helpers.resolve_usernames()` and `term.fmt_date()`.
+- CLI cleanup pass: extracted `term.status_label()` (shared pending/approved/rejected/complete/failed color mapping, replacing 6 duplicated inline implementations across `deletion.py`, `access_group.py`, `ingestion.py`, `file.py`, `dataset.py`) and `term.fmt_name()` (shared first+last name join, replacing 9 duplicated implementations across `helpers.py`, `user.py`, `project.py`, `service_account.py`, `shell.py`, `account.py`). No behavior changes intended — purely a de-duplication pass.
 - Fix `deletion approve`/`deletion reject`: batch commands now exit 1 if any request in the batch fails, instead of always exiting 0.
 - Fix `dataset add-access-group`: removed the `--read` flag, which could never be turned off and gave the false impression that write-only access was possible. Read access is always granted; `--write` adds write.
 

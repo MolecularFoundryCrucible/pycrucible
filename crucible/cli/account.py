@@ -133,9 +133,7 @@ def _show_profile(user):
     _p = term.field_printer(12)
     term.header("Account")
     _p("Username", user.get('username') or term.dim('(not set)'))
-    first = user.get('first_name') or ''
-    last  = user.get('last_name') or ''
-    _p("Name",  ' '.join(p for p in (first, last) if p) or None)
+    _p("Name",  term.fmt_name(user, fallback_username=False))
     uid = user.get('unique_id')
     _p("ORCID",  term.orcid_link(uid))
     _p("Email",  user.get('email'))

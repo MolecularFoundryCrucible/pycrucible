@@ -41,18 +41,6 @@ def register_subcommand(subparsers):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _status_label(status):
-    """Return a styled status string."""
-    if not status:
-        return '-'
-    if status == 'pending':
-        return term.yellow(status)
-    if status == 'approved':
-        return term.green(status)
-    if status == 'rejected':
-        return term.red(status)
-    return status
-
 
 def _show_deletion_request(record, client=None):
     """Print a DeletionRequest record."""
@@ -73,7 +61,7 @@ def _show_deletion_request(record, client=None):
     _p("Resource ID",   term.mfid_link(rid, url))
     _p("Resource Type", rtype)
     _p("Name",          record.get('resource_name'))
-    _p("Status",        _status_label(record.get('status')))
+    _p("Status",        term.status_label(record.get('status')))
     _p("Reason",        record.get('reason'))
     _p("Requested",     term.fmt_ts(record.get('request_time')))
     _p("Requester",     names.get(record.get('requester_id'), record.get('requester_id')))
@@ -384,7 +372,7 @@ def _execute_list(args):
                 _resource_link(record),
                 record.get('resource_type') or '-',
                 record.get('resource_name') or '-',
-                _status_label(record.get('status') or ''),
+                term.status_label(record.get('status') or ''),
                 names.get(record.get('requester_id'), record.get('requester_id')) or '-',
                 term.fmt_date(record.get('request_time')),
             )

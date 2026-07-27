@@ -338,9 +338,7 @@ def _execute_list(args):
 def _lead_name(project):
     """Return the lead's display name from embedded lead dict, or fallback to project_lead_email."""
     lead = project.get('lead') or {}
-    parts = [lead.get('first_name') or '', lead.get('last_name') or '']
-    name = ' '.join(p for p in parts if p)
-    return name or project.get('project_lead_email') or None
+    return term.fmt_name(lead, default=project.get('project_lead_email'), fallback_username=False)
 
 
 def _show_project(project, include_metadata=False):
@@ -501,8 +499,7 @@ def _execute_list_users(args):
         else:
             rows = []
             for u in users:
-                name_parts = [u.get('first_name') or '', u.get('last_name') or '']
-                name     = ' '.join(p for p in name_parts if p) or '-'
+                name     = term.fmt_name(u, default='-', fallback_username=False)
                 username = u.get('username') or '-'
                 orcid    = u.get('unique_id') or '-'
                 email    = u.get('email') or '-'

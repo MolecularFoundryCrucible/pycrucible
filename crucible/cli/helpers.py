@@ -47,11 +47,11 @@ def fetch_user_label(client, whoami_info=None):
     Pass whoami_info to skip a redundant API call when the caller already
     has the result of client.whoami().
     """
+    from . import term
     try:
         info = whoami_info if whoami_info is not None else client.whoami()
         user = info.get('user_info', {})
-        name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
-        return name or info.get('user_unique_id') or '?'
+        return term.fmt_name(user, default=info.get('user_unique_id') or '?')
     except Exception:
         return '?'
 

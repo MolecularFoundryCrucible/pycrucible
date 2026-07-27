@@ -59,6 +59,21 @@ def orcid_link(orcid: str) -> str | None:
     return hyperlink(cyan(orcid), f"https://orcid.org/{orcid}")
 
 
+def fmt_name(person: dict, default: str | None = None, fallback_username: bool = True) -> str | None:
+    """Join first_name + last_name from a user-shaped dict.
+
+    Falls back to username (unless fallback_username=False), then to default,
+    if both name fields are empty.
+    """
+    parts = [person.get('first_name') or '', person.get('last_name') or '']
+    name = ' '.join(p for p in parts if p)
+    if name:
+        return name
+    if fallback_username and person.get('username'):
+        return person['username']
+    return default
+
+
 def fmt_owner(resource: dict) -> str | None:
     """Format the owner of a resource.
 
@@ -69,8 +84,7 @@ def fmt_owner(resource: dict) -> str | None:
     owner = resource.get('owner')
     orcid = resource.get('owner_orcid')
     if owner:
-        parts = [owner.get('first_name') or '', owner.get('last_name') or '']
-        name  = ' '.join(p for p in parts if p) or owner.get('username') or orcid or '-'
+        name  = fmt_name(owner, default=orcid or '-')
         uname = owner.get('username')
         label = f"{name} (@{uname})" if uname else name
         return hyperlink(cyan(label), f"https://orcid.org/{orcid}") if orcid else cyan(label)
@@ -201,6 +215,27 @@ def fmt_date(ts) -> str:
         return dt.strftime('%Y-%m-%d')
     except (ValueError, TypeError):
         return str(ts)
+
+
+_STATUS_COLORS = {
+    'pending':  yellow,
+    'approved': green,
+    'complete': green,
+    'ingested': green,
+    'rejected': red,
+    'failed':   red,
+}
+
+
+def status_label(status: str) -> str:
+    """Colorize a status string using the shared request/ingestion status palette.
+
+    Covers: pending (yellow), approved/complete/ingested (green), rejected/failed (red).
+    Unrecognized statuses are returned unstyled. Returns '-' for falsy input.
+    """
+    if not status:
+        return '-'
+    return _STATUS_COLORS.get(status, lambda s: s)(status)
 
 
 def fmt_size(size) -> str | None:

@@ -80,8 +80,7 @@ try:
                 try:
                     users = self._client.users.list()
                     self._users = [
-                        (u.get('unique_id') or '',
-                         f"{u.get('first_name', '')} {u.get('last_name', '')}".strip())
+                        (u.get('unique_id') or '', term.fmt_name(u, default='', fallback_username=False))
                         for u in users
                         if not u.get('is_service_account')
                         and (u.get('unique_id'))

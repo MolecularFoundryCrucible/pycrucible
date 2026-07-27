@@ -65,13 +65,9 @@ def _execute_list(args):
 
         rows = []
         for r in reqs:
-            status = r.get('status') or '-'
-            color  = (term.green  if status == 'complete' else
-                      term.red    if status == 'failed'   else
-                      term.yellow)
             rows.append((
                 str(r.get('id', '-')),
-                color(status),
+                term.status_label(r.get('status')),
                 r.get('ingestion_class') or '-',
                 r.get('file_mfid') or '-',
                 term.fmt_ts(r.get('time_created')) or '-',
@@ -144,12 +140,8 @@ def _execute_get(args):
         client = CrucibleClient()
         r = client.ingestions.get(args.request_id)
         _p = term.field_printer(16)
-        status = r.get('status') or '-'
-        color  = (term.green  if status == 'complete' else
-                  term.red    if status == 'failed'   else
-                  term.yellow)
         term.header(f"Ingestion Request #{r.get('id')}")
-        _p("Status",  color(status))
+        _p("Status",  term.status_label(r.get('status')))
         _p("Class",   r.get('ingestion_class') or '-')
         _p("File",    r.get('file_mfid') or '-')
         _p("Dataset", r.get('dataset_mfid') or '-')

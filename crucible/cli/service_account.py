@@ -40,8 +40,8 @@ def _show_sa(sa, key=None):
     term.header("Service Account")
     _p("MFID",     sa.get('unique_id'))
     _p("Username", sa.get('username'))
-    if sa.get('first_name') or sa.get('last_name'):
-        name = ' '.join(filter(None, [sa.get('first_name'), sa.get('last_name')]))
+    name = term.fmt_name(sa, fallback_username=False)
+    if name:
         _p("Name", name)
     if key:
         print()

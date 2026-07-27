@@ -274,11 +274,9 @@ def _execute_ingestion(args):
 
         rows = []
         for r in reqs:
-            status = r.get('status') or '-'
-            color  = term.green if status == 'complete' else (term.red if status == 'failed' else term.yellow)
             rows.append((
                 str(r.get('id', '-')),
-                color(status),
+                term.status_label(r.get('status')),
                 r.get('ingestion_class') or '-',
                 term.fmt_ts(r.get('created_at') or r.get('creation_time')) or '-',
             ))

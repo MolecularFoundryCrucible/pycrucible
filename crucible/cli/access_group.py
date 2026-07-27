@@ -32,16 +32,6 @@ def register_subcommand(subparsers):
         _register_reject(ag_subparsers)
 
 
-def _status_label(status):
-    if status == 'pending':
-        return term.yellow(status)
-    if status == 'approved':
-        return term.green(status)
-    if status == 'rejected':
-        return term.red(status)
-    return status
-
-
 def _show_join_request(record, client=None):
     """Print a JoinRequest record."""
     from .helpers import resolve_usernames
@@ -50,7 +40,7 @@ def _show_join_request(record, client=None):
     term.header("Join Request")
     _p("Request ID", record.get('id'))
     _p("Group",      record.get('group_name'))
-    _p("Status",     _status_label(record.get('status')))
+    _p("Status",     term.status_label(record.get('status')))
     _p("Reason",     record.get('reason'))
     _p("Requested",  term.fmt_ts(record.get('request_time')))
     _p("Requester",  names.get(record.get('requester_id'), record.get('requester_id')))
@@ -68,7 +58,7 @@ def _table_rows(records, client=None):
         rows.append((
             str(r.get('id', '-')),
             r.get('group_name') or '-',
-            _status_label(r.get('status') or '-'),
+            term.status_label(r.get('status') or '-'),
             names.get(r.get('requester_id'), r.get('requester_id')) or '-',
             term.fmt_date(r.get('request_time')),
         ))
