@@ -40,10 +40,8 @@ class AccessGroupOperations(BaseResource):
             HTTPError 404: Group/project doesn't exist.
             HTTPError 409: Already a member, or already has a pending request for this group.
         """
-        body = {}
-        if reason is not None:
-            body['reason'] = reason
-        raw = self._request('post', f'/access_groups/{group_name}/join', json=body or None)
+        body = {'reason': reason}
+        raw = self._request('post', f'/access_groups/{group_name}/join', json=body)
         return self._parse(raw)
 
     def list_join_requests(self, group_name: Optional[str] = None,
