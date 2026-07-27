@@ -32,6 +32,9 @@ def register_subcommand(subparsers):
         _register_list(sa_subparsers)
         _register_edit(sa_subparsers)
         _register_update(sa_subparsers)
+        _register_list_access_groups(sa_subparsers)
+        _register_add_access_group(sa_subparsers)
+        _register_remove_access_group(sa_subparsers)
 
 
 def _show_sa(sa, key=None):
@@ -342,6 +345,112 @@ def _execute_update(args):
         result = client.service_accounts.update(uid, **fields)
         _show_sa(result)
 
+    except SystemExit:
+        raise
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        sys.exit(1)
+
+
+def _register_list_access_groups(subparsers):
+    parser = subparsers.add_parser(
+        'list-access-groups',
+        help='List access groups for a service account',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible sa list-access-groups nirvana-sa
+    crucible sa list-access-groups 0th7...
+""",
+    )
+    parser.add_argument('sa', metavar='SA', nargs='?', default=None,
+                        help='MFID or username of the service account')
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--unique-id', '-o', metavar='MFID',    help='(deprecated, use positional SA)')
+    group.add_argument('--username',  '-u', metavar='USERNAME', help='(deprecated, use positional SA)')
+    parser.set_defaults(func=_execute_list_access_groups)
+
+
+def _execute_list_access_groups(args):
+    from crucible.client import CrucibleClient
+    try:
+        unique_id, username, ambiguous = _resolve_sa_ref(args)
+        client = CrucibleClient()
+        sa = _resolve_sa(client, unique_id=unique_id, username=username, ambiguous=ambiguous)
+
+        groups = client.service_accounts.list_access_groups(sa.get('unique_id'))
+        term.header(f"Access Groups · {sa.get('username') or sa.get('unique_id')} ({len(groups)})")
+        if not groups:
+            print(f"  {term.dim('No access groups found.')}")
+            return
+        for g in groups:
+            print(f"  {g}")
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        sys.exit(1)
+
+
+def _register_add_access_group(subparsers):
+    parser = subparsers.add_parser(
+        'add-access-group',
+        help='Add a service account to an access group',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible sa add-access-group nirvana-sa my-group
+""",
+    )
+    parser.add_argument('sa', metavar='SA', help='MFID or username of the service account')
+    parser.add_argument('group_name', metavar='GROUP', help='Access group name')
+    parser.set_defaults(func=_execute_add_access_group)
+
+
+def _execute_add_access_group(args):
+    from crucible.client import CrucibleClient
+    from .helpers import parse_sa_ref
+    try:
+        client = CrucibleClient()
+        ref = parse_sa_ref(args.sa)
+        sa = _resolve_sa(client, unique_id=ref.get('unique_id'), username=ref.get('username'),
+                         ambiguous='unique_id' in ref)
+        client.service_accounts.add_to_access_group(sa.get('unique_id'), args.group_name)
+        logger.info(f"Added {args.sa} to access group '{args.group_name}'")
+    except SystemExit:
+        raise
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        sys.exit(1)
+
+
+def _register_remove_access_group(subparsers):
+    parser = subparsers.add_parser(
+        'remove-access-group',
+        help='Remove a service account from an access group',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible sa remove-access-group nirvana-sa my-group
+""",
+    )
+    parser.add_argument('sa', metavar='SA', help='MFID or username of the service account')
+    parser.add_argument('group_name', metavar='GROUP', help='Access group name')
+    parser.set_defaults(func=_execute_remove_access_group)
+
+
+def _execute_remove_access_group(args):
+    from crucible.client import CrucibleClient
+    from .helpers import parse_sa_ref
+    try:
+        client = CrucibleClient()
+        ref = parse_sa_ref(args.sa)
+        sa = _resolve_sa(client, unique_id=ref.get('unique_id'), username=ref.get('username'),
+                         ambiguous='unique_id' in ref)
+        client.service_accounts.remove_from_access_group(sa.get('unique_id'), args.group_name)
+        logger.info(f"Removed {args.sa} from access group '{args.group_name}'")
     except SystemExit:
         raise
     except Exception as e:

@@ -93,3 +93,32 @@ class ServiceAccountOperations(BaseResource):
             Dict: Updated user record.
         """
         return self._client.users.update(unique_id, **kwargs)
+
+    def list_access_groups(self, unique_id: str) -> List[str]:
+        """List access group names a service account belongs to.
+
+        Args:
+            unique_id: Service account MFID.
+
+        Returns:
+            List[str]: Access group names.
+        """
+        return self._client.users.list_access_groups(unique_id)
+
+    def add_to_access_group(self, unique_id: str, group_name: str) -> Dict:
+        """Add a service account to an access group.
+
+        Args:
+            unique_id: Service account MFID.
+            group_name: Name of the access group.
+        """
+        return self._client.users.add_to_access_group(unique_id, group_name)
+
+    def remove_from_access_group(self, unique_id: str, group_name: str) -> Dict:
+        """Remove a service account from an access group.
+
+        Args:
+            unique_id: Service account MFID.
+            group_name: Name of the access group.
+        """
+        return self._client.users.remove_from_access_group(unique_id, group_name)
