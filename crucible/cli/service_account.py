@@ -49,13 +49,49 @@ def _show_sa(sa, key=None):
         print(f"  {term.dim('Store this now — it will not be shown again.')}")
 
 
-def _resolve_sa(client, unique_id=None, username=None):
-    """Resolve a service account by unique_id or username, return the record."""
+def _resolve_sa(client, unique_id=None, username=None, ambiguous=False):
+    """Resolve a service account by unique_id or username, return the record.
+
+    If ambiguous=True, unique_id was guessed from the identifier's shape (it
+    matched the MFID pattern) rather than given explicitly — a username could
+    coincidentally match that pattern too. On a miss, retry as a username
+    before giving up.
+    """
     sa = client.service_accounts.get(unique_id=unique_id, username=username)
+    if sa is None and ambiguous and unique_id:
+        sa = client.service_accounts.get(username=unique_id)
     if sa is None:
         logger.error("Service account not found")
         sys.exit(1)
     return sa
+
+
+def _resolve_sa_ref(args):
+    """Resolve the sa/unique_id/username args into (unique_id, username, ambiguous).
+
+    Warns if the deprecated --unique-id/--username flags were used instead of
+    the positional SA argument. Exits with an error if neither was provided.
+    """
+    import warnings
+    from .helpers import parse_sa_ref
+
+    unique_id = getattr(args, 'unique_id', None)
+    username  = getattr(args, 'username', None)
+    sa_ref    = getattr(args, 'sa', None)
+
+    if unique_id or username:
+        warnings.warn(
+            "--unique-id/--username are deprecated; pass the identifier "
+            "positionally instead: crucible sa get SA",
+            DeprecationWarning, stacklevel=3,
+        )
+        return unique_id, username, False
+    if sa_ref:
+        ref = parse_sa_ref(sa_ref)
+        return ref.get('unique_id'), ref.get('username'), 'unique_id' in ref
+
+    logger.error("Provide a service account identifier: crucible sa get SA")
+    sys.exit(1)
 
 
 def _register_create(subparsers):
@@ -117,26 +153,29 @@ def _register_rotate_key(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sa rotate-key --unique-id 0th7...
-    crucible sa rotate-key --username nirvana-sa
+    crucible sa rotate-key 0th7...
+    crucible sa rotate-key nirvana-sa
 """,
     )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--unique-id', '-o', metavar='MFID',     help='Service account MFID')
-    group.add_argument('--username',  '-u', metavar='USERNAME',  help='Service account username')
+    parser.add_argument('sa', metavar='SA', nargs='?', default=None,
+                        help='MFID or username of the service account')
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--unique-id', '-o', metavar='MFID',     help='(deprecated, use positional SA)')
+    group.add_argument('--username',  '-u', metavar='USERNAME',  help='(deprecated, use positional SA)')
     parser.set_defaults(func=_execute_rotate_key)
 
 
 def _execute_rotate_key(args):
     from crucible.client import CrucibleClient
     try:
+        unique_id, username, ambiguous = _resolve_sa_ref(args)
         client = CrucibleClient()
-        uid = getattr(args, 'unique_id', None)
-        if not uid:
-            sa = _resolve_sa(client, username=args.username)
-            uid = sa.get('unique_id')
-        result = client.service_accounts.rotate_key(uid)
+        sa = _resolve_sa(client, unique_id=unique_id, username=username, ambiguous=ambiguous)
+        result = client.service_accounts.rotate_key(sa.get('unique_id'))
         _show_sa(result, key=result.get('api_key'))
+    except SystemExit:
+        raise
     except Exception as e:
         logger.error(f"Error: {e}")
         sys.exit(1)
@@ -149,22 +188,25 @@ def _register_get(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sa get --unique-id 0th7...
-    crucible sa get --username nirvana-sa
+    crucible sa get 0th7...
+    crucible sa get nirvana-sa
 """,
     )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--unique-id', '-o', metavar='MFID',    help='Service account MFID')
-    group.add_argument('--username',  '-u', metavar='USERNAME', help='Service account username')
+    parser.add_argument('sa', metavar='SA', nargs='?', default=None,
+                        help='MFID or username of the service account')
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--unique-id', '-o', metavar='MFID',    help='(deprecated, use positional SA)')
+    group.add_argument('--username',  '-u', metavar='USERNAME', help='(deprecated, use positional SA)')
     parser.set_defaults(func=_execute_get)
 
 
 def _execute_get(args):
     from crucible.client import CrucibleClient
     try:
+        unique_id, username, ambiguous = _resolve_sa_ref(args)
         client = CrucibleClient()
-        sa = _resolve_sa(client, unique_id=getattr(args, 'unique_id', None),
-                         username=getattr(args, 'username', None))
+        sa = _resolve_sa(client, unique_id=unique_id, username=username, ambiguous=ambiguous)
         _show_sa(sa)
     except SystemExit:
         raise
@@ -208,22 +250,25 @@ def _register_edit(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sa edit --unique-id 0th7...
-    crucible sa edit --username nirvana-sa
+    crucible sa edit 0th7...
+    crucible sa edit nirvana-sa
 """,
     )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--unique-id', '-o', metavar='MFID',    help='Service account MFID')
-    group.add_argument('--username',  '-u', metavar='USERNAME', help='Service account username')
+    parser.add_argument('sa', metavar='SA', nargs='?', default=None,
+                        help='MFID or username of the service account')
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--unique-id', '-o', metavar='MFID',    help='(deprecated, use positional SA)')
+    group.add_argument('--username',  '-u', metavar='USERNAME', help='(deprecated, use positional SA)')
     parser.set_defaults(func=_execute_edit)
 
 
 def _execute_edit(args):
     from crucible.client import CrucibleClient
     try:
+        unique_id, username, ambiguous = _resolve_sa_ref(args)
         client = CrucibleClient()
-        sa = _resolve_sa(client, unique_id=getattr(args, 'unique_id', None),
-                         username=getattr(args, 'username', None))
+        sa = _resolve_sa(client, unique_id=unique_id, username=username, ambiguous=ambiguous)
         uid = sa.get('unique_id')
         original = {k: sa.get(k) for k in _EDITABLE}
 
@@ -260,13 +305,16 @@ def _register_update(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sa update --username nirvana-sa --new-username nirvana-v2
-    crucible sa update --unique-id 0th7... --first-name Nirvana
+    crucible sa update nirvana-sa --new-username nirvana-v2
+    crucible sa update 0th7... --first-name Nirvana
 """,
     )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--unique-id', '-o', metavar='MFID',    help='Service account MFID')
-    group.add_argument('--username',  '-u', metavar='USERNAME', help='Service account username')
+    parser.add_argument('sa', metavar='SA', nargs='?', default=None,
+                        help='MFID or username of the service account')
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--unique-id', '-o', metavar='MFID',    help='(deprecated, use positional SA)')
+    group.add_argument('--username',  '-u', metavar='USERNAME', help='(deprecated, use positional SA)')
     parser.add_argument('--new-username',  dest='new_username',  metavar='USERNAME', help='New username')
     parser.add_argument('--first-name',    dest='first_name',    metavar='NAME',     help='First name')
     parser.add_argument('--last-name',     dest='last_name',     metavar='NAME',     help='Last name')
@@ -276,9 +324,9 @@ Examples:
 def _execute_update(args):
     from crucible.client import CrucibleClient
     try:
+        unique_id, username, ambiguous = _resolve_sa_ref(args)
         client = CrucibleClient()
-        sa = _resolve_sa(client, unique_id=getattr(args, 'unique_id', None),
-                         username=getattr(args, 'username', None))
+        sa = _resolve_sa(client, unique_id=unique_id, username=username, ambiguous=ambiguous)
         uid = sa.get('unique_id')
 
         fields = {k: v for k, v in {

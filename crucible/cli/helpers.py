@@ -12,6 +12,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 _ORCID_RE = re.compile(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$')
+_MFID_RE  = re.compile(r'^[0-9a-hjkmnp-tv-z]{26}$')  # Crockford base32, no i/l/o/u
 
 
 def parse_user_ref(value: str) -> dict:
@@ -23,6 +24,16 @@ def parse_user_ref(value: str) -> dict:
         return {'email': value}
     if _ORCID_RE.match(value):
         return {'orcid': value}
+    return {'username': value}
+
+
+def parse_sa_ref(value: str) -> dict:
+    """Sniff a service account identifier's format for service_accounts.get().
+
+    Matches the MFID pattern (26-char Crockford base32) -> unique_id. Otherwise -> username.
+    """
+    if _MFID_RE.match(value):
+        return {'unique_id': value}
     return {'username': value}
 
 
