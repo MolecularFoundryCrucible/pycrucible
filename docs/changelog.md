@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fix `deletion approve`/`deletion reject`: batch commands now exit 1 if any request in the batch fails, instead of always exiting 0.
+- Fix `dataset add-access-group`: removed the `--read` flag, which could never be turned off and gave the false impression that write-only access was possible. Read access is always granted; `--write` adds write.
+
 - `search_metadata()`: updated for API change — response is now unwrapped from the paginated envelope, default limit changed to 20, and each result now includes `resource_type`, `name`, `owner_orcid`, `creation_time`, `modification_time`, and `rank` alongside `scientific_metadata`.
 
 - `include_owner=True` on `datasets.get/list()`, `samples.get/list()`, and `client.get()` resolves the owner into a full user object. CLI shows "First Last (@username)" instead of a raw ORCID. Support on `GET /resources/{id}` is pending API deployment.
