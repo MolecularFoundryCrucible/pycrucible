@@ -147,7 +147,7 @@ The same operations are available from the terminal:
 crucible project create
 
 # Add a user to your project (user account must already exist)
-crucible project add-user --email USER_EMAIL
+crucible project add-user my-project --user USER_EMAIL
 
 # Create a dataset with a file
 crucible dataset create -i xrd_data.xy -n "XRD measurement" -m "X-ray diffraction" -pid my-project
