@@ -686,7 +686,7 @@ def _execute_request_join(args):
         client = CrucibleClient()
         record = client.projects.request_join(args.project_id, reason=args.reason)
         logger.info("✓ Join request submitted")
-        _show_join_request(record)
+        _show_join_request(record, client=client)
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):
@@ -727,8 +727,9 @@ def _execute_list_join_requests(args):
         if not records:
             print(f"  {term.dim('None found.')}")
             return
-        term.table(_table_rows(records), ['ID', 'Group', 'Status', 'Requested', 'Reason'],
-                  max_widths=[6, 20, 10, 20, 30])
+        term.table(_table_rows(records, client=client),
+                  ['ID', 'Group', 'Status', 'Requester', 'Requested', 'Reason'],
+                  max_widths=[6, 20, 10, 20, 20, 30])
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):

@@ -7,6 +7,8 @@
 - `client.account.join_requests()` lists the caller's own join-request history.
 - New `crucible access-group` CLI (alias `crucible ag`): `request`, `list`, `mine`, `approve`, `reject`. Same pending-branch caveat as above.
 - New `crucible project request-join` and `crucible project list-join-requests` — thin CLI wrappers over the `projects.request_join()`/`list_join_requests()` delegates.
+- Fix `access_groups.request_join()`: always send a JSON body — the API rejects a missing body even when `reason` is omitted.
+- Join request displays (`ag list`, `ag mine`, `project list-join-requests`, and single-record views) now show the requester's/reviewer's username instead of a raw ORCID, resolved via `users.resolve()`.
 - Fix `deletion approve`/`deletion reject`: batch commands now exit 1 if any request in the batch fails, instead of always exiting 0.
 - Fix `dataset add-access-group`: removed the `--read` flag, which could never be turned off and gave the false impression that write-only access was possible. Read access is always granted; `--write` adds write.
 

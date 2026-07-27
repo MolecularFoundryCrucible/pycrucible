@@ -42,29 +42,45 @@ def _status_label(status):
     return status
 
 
-def _show_join_request(record):
+def _resolve_usernames(client, orcids):
+    """Batch-resolve ORCIDs to usernames. Returns {orcid: username_or_orcid}."""
+    orcids = sorted({o for o in orcids if o})
+    if not orcids or client is None:
+        return {}
+    try:
+        resolved = client.users.resolve(orcids=orcids)
+    except Exception:
+        return {}
+    return {orcid: (info.get('username') or orcid) if info else orcid
+            for orcid, info in resolved.items()}
+
+
+def _show_join_request(record, client=None):
     """Print a JoinRequest record."""
+    names = _resolve_usernames(client, [record.get('requester_id'), record.get('reviewer_id')])
     _p = term.field_printer(16)
     term.header("Join Request")
-    _p("Request ID",   record.get('id'))
-    _p("Group",        record.get('group_name'))
-    _p("Status",       _status_label(record.get('status')))
-    _p("Reason",       record.get('reason'))
-    _p("Requested",    term.fmt_ts(record.get('request_time')))
-    _p("Requester ID", record.get('requester_id'))
+    _p("Request ID", record.get('id'))
+    _p("Group",      record.get('group_name'))
+    _p("Status",     _status_label(record.get('status')))
+    _p("Reason",     record.get('reason'))
+    _p("Requested",  term.fmt_ts(record.get('request_time')))
+    _p("Requester",  names.get(record.get('requester_id'), record.get('requester_id')))
     if record.get('reviewer_notes') or record.get('review_time'):
         _p("Review Time",  term.fmt_ts(record.get('review_time')))
-        _p("Reviewer ID",  record.get('reviewer_id'))
+        _p("Reviewer",     names.get(record.get('reviewer_id'), record.get('reviewer_id')))
         _p("Review Notes", record.get('reviewer_notes'))
 
 
-def _table_rows(records):
+def _table_rows(records, client=None):
+    names = _resolve_usernames(client, [r.get('requester_id') for r in records])
     rows = []
     for r in records:
         rows.append((
             str(r.get('id', '-')),
             r.get('group_name') or '-',
             _status_label(r.get('status') or '-'),
+            names.get(r.get('requester_id'), r.get('requester_id')) or '-',
             term.fmt_ts(r.get('request_time')) or '-',
             r.get('reason') or '-',
         ))
@@ -96,7 +112,7 @@ def _execute_request(args):
         client = CrucibleClient()
         record = client.access_groups.request_join(args.group_name, reason=args.reason)
         logger.info("✓ Join request submitted")
-        _show_join_request(record)
+        _show_join_request(record, client=client)
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):
@@ -141,8 +157,9 @@ def _execute_list(args):
         if not records:
             print(f"  {term.dim('None found.')}")
             return
-        term.table(_table_rows(records), ['ID', 'Group', 'Status', 'Requested', 'Reason'],
-                  max_widths=[6, 20, 10, 20, 30])
+        term.table(_table_rows(records, client=client),
+                  ['ID', 'Group', 'Status', 'Requester', 'Requested', 'Reason'],
+                  max_widths=[6, 20, 10, 20, 20, 30])
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):
@@ -179,8 +196,9 @@ def _execute_mine(args):
         if not records:
             print(f"  {term.dim('None found.')}")
             return
-        term.table(_table_rows(records), ['ID', 'Group', 'Status', 'Requested', 'Reason'],
-                  max_widths=[6, 20, 10, 20, 30])
+        term.table(_table_rows(records, client=client),
+                  ['ID', 'Group', 'Status', 'Requester', 'Requested', 'Reason'],
+                  max_widths=[6, 20, 10, 20, 20, 30])
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):
@@ -215,7 +233,7 @@ def _execute_approve(args):
         record = client.access_groups.approve_join_request(args.request_id,
                                                             reviewer_notes=args.reviewer_notes)
         logger.info(f"✓ Join request {args.request_id} approved")
-        _show_join_request(record)
+        _show_join_request(record, client=client)
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):
@@ -248,7 +266,7 @@ def _execute_reject(args):
         record = client.access_groups.reject_join_request(args.request_id,
                                                            reviewer_notes=args.reviewer_notes)
         logger.info(f"✓ Join request {args.request_id} rejected")
-        _show_join_request(record)
+        _show_join_request(record, client=client)
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):
