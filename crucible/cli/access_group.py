@@ -42,22 +42,10 @@ def _status_label(status):
     return status
 
 
-def _resolve_usernames(client, orcids):
-    """Batch-resolve ORCIDs to usernames. Returns {orcid: username_or_orcid}."""
-    orcids = sorted({o for o in orcids if o})
-    if not orcids or client is None:
-        return {}
-    try:
-        resolved = client.users.resolve(orcids=orcids)
-    except Exception:
-        return {}
-    return {orcid: (info.get('username') or orcid) if info else orcid
-            for orcid, info in resolved.items()}
-
-
 def _show_join_request(record, client=None):
     """Print a JoinRequest record."""
-    names = _resolve_usernames(client, [record.get('requester_id'), record.get('reviewer_id')])
+    from .helpers import resolve_usernames
+    names = resolve_usernames(client, [record.get('requester_id'), record.get('reviewer_id')])
     _p = term.field_printer(16)
     term.header("Join Request")
     _p("Request ID", record.get('id'))
@@ -73,7 +61,8 @@ def _show_join_request(record, client=None):
 
 
 def _table_rows(records, client=None):
-    names = _resolve_usernames(client, [r.get('requester_id') for r in records])
+    from .helpers import resolve_usernames
+    names = resolve_usernames(client, [r.get('requester_id') for r in records])
     rows = []
     for r in records:
         rows.append((
@@ -81,8 +70,7 @@ def _table_rows(records, client=None):
             r.get('group_name') or '-',
             _status_label(r.get('status') or '-'),
             names.get(r.get('requester_id'), r.get('requester_id')) or '-',
-            term.fmt_ts(r.get('request_time')) or '-',
-            r.get('reason') or '-',
+            term.fmt_date(r.get('request_time')),
         ))
     return rows
 
@@ -158,8 +146,8 @@ def _execute_list(args):
             print(f"  {term.dim('None found.')}")
             return
         term.table(_table_rows(records, client=client),
-                  ['ID', 'Group', 'Status', 'Requester', 'Requested', 'Reason'],
-                  max_widths=[6, 20, 10, 20, 20, 30])
+                  ['ID', 'Group', 'Status', 'Requester', 'Requested'],
+                  max_widths=[6, 20, 10, 20, 12])
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):
@@ -197,8 +185,8 @@ def _execute_mine(args):
             print(f"  {term.dim('None found.')}")
             return
         term.table(_table_rows(records, client=client),
-                  ['ID', 'Group', 'Status', 'Requester', 'Requested', 'Reason'],
-                  max_widths=[6, 20, 10, 20, 20, 30])
+                  ['ID', 'Group', 'Status', 'Requester', 'Requested'],
+                  max_widths=[6, 20, 10, 20, 12])
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):

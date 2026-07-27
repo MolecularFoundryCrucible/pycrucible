@@ -28,6 +28,19 @@ def fetch_deletions(client):
         return None
 
 
+def resolve_usernames(client, orcids):
+    """Batch-resolve ORCIDs to usernames. Returns {orcid: username_or_orcid}."""
+    orcids = sorted({o for o in orcids if o})
+    if not orcids or client is None:
+        return {}
+    try:
+        resolved = client.users.resolve(orcids=orcids)
+    except Exception:
+        return {}
+    return {orcid: (info.get('username') or orcid) if info else orcid
+            for orcid, info in resolved.items()}
+
+
 def fetch_user_label(client, whoami_info=None):
     """Return a display name for the authenticated user.
 

@@ -189,6 +189,20 @@ def fmt_ts(ts) -> str | None:
     return f"{abs_str}  {dim(f'({_rel(now - dt)})')}"
 
 
+def fmt_date(ts) -> str:
+    """Format a timestamp as a bare YYYY-MM-DD, for compact table columns.
+
+    Returns '-' for falsy or unparseable input.
+    """
+    if not ts:
+        return '-'
+    try:
+        dt = datetime.fromisoformat(str(ts).strip())
+        return dt.strftime('%Y-%m-%d')
+    except (ValueError, TypeError):
+        return str(ts)
+
+
 def fmt_size(size) -> str | None:
     """Return a human-readable byte count, e.g. ``1.4 GB``."""
     if size is None:

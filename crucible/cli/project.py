@@ -728,8 +728,8 @@ def _execute_list_join_requests(args):
             print(f"  {term.dim('None found.')}")
             return
         term.table(_table_rows(records, client=client),
-                  ['ID', 'Group', 'Status', 'Requester', 'Requested', 'Reason'],
-                  max_widths=[6, 20, 10, 20, 20, 30])
+                  ['ID', 'Group', 'Status', 'Requester', 'Requested'],
+                  max_widths=[6, 20, 10, 20, 12])
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):
