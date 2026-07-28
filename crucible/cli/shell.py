@@ -61,15 +61,16 @@ try:
         """Three-level argparse completer: resource -> subcommand -> flags."""
 
         def __init__(self, parser, client=None, projects=None, deletions=None,
-                     join_requests=None, state=None):
-            self._top           = _get_subparser_map(parser)
-            self._client        = client
-            self._projects      = projects  or []
-            self._deletions     = deletions or []
-            self._join_requests = join_requests or []
-            self._unlink_cache  = {}  # mfid -> [(uid, name, entity_type), ...]
-            self._users         = []  # [(orcid, full_name), ...]
-            self._state         = state or {}
+                     join_requests=None, service_accounts=None, state=None):
+            self._top               = _get_subparser_map(parser)
+            self._client            = client
+            self._projects          = projects  or []
+            self._deletions         = deletions or []
+            self._join_requests     = join_requests or []
+            self._service_accounts  = service_accounts or []
+            self._unlink_cache      = {}  # mfid -> [(uid, name, entity_type), ...]
+            self._user_search_cache = {}  # query -> [(username, name, orcid), ...]
+            self._state             = state or {}
 
         def _lazy_projects(self):
             if not self._projects and self._client is not None:
@@ -77,31 +78,46 @@ try:
                 self._projects = fetch_projects(self._client)
             return self._projects
 
-        def _lazy_users(self):
-            if not self._users and self._client is not None:
+        def _search_users(self, query):
+            """Search users by name/username via the public search endpoint (no admin required).
+
+            Cached per exact query string for the session — cheap and avoids
+            re-hitting the API on every keystroke once a prefix was searched.
+            """
+            if query in self._user_search_cache:
+                return self._user_search_cache[query]
+            results = []
+            if self._client is not None:
                 try:
-                    users = self._client.users.list()
-                    self._users = [
-                        (u.get('unique_id') or '', term.fmt_name(u, default='', fallback_username=False))
-                        for u in users
-                        if not u.get('is_service_account')
-                        and (u.get('unique_id'))
-                    ]
+                    for u in self._client.users.search(query):
+                        username = u.get('username') or ''
+                        if not username:
+                            continue
+                        name = term.fmt_name(u, default='', fallback_username=False)
+                        results.append((username, name, u.get('unique_id') or ''))
                 except Exception:
                     pass
-            return self._users
+            self._user_search_cache[query] = results
+            return results
 
         def _yield_user_completions(self, prefix):
-            """Yield ORCID completions matching prefix against ORCID or name."""
-            prefix_lower = prefix.lower()
-            for orcid, name in self._lazy_users():
-                if orcid.startswith(prefix) or prefix_lower in name.lower():
-                    yield Completion(
-                        orcid + ' ',
-                        start_position=-len(prefix),
-                        display=_HTML(f'<b>{_html.escape(orcid)}</b>'),
-                        display_meta=_HTML(f'<ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
-                    )
+            """Yield username completions for a user-identifier argument.
+
+            Requires 3+ characters (matches the `crucible user search` minimum)
+            since this hits the live search endpoint rather than a local cache.
+            The API does fuzzy/typo-tolerant matching server-side (e.g. "faber"
+            -> "roncofaber"), so results aren't re-filtered by prefix here.
+            """
+            if len(prefix) < 3:
+                return
+            for username, name, orcid in self._search_users(prefix):
+                meta = f'{name}  ' if name else ''
+                yield Completion(
+                    username + ' ',
+                    start_position=-len(prefix),
+                    display=_HTML(f'<b>{_html.escape(username)}</b>'),
+                    display_meta=_HTML(f'<ansibrightblack>{_html.escape(meta)}{_html.escape(orcid)}</ansibrightblack>'),
+                )
 
         def _unlink_neighbors(self, mfid):
             """Return [(uid, name, entity_type)] of entities directly linked to mfid (cached)."""
@@ -201,6 +217,49 @@ try:
                     )
                 return
 
+            if resource in ('ag', 'access-group') and len(words) >= 2 and words[1] == 'request':
+                # Complete the GROUP positional (currently always a project_id).
+                if trailing_space and len(words) == 2:
+                    prefix = ''
+                elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
+                    prefix = words[2]
+                else:
+                    return  # GROUP already filled
+                for pid, title in self._lazy_projects():
+                    if pid.startswith(prefix):
+                        yield Completion(
+                            pid + ' ',
+                            start_position=-len(prefix),
+                            display=_HTML(f'<b>{pid}</b>'),
+                            display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'),
+                        )
+                return
+
+            if resource in ('sa', 'service-account') and len(words) >= 2:
+                # Complete the SA positional (MFID or username) for subcommands that take one.
+                _SA_SUBS = {'get', 'rotate-key', 'edit', 'update', 'list-access-groups',
+                            'add-access-group', 'remove-access-group'}
+                if words[1] in _SA_SUBS:
+                    if trailing_space and len(words) == 2:
+                        prefix = ''
+                    elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
+                        prefix = words[2]
+                    else:
+                        return  # SA already filled
+                    prefix_lower = prefix.lower()
+                    for sa in self._service_accounts:
+                        username = sa.get('username') or ''
+                        if not username.lower().startswith(prefix_lower):
+                            continue
+                        name = term.fmt_name(sa, default='', fallback_username=False)
+                        yield Completion(
+                            username + ' ',
+                            start_position=-len(prefix),
+                            display=_HTML(f'<b>{_html.escape(username)}</b>'),
+                            display_meta=_HTML(f'<ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
+                        )
+                    return
+
             if resource == 'unlink' and self._client is not None:
                 # Positional form: unlink MFID1 MFID2
                 # Complete MFID2 from the graph neighbors of MFID1.
@@ -260,21 +319,23 @@ try:
                 return
 
             if resource == 'user' and len(words) >= 2:
-                # Complete the ORCID positional for admin subcommands.
-                _ORCID_SUBS = {'list-datasets', 'check-access', 'list-access-groups', 'list-projects'}
-                if words[1] in _ORCID_SUBS:
+                # Complete the USER positional (ORCID/username/email) by username search.
+                _USER_SUBS = {'get', 'update', 'edit', 'add-access-group', 'remove-access-group',
+                              'list-datasets', 'check-access', 'list-access-groups', 'list-projects'}
+                if words[1] in _USER_SUBS:
                     if trailing_space and len(words) == 2:
                         prefix = ''
                     elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
                         prefix = words[2]
                     else:
-                        return  # ORCID already filled
+                        return  # USER already filled
                     yield from self._yield_user_completions(prefix)
                     return
 
             if resource == 'project' and len(words) >= 2:
                 # Complete the PROJECT_ID positional for subcommands that take one.
-                _PID_SUBS = {'get', 'update', 'list-users', 'add-user', 'remove-user'}
+                _PID_SUBS = {'get', 'update', 'list-users', 'add-user', 'remove-user',
+                             'request-join', 'list-join-requests'}
                 if words[1] in _PID_SUBS:
                     if trailing_space and len(words) == 2:
                         prefix = ''
@@ -505,50 +566,56 @@ class CrucibleShell:
     def _init_state(self, whoami_info):
         """Populate self.state from startup data."""
         from .helpers import (
-            fetch_projects, fetch_deletions, fetch_join_requests, fetch_user_label,
-            fetch_current_project, fetch_current_session, fetch_api_label,
+            fetch_projects, fetch_deletions, fetch_join_requests, fetch_service_accounts,
+            fetch_user_label, fetch_current_project, fetch_current_session, fetch_api_label,
         )
         deletions     = fetch_deletions(self.client)
         join_requests = fetch_join_requests(self.client)
         self.is_admin = deletions is not None
+        service_accounts = fetch_service_accounts(self.client) if self.is_admin else None
 
         self.state = {
-            'user_label':     fetch_user_label(self.client, whoami_info),
-            'projects':       fetch_projects(self.client),
-            'project':        fetch_current_project(),
-            'session':        fetch_current_session(),
-            'api_label':      fetch_api_label(),
-            'debug':          False,
-            'deletions':      deletions or [],
-            'join_requests':  join_requests or [],
-            'recent_mfids':   deque(maxlen=15),
+            'user_label':        fetch_user_label(self.client, whoami_info),
+            'projects':          fetch_projects(self.client),
+            'project':           fetch_current_project(),
+            'session':           fetch_current_session(),
+            'api_label':         fetch_api_label(),
+            'debug':             False,
+            'deletions':         deletions or [],
+            'join_requests':     join_requests or [],
+            'service_accounts':  service_accounts or [],
+            'recent_mfids':      deque(maxlen=15),
         }
 
     def refresh(self):
-        """Re-fetch projects, user info, deletions, and join requests. Updates state + completer."""
+        """Re-fetch projects, user info, deletions, join requests, and service accounts. Updates state + completer."""
         from .helpers import (
-            fetch_projects, fetch_deletions, fetch_join_requests, fetch_user_label,
-            fetch_current_project, fetch_current_session, fetch_api_label,
+            fetch_projects, fetch_deletions, fetch_join_requests, fetch_service_accounts,
+            fetch_user_label, fetch_current_project, fetch_current_session, fetch_api_label,
         )
-        with ThreadPoolExecutor(max_workers=3) as pool:
+        with ThreadPoolExecutor(max_workers=4) as pool:
             proj_f = pool.submit(fetch_projects,      self.client)
             del_f  = pool.submit(fetch_deletions,     self.client)
             jr_f   = pool.submit(fetch_join_requests, self.client)
-            new_projects      = proj_f.result()
-            new_deletions     = del_f.result()
-            new_join_requests = jr_f.result()
+            sa_f   = pool.submit(fetch_service_accounts, self.client)
+            new_projects         = proj_f.result()
+            new_deletions        = del_f.result()
+            new_join_requests    = jr_f.result()
+            new_service_accounts = sa_f.result()
         self.is_admin = new_deletions is not None
-        self.state['projects']      = new_projects
-        self.state['user_label']    = fetch_user_label(self.client)
-        self.state['project']       = fetch_current_project()
-        self.state['session']       = fetch_current_session()
-        self.state['api_label']     = fetch_api_label()
-        self.state['deletions']     = new_deletions or []
-        self.state['join_requests'] = new_join_requests or []
+        self.state['projects']         = new_projects
+        self.state['user_label']       = fetch_user_label(self.client)
+        self.state['project']          = fetch_current_project()
+        self.state['session']          = fetch_current_session()
+        self.state['api_label']        = fetch_api_label()
+        self.state['deletions']        = new_deletions or []
+        self.state['join_requests']    = new_join_requests or []
+        self.state['service_accounts'] = new_service_accounts or []
         if self.completer is not None:
-            self.completer._projects      = new_projects
-            self.completer._deletions     = new_deletions
-            self.completer._join_requests = new_join_requests
+            self.completer._projects         = new_projects
+            self.completer._deletions        = new_deletions
+            self.completer._join_requests    = new_join_requests
+            self.completer._service_accounts = new_service_accounts
         print(f"Refreshed: {len(new_projects)} projects, user info reloaded.")
 
     def _toolbar(self):
@@ -857,6 +924,15 @@ class CrucibleShell:
             if self.completer is not None:
                 self.completer._join_requests = new_join_requests
 
+        # Re-fetch service accounts after any sa/service-account command that changes the list
+        if (self.is_admin and len(words) >= 2 and words[0] in ('sa', 'service-account')
+                and words[1] in ('create', 'update', 'rotate-key')):
+            from .helpers import fetch_service_accounts
+            new_service_accounts = fetch_service_accounts(self.client)
+            self.state['service_accounts'] = new_service_accounts or []
+            if self.completer is not None:
+                self.completer._service_accounts = new_service_accounts or []
+
         # Reload client and full state after config set / config edit
         if len(words) >= 2 and words[0] == 'config' and words[1] in ('set', 'edit'):
             from crucible.config import config as _cfg
@@ -904,6 +980,7 @@ class CrucibleShell:
             projects=self.state['projects'],
             deletions=self.state['deletions'],
             join_requests=self.state['join_requests'],
+            service_accounts=self.state['service_accounts'],
             state=self.state,
         )
 

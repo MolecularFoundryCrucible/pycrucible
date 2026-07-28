@@ -94,6 +94,14 @@ def fetch_join_requests(client):
         return None
 
 
+def fetch_service_accounts(client):
+    """Return all service accounts, or None if the user lacks permission."""
+    try:
+        return client.service_accounts.list()
+    except Exception:
+        return None
+
+
 def resolve_usernames(client, orcids):
     """Batch-resolve ORCIDs to usernames. Returns {orcid: username_or_orcid}."""
     orcids = sorted({o for o in orcids if o})

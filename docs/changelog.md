@@ -7,6 +7,8 @@
 - New `ag get REQUEST_ID` and `client.access_groups.get()` (admin only).
 - `ag approve`/`ag reject` accept multiple request IDs, like `deletion approve`/`reject`.
 - Shell autocomplete for `ag approve`/`reject`/`get` request IDs, mirroring the existing `deletion` completer.
+- Shell username autocomplete now uses the public `users.search()` endpoint (works for non-admins) instead of the admin-only `users.list()`, and completes to username instead of ORCID.
+- Shell autocomplete extended to more `user`/`project` subcommands taking a USER/PROJECT_ID positional, plus new completion for `sa` commands and `ag request`/`project request-join` group names.
 
 ## 3.1.0
 
