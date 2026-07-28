@@ -11,6 +11,7 @@
 - Shell autocomplete extended to more `user`/`project` subcommands taking a USER/PROJECT_ID positional, plus new completion for `sa` commands and `ag request`/`project request-join` group names.
 - Shell autocomplete for `instrument get` (by name, fetched once per session) and `--project`/`-pid` flags on `dataset`/`sample` commands.
 - Shell autocomplete for dataset/sample IDs across nearly all subcommands (by name, live search, falls back to recently-viewed items below the 3-char search minimum) and for `-s/--sample`, `-c/--child`, `-d/--dataset` flag values.
+- Shell autocomplete now also shows live matches while typing `user search TERM`.
 
 ## 3.1.0
 

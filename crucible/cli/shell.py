@@ -397,8 +397,11 @@ try:
 
             if resource == 'user' and len(words) >= 2:
                 # Complete the USER positional (ORCID/username/email) by username search.
+                # 'search' is included too — TERM is free text, but showing live
+                # matches while typing is useful preview, not just identifier lookup.
                 _USER_SUBS = {'get', 'update', 'edit', 'add-access-group', 'remove-access-group',
-                              'list-datasets', 'check-access', 'list-access-groups', 'list-projects'}
+                              'list-datasets', 'check-access', 'list-access-groups', 'list-projects',
+                              'search'}
                 if words[1] in _USER_SUBS:
                     if trailing_space and len(words) == 2:
                         prefix = ''
