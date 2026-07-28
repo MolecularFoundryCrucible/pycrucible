@@ -96,18 +96,26 @@ class BaseResource:
 
         return items[:need]
 
-    def search_metadata(self, q: str, limit: int = 50) -> list:
+    def search_metadata(self, q: str, limit: int = 20) -> list:
         """Full-text search across scientific metadata of all accessible resources.
 
-        Results are ranked by relevance and may include datasets or samples.
-        Each result contains 'unique_id' (the resource MFID) and 'scientific_metadata'.
+        Results are ranked by relevance (rank field) and include resource_type, name,
+        owner_orcid, creation_time, modification_time, and scientific_metadata.
+        Resources with pending or approved deletion requests are excluded.
 
         Args:
             q: Plain-text search query (English-language stemmed).
-            limit: Max results to return (default 50, max 200).
+            limit: Max results to return (default 20, max 50).
+
+        Returns:
+            List of result dicts with unique_id, resource_type, name, owner_orcid,
+            creation_time, modification_time, rank, and scientific_metadata.
         """
-        return self._request('get', '/resources/metadata/search',
+        resp = self._request('get', '/resources/metadata/search',
                              params={"q": q, "limit": limit})
+        if isinstance(resp, dict) and 'items' in resp:
+            return resp['items']
+        return resp or []
 
     @_deprecated("search_metadata()")
     def search_scientific_metadata(self, q: str, limit: int = 50) -> list:

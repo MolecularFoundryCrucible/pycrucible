@@ -76,7 +76,8 @@ class CrucibleClient:
         # Initialize resource operations
         from .resources import FileOperations, DatasetOperations, SampleOperations, \
         ProjectOperations, UserOperations, InstrumentOperations, DeletionOperations, \
-        GraphOperations, AccountOperations, IngestionOperations
+        GraphOperations, AccountOperations, IngestionOperations, ServiceAccountOperations, \
+        AccessGroupOperations
 
         self.files = FileOperations(self)
         self.datasets = DatasetOperations(self)
@@ -88,6 +89,8 @@ class CrucibleClient:
         self.graphs = GraphOperations(self)
         self.account = AccountOperations(self)
         self.ingestions = IngestionOperations(self)
+        self.service_accounts = ServiceAccountOperations(self)
+        self.access_groups = AccessGroupOperations(self)
     
     def _request(self, method: str, endpoint: str, **kwargs) -> Any:
         """Make an HTTP request to the API.
@@ -190,7 +193,8 @@ class CrucibleClient:
         return response['resource_type']
 
     def get(self, resource_id: str, resource_type: str = None,
-            include_metadata: bool = False, include_links: bool = False) -> Dict:
+            include_metadata: bool = False, include_links: bool = False,
+            include_owner: bool = False) -> Dict:
         """
         Get a resource by ID with automatic type detection.
 
@@ -200,6 +204,7 @@ class CrucibleClient:
                                           If not provided, will be auto-detected.
             include_metadata (bool): Include scientific metadata
             include_links (bool): Include immediate parent/child/associated links
+            include_owner (bool): Resolve owner_orcid into a full user object
 
         Returns:
             Dict: Resource data
@@ -213,14 +218,18 @@ class CrucibleClient:
                 params['include_links'] = True
             if include_metadata:
                 params['include_metadata'] = True
+            if include_owner:
+                params['include_owner'] = True
             return self._request('get', f"/resources/{resource_id}", params=params or None)
 
         if resource_type == "sample":
             return self.samples.get(resource_id, include_links=include_links,
-                                    include_metadata=include_metadata)
+                                    include_metadata=include_metadata,
+                                    include_owner=include_owner)
         elif resource_type == "dataset":
             return self.datasets.get(resource_id, include_metadata=include_metadata,
-                                     include_links=include_links)
+                                     include_links=include_links,
+                                     include_owner=include_owner)
         elif resource_type == "instrument":
             return self.instruments.get(instrument_id=resource_id,
                                         include_metadata=include_metadata)

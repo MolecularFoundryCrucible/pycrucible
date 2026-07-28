@@ -80,7 +80,8 @@ crucible sample add-dataset SAMPLE_ID -d DATASET_ID
 | `project get ID` | `-v` | Get project details |
 | `project create` | `--project-id ID` `-o ORG` `-e EMAIL` `--title TEXT` `--lead-name NAME` `--status STATUS` | Create a project (interactive if args omitted) |
 | `project list-users ID` | `--limit N` | List users in a project |
-| `project add-user ID` | `--orcid ORCID` | Add a user to a project |
+| `project add-user ID` | `--user USER` | Add a user to a project (USER: ORCID, username, or email) |
+| `project remove-user ID` | `--user USER` | Remove a user from a project |
 
 ```bash
 crucible project create --project-id my-project -o "LBNL" -e "lead@lbl.gov"
@@ -104,12 +105,16 @@ crucible project list-users my-project
 | Command | Key options | Description |
 |---|---|---|
 | `user list` | `--limit N` | List all users |
-| `user get` | `--orcid ORCID` or `--email EMAIL` | Get a user |
+| `user get USER` | `--json` | Get a user (USER: ORCID, username, or email) |
 | `user create` | `--orcid` `--first-name` `--last-name` `--email` `--projects` | Create a user (interactive if args omitted) |
-| `user list-datasets ORCID` | | List dataset IDs accessible to a user |
-| `user check-access ORCID DATASET_ID` | | Check read/write permissions for a user |
-| `user list-access-groups ORCID` | | List access groups a user belongs to |
-| `user list-projects ORCID` | `-v` | List projects associated with a user |
+| `user update USER` | `--first-name` `--last-name` `--email` `--username` | Update a user record |
+| `user edit USER` | | Edit a user record in your editor |
+| `user list-datasets USER` | | List dataset IDs accessible to a user |
+| `user check-access USER DATASET_ID` | | Check read/write permissions for a user |
+| `user list-access-groups USER` | | List access groups a user belongs to |
+| `user add-access-group USER GROUP` | | Add a user to an access group |
+| `user remove-access-group USER GROUP` | | Remove a user from an access group |
+| `user list-projects USER` | `-v` | List projects associated with a user |
 
 ---
 

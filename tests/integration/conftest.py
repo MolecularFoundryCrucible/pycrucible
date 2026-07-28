@@ -64,12 +64,13 @@ def new_dataset(client):
 @pytest.fixture(scope='session')
 def new_sample(client):
     """Create a sample once for the session, reused across modules."""
-    s = client.samples.create(
+    from crucible.models import Sample
+    s = client.samples.create(Sample(
         sample_name=f'{TEST_TAG}-sample',
         project_id=PROJECT_ID,
         sample_type='test',
         description='Created by v3 client integration test',
-    )
+    ))
     return s.get('unique_id')
 
 

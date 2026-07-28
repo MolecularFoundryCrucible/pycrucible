@@ -228,7 +228,7 @@ def cmd_init(args):
 
     # Get Graph Explorer URL
     print("\n4. Graph Explorer URL (optional)")
-    print("   Press Enter to use default: https://crucible-graph-explorer-776258882599.us-central1.run.app")
+    print("   Press Enter to use default: https://crucible.lbl.gov/explore")
     graph_explorer_url = input("   Graph Explorer URL: ").strip()
     if not graph_explorer_url:
         graph_explorer_url = None

@@ -53,6 +53,8 @@ def register_subcommand(subparsers):
     _register_list_users(project_subparsers)
     _register_add_user(project_subparsers)
     _register_remove_user(project_subparsers)
+    _register_request_join(project_subparsers)
+    _register_list_join_requests(project_subparsers)
 
 
 def _register_list(subparsers):
@@ -217,12 +219,13 @@ def _register_add_user(subparsers):
     parser = subparsers.add_parser(
         'add-user',
         help='Add a user to a project',
-        description='Add a user to a project by ORCID or email (requires admin permissions)',
+        description='Add a user to a project by ORCID, username, or email (requires admin permissions)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible project add-user my-project --orcid 0000-0002-1825-0097
-    crucible project add-user my-project --email user@lbl.gov
+    crucible project add-user my-project --user 0000-0002-1825-0097
+    crucible project add-user my-project --user fabrice
+    crucible project add-user my-project --user user@lbl.gov
 """
     )
 
@@ -234,10 +237,13 @@ Examples:
     if ARGCOMPLETE_AVAILABLE:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
 
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--orcid',    metavar='ORCID',    help='User ORCID identifier')
-    group.add_argument('--email',    metavar='EMAIL',    help='User email address')
-    group.add_argument('-u', '--username', metavar='USERNAME', help='Username')
+    parser.add_argument('--user', '-u', metavar='USER', default=None,
+                        help='ORCID, username, or email of the user')
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--orcid',    metavar='ORCID',    help='(deprecated, use --user)')
+    group.add_argument('--email',    metavar='EMAIL',    help='(deprecated, use --user)')
+    group.add_argument('--username', metavar='USERNAME', help='(deprecated, use --user)')
 
     parser.set_defaults(func=_execute_add_user)
 
@@ -274,12 +280,13 @@ def _register_remove_user(subparsers):
     parser = subparsers.add_parser(
         'remove-user',
         help='Remove a user from a project',
-        description='Remove a user from a project by ORCID or email (requires admin permissions)',
+        description='Remove a user from a project by ORCID, username, or email (requires admin permissions)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible project remove-user my-project --orcid 0000-0002-1825-0097
-    crucible project remove-user my-project --email user@lbl.gov
+    crucible project remove-user my-project --user 0000-0002-1825-0097
+    crucible project remove-user my-project --user fabrice
+    crucible project remove-user my-project --user user@lbl.gov
 """
     )
     project_id_arg = parser.add_argument(
@@ -287,10 +294,14 @@ Examples:
     )
     if ARGCOMPLETE_AVAILABLE:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--orcid',    metavar='ORCID',    help='User ORCID identifier')
-    group.add_argument('--email',    metavar='EMAIL',    help='User email address')
-    group.add_argument('-u', '--username', metavar='USERNAME', help='Username')
+
+    parser.add_argument('--user', '-u', metavar='USER', default=None,
+                        help='ORCID, username, or email of the user')
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--orcid',    metavar='ORCID',    help='(deprecated, use --user)')
+    group.add_argument('--email',    metavar='EMAIL',    help='(deprecated, use --user)')
+    group.add_argument('--username', metavar='USERNAME', help='(deprecated, use --user)')
     parser.set_defaults(func=_execute_remove_user)
 
 
@@ -336,9 +347,7 @@ def _execute_list(args):
 def _lead_name(project):
     """Return the lead's display name from embedded lead dict, or fallback to project_lead_email."""
     lead = project.get('lead') or {}
-    parts = [lead.get('first_name') or '', lead.get('last_name') or '']
-    name = ' '.join(p for p in parts if p)
-    return name or project.get('project_lead_email') or None
+    return term.fmt_name(lead, default=project.get('project_lead_email'), fallback_username=False)
 
 
 def _show_project(project, include_metadata=False):
@@ -499,12 +508,12 @@ def _execute_list_users(args):
         else:
             rows = []
             for u in users:
-                name_parts = [u.get('first_name') or '', u.get('last_name') or '']
-                name  = ' '.join(p for p in name_parts if p) or '-'
-                orcid = u.get('orcid') or '-'
-                email = u.get('email') or '-'
-                rows.append((name, orcid, email))
-            term.table(rows, ['Name', 'ORCID', 'Email'], max_widths=[25, 19, 35])
+                name     = term.fmt_name(u, default='-', fallback_username=False)
+                username = u.get('username') or '-'
+                orcid    = u.get('unique_id') or '-'
+                email    = u.get('email') or '-'
+                rows.append((username, name, orcid, email))
+            term.table(rows, ['Username', 'Name', 'ORCID', 'Email'], max_widths=[20, 25, 19, 35])
 
     except Exception as e:
         logger.error(f"Error listing project users: {e}")
@@ -517,11 +526,27 @@ def _execute_list_users(args):
 def _execute_add_user(args):
     """Execute the 'project add-user' subcommand."""
     import re
+    import warnings
     from crucible.client import CrucibleClient
+    from .helpers import parse_user_ref
 
     orcid    = getattr(args, 'orcid', None)
     email    = getattr(args, 'email', None)
     username = getattr(args, 'username', None)
+    user_ref = getattr(args, 'user', None)
+
+    if orcid or email or username:
+        warnings.warn(
+            "--orcid/--email/--username are deprecated; use --user instead: "
+            "crucible project add-user PROJECT_ID --user VALUE",
+            DeprecationWarning, stacklevel=2,
+        )
+    elif user_ref:
+        ref = parse_user_ref(user_ref)
+        orcid, email, username = ref.get('orcid'), ref.get('email'), ref.get('username')
+    else:
+        logger.error("Provide a user identifier: crucible project add-user PROJECT_ID --user VALUE")
+        sys.exit(1)
 
     if orcid and not re.match(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$', orcid):
         logger.error(f"Invalid ORCID format: {orcid}")
@@ -537,7 +562,7 @@ def _execute_add_user(args):
         name = orcid or username or email
         if isinstance(users, list):
             match = next((u for u in users if
-                          (orcid and (u.get('orcid')) == orcid) or
+                          (orcid and (u.get('unique_id')) == orcid) or
                           (username and u.get('username') == username) or
                           (email and u.get('email') == email)), None)
             if match:
@@ -618,11 +643,27 @@ def _execute_update(args):
 def _execute_remove_user(args):
     """Execute the 'project remove-user' subcommand."""
     import requests as _req
+    import warnings
     from crucible.client import CrucibleClient
+    from .helpers import parse_user_ref
 
     orcid    = getattr(args, 'orcid', None)
     email    = getattr(args, 'email', None)
     username = getattr(args, 'username', None)
+    user_ref = getattr(args, 'user', None)
+
+    if orcid or email or username:
+        warnings.warn(
+            "--orcid/--email/--username are deprecated; use --user instead: "
+            "crucible project remove-user PROJECT_ID --user VALUE",
+            DeprecationWarning, stacklevel=2,
+        )
+    elif user_ref:
+        ref = parse_user_ref(user_ref)
+        orcid, email, username = ref.get('orcid'), ref.get('email'), ref.get('username')
+    else:
+        logger.error("Provide a user identifier: crucible project remove-user PROJECT_ID --user VALUE")
+        sys.exit(1)
 
     try:
         client = CrucibleClient()
@@ -651,6 +692,85 @@ def _execute_remove_user(args):
     except Exception as e:
         logger.error(f"Error removing user from project: {e}")
         if getattr(args, "debug", False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_request_join(subparsers):
+    """Register the 'project request-join' subcommand."""
+    parser = subparsers.add_parser(
+        'request-join',
+        help='Request to join a project',
+        description='Request to join a project. Any authenticated user.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible project request-join my-project
+    crucible project request-join my-project --reason "Need access for XRD analysis"
+"""
+    )
+    parser.add_argument('project_id', metavar='PROJECT_ID', help='Project ID')
+    parser.add_argument('--reason', metavar='TEXT', default=None,
+                        help='Optional explanation for the request')
+    parser.set_defaults(func=_execute_request_join)
+
+
+def _execute_request_join(args):
+    """Execute the 'project request-join' subcommand."""
+    from crucible.client import CrucibleClient
+    from .access_group import _show_join_request
+    try:
+        client = CrucibleClient()
+        record = client.projects.request_join(args.project_id, reason=args.reason)
+        logger.info("✓ Join request submitted")
+        _show_join_request(record, client=client)
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _register_list_join_requests(subparsers):
+    """Register the 'project list-join-requests' subcommand."""
+    parser = subparsers.add_parser(
+        'list-join-requests',
+        help='List join requests for a project (admin or project lead)',
+        description='List join requests for a project. Requires admin or project lead permissions.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible project list-join-requests my-project
+    crucible project list-join-requests my-project --status pending
+"""
+    )
+    parser.add_argument('project_id', metavar='PROJECT_ID', help='Project ID')
+    parser.add_argument('--status', choices=['pending', 'approved', 'rejected'], default=None,
+                        help='Filter by status')
+    parser.add_argument('--limit', type=int, default=100, metavar='N')
+    parser.set_defaults(func=_execute_list_join_requests)
+
+
+def _execute_list_join_requests(args):
+    """Execute the 'project list-join-requests' subcommand."""
+    from crucible.client import CrucibleClient
+    from .access_group import _table_rows
+    try:
+        client = CrucibleClient()
+        records = client.projects.list_join_requests(args.project_id, status=args.status,
+                                                      limit=args.limit)
+        term.header(f"Join Requests · {args.project_id} ({len(records)})")
+        if not records:
+            print(f"  {term.dim('None found.')}")
+            return
+        term.table(_table_rows(records, client=client),
+                  ['ID', 'Group', 'Status', 'Requester', 'Requested'],
+                  max_widths=[6, 20, 10, 20, 12])
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
             import traceback
             traceback.print_exc()
         sys.exit(1)
@@ -752,7 +872,8 @@ def _register_search(subparsers):
     parser = subparsers.add_parser(
         'search',
         help='Fuzzy search projects by name or ID',
-        description='Fuzzy search across projects you are a member of.',
+        description='Fuzzy search across all projects, including ones you are not a member of. '
+                    'Use "crucible project request-join" to ask to join a project you find.',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:

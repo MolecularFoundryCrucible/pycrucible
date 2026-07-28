@@ -131,6 +131,14 @@ class FileOperations(BaseResource):
 
         return ingestion_request
 
+    def delete(self, file_id: str) -> None:
+        """Delete a file record by its MFID.
+
+        Args:
+            file_id: File MFID (AssociatedFile mfid)
+        """
+        self._request('delete', f'/files/{file_id}')
+
     def get_download_link(self, file_id: str) -> str:
         """Get a signed download URL for a single file.
 

@@ -53,7 +53,7 @@ def execute(args):
             _p("ID", user.get('id'))
 
             # Dump any remaining user_info fields not already shown
-            _known = {'first_name', 'last_name', 'unique_id', 'orcid',
+            _known = {'first_name', 'last_name', 'unique_id', 'username',
                       'email', 'id', 'is_service_account'}
             extras = {k: v for k, v in user.items() if k not in _known and v not in (None, '')}
             for key, val in extras.items():

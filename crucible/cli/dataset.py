@@ -89,14 +89,12 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
     _p("Public",      "yes" if pub else ("no" if pub is not None else None))
     _p("Project",     dataset.get('project_id'))
     _p("Timestamp",   term.fmt_ts(dataset.get('timestamp')))
+    _p("Owner",       term.fmt_owner(dataset))
     _p("Description", dataset.get('description'))
 
     dsid = dataset.get('unique_id')
 
     if verbose:
-        term.subheader("Ownership")
-        _p("Owner ORCID", term.orcid_link(dataset.get('owner_orcid')))
-
         term.subheader("File")
         _p("Data Format", dataset.get('data_format'))
         _p("Size",        term.fmt_size(dataset.get('size')))
@@ -1329,11 +1327,9 @@ def _execute_ingestion(args):
 
         rows = []
         for r in reqs:
-            status = r.get('status') or '-'
-            color  = term.green if status == 'complete' else (term.red if status == 'failed' else term.yellow)
             rows.append((
                 str(r.get('id', '-')),
-                color(status),
+                term.status_label(r.get('status')),
                 r.get('ingestion_class') or '-',
                 r.get('file_id') or '-',
                 term.fmt_ts(r.get('created_at') or r.get('creation_time')) or '-',
@@ -1577,8 +1573,8 @@ Examples:
     )
     parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
     parser.add_argument('group_name', metavar='GROUP',      help='Access group name')
-    parser.add_argument('--read',  action='store_true', default=True,  help='Grant read access (default: on)')
-    parser.add_argument('--write', action='store_true', default=False, help='Grant write access (default: off)')
+    parser.add_argument('--write', action='store_true', default=False,
+                        help='Also grant write access (read access is always granted)')
     parser.set_defaults(func=_execute_add_access_group)
 
 
@@ -1588,7 +1584,7 @@ def _execute_add_access_group(args):
     try:
         client = CrucibleClient()
         client.datasets.add_access_group(args.dataset_id, args.group_name,
-                                         read=args.read, write=args.write)
+                                         read=True, write=args.write)
         perms = 'read+write' if args.write else 'read'
         logger.info(f"✓ Access group '{args.group_name}' added to {args.dataset_id} ({perms})")
     except Exception as e:
@@ -1729,7 +1725,8 @@ def _execute_get(args):
         client = CrucibleClient()
         graph   = getattr(args, 'graph', False)
         dataset = client.datasets.get(args.dataset_id, include_metadata=include_metadata,
-                                      include_links=graph or _config.include_links)
+                                      include_links=graph or _config.include_links,
+                                      include_owner=True)
         if dataset is None:
             logger.error(f"Dataset not found: {args.dataset_id}")
             sys.exit(1)

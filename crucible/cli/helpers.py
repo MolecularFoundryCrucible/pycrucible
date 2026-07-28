@@ -8,7 +8,65 @@ shell, keybindings, etc.) and don't belong in term.py (display-only) or
 shell.py (which would create circular imports).
 """
 
+import re
 from concurrent.futures import ThreadPoolExecutor
+
+_ORCID_RE = re.compile(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$')
+_MFID_RE  = re.compile(r'^[0-9a-hjkmnp-tv-z]{26}$')  # Crockford base32, no i/l/o/u
+
+
+def parse_user_ref(value: str) -> dict:
+    """Sniff a user identifier's format and return a kwargs dict for users.get()/users.resolve().
+
+    Contains '@' -> email. Matches the ORCID pattern -> orcid. Otherwise -> username.
+    """
+    if '@' in value:
+        return {'email': value}
+    if _ORCID_RE.match(value):
+        return {'orcid': value}
+    return {'username': value}
+
+
+def parse_sa_ref(value: str) -> dict:
+    """Sniff a service account identifier's format for service_accounts.get().
+
+    Matches the MFID pattern (26-char Crockford base32) -> unique_id. Otherwise -> username.
+    """
+    if _MFID_RE.match(value):
+        return {'unique_id': value}
+    return {'username': value}
+
+
+def resolve_orcid(client, value: str) -> str:
+    """Resolve a user identifier (ORCID, username, or email) to an ORCID.
+
+    Returns the value unchanged if it's already an ORCID (no API call).
+    Raises ValueError if the identifier doesn't resolve to a user.
+    """
+    ref = parse_user_ref(value)
+    if 'orcid' in ref:
+        return value
+    user = client.users.get(**ref)
+    if user is None:
+        raise ValueError(f"User not found: {value}")
+    return user.get('unique_id')
+
+
+def resolve_sa_id(client, value: str) -> str:
+    """Resolve a service account identifier (MFID or username) to its MFID.
+
+    A username could coincidentally match the MFID shape (usernames allow the
+    same charset), so an MFID-shaped value that isn't found is retried as a
+    username before giving up.
+    Raises ValueError if the identifier doesn't resolve to a service account.
+    """
+    ref = parse_sa_ref(value)
+    sa = client.service_accounts.get(**ref)
+    if sa is None and 'unique_id' in ref:
+        sa = client.service_accounts.get(username=value)
+    if sa is None:
+        raise ValueError(f"Service account not found: {value}")
+    return sa.get('unique_id')
 
 
 def fetch_projects(client):
@@ -28,17 +86,30 @@ def fetch_deletions(client):
         return None
 
 
+def resolve_usernames(client, orcids):
+    """Batch-resolve ORCIDs to usernames. Returns {orcid: username_or_orcid}."""
+    orcids = sorted({o for o in orcids if o})
+    if not orcids or client is None:
+        return {}
+    try:
+        resolved = client.users.resolve(orcids=orcids)
+    except Exception:
+        return {}
+    return {orcid: (info.get('username') or orcid) if info else orcid
+            for orcid, info in resolved.items()}
+
+
 def fetch_user_label(client, whoami_info=None):
     """Return a display name for the authenticated user.
 
     Pass whoami_info to skip a redundant API call when the caller already
     has the result of client.whoami().
     """
+    from . import term
     try:
         info = whoami_info if whoami_info is not None else client.whoami()
         user = info.get('user_info', {})
-        name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
-        return name or info.get('user_unique_id') or '?'
+        return term.fmt_name(user, default=info.get('user_unique_id') or '?')
     except Exception:
         return '?'
 

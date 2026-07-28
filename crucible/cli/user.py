@@ -42,6 +42,7 @@ def register_subcommand(subparsers):
     _register_search(user_subparsers)
     _register_create(user_subparsers)
     _register_update(user_subparsers)
+    _register_edit(user_subparsers)
     _register_list(user_subparsers)
     _register_list_datasets(user_subparsers)
     _register_check_access(user_subparsers)
@@ -60,16 +61,19 @@ def _register_get(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible user get --orcid 0000-0002-1825-0097
-    crucible user get --username fabrice
-    crucible user get --email user@example.com
+    crucible user get 0000-0002-1825-0097
+    crucible user get fabrice
+    crucible user get user@example.com
 """
     )
 
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--orcid',    metavar='ORCID',    help='User ORCID identifier')
-    group.add_argument('-u', '--username', metavar='USERNAME',  help='Username')
-    group.add_argument('--email',    metavar='EMAIL',     help='User email address')
+    parser.add_argument('user', metavar='USER', nargs='?', default=None,
+                        help='ORCID, username, or email of the user')
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--orcid',    metavar='ORCID',    help='(deprecated, use positional USER)')
+    group.add_argument('-u', '--username', metavar='USERNAME',  help='(deprecated, use positional USER)')
+    group.add_argument('--email',    metavar='EMAIL',     help='(deprecated, use positional USER)')
 
     parser.add_argument('--json', action='store_true', default=False, help='Output as JSON')
 
@@ -110,8 +114,7 @@ def _execute_search(args):
         rows = []
         for u in users:
             username = u.get('username') or '-'
-            name_parts = [u.get('first_name') or '', u.get('last_name') or '']
-            name  = ' '.join(p for p in name_parts if p) or '-'
+            name  = term.fmt_name(u, default='-', fallback_username=False)
             orcid = term.orcid_link(u.get('unique_id')) or '-'
             rows.append((username, name, orcid))
         term.table(rows, ['Username', 'Name', 'ORCID'], max_widths=[20, 25, 19])
@@ -186,8 +189,7 @@ def _show_user(user):
     """Display user fields."""
     _p = term.field_printer(16)
 
-    name_parts = [user.get('first_name') or '', user.get('last_name') or '']
-    full_name = ' '.join(p for p in name_parts if p) or None
+    full_name = term.fmt_name(user, fallback_username=False)
     uid = user.get('unique_id')
 
     term.header("User")
@@ -202,16 +204,34 @@ def _show_user(user):
 def _execute_get(args):
     """Execute the 'user get' subcommand."""
     from crucible.client import CrucibleClient
+    from .helpers import parse_user_ref
+    import warnings
+
+    orcid    = getattr(args, 'orcid', None)
+    username = getattr(args, 'username', None)
+    email    = getattr(args, 'email', None)
+    user_ref = getattr(args, 'user', None)
+
+    if orcid or username or email:
+        warnings.warn(
+            "--orcid/--username/--email are deprecated; pass the identifier "
+            "positionally instead: crucible user get USER",
+            DeprecationWarning, stacklevel=2,
+        )
+        ref_kwargs = {'orcid': orcid, 'username': username, 'email': email}
+        identifier = orcid or username or email
+    elif user_ref:
+        ref_kwargs = parse_user_ref(user_ref)
+        identifier = user_ref
+    else:
+        logger.error("Provide a user identifier: crucible user get USER")
+        sys.exit(1)
+
     try:
         client = CrucibleClient()
-        user = client.users.get(
-            orcid=getattr(args, 'orcid', None),
-            username=getattr(args, 'username', None),
-            email=getattr(args, 'email', None),
-        )
+        user = client.users.get(**ref_kwargs)
 
         if user is None:
-            identifier = args.orcid or getattr(args, 'username', None) or args.email
             logger.error(f"User not found: {identifier}")
             sys.exit(1)
 
@@ -324,10 +344,10 @@ def _register_update(subparsers):
         epilog="""
 Examples:
     crucible user update 0000-0002-1825-0097 --first-name Jane
-    crucible user update 0000-0002-1825-0097 --email jane@example.com --last-name Smith
+    crucible user update fabrice --email jane@example.com --last-name Smith
 """
     )
-    parser.add_argument('orcid', metavar='ORCID', help='User ORCID identifier')
+    parser.add_argument('user', metavar='USER', help='ORCID, username, or email of the user to update')
     parser.add_argument('-f', '--first-name',  dest='first_name',    metavar='NAME',     help='First name')
     parser.add_argument('-l', '--last-name',   dest='last_name',     metavar='NAME',     help='Last name')
     parser.add_argument('--email',             dest='email',          metavar='EMAIL',    help='Email address')
@@ -344,6 +364,7 @@ Examples:
 def _execute_update(args):
     """Execute the 'user update' subcommand."""
     from crucible.client import CrucibleClient
+    from .helpers import resolve_orcid
 
     fields = {k: v for k, v in {
         'first_name':         args.first_name,
@@ -362,14 +383,107 @@ def _execute_update(args):
 
     try:
         client = CrucibleClient()
-        result = client.users.update(args.orcid, **fields)
+        orcid = resolve_orcid(client, args.user)
+        result = client.users.update(orcid, **fields)
         logger.info("User updated")
         _show_user(result)
+    except ValueError as e:
+        logger.error(str(e))
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Error updating user: {e}")
         sys.exit(1)
 
 
+
+
+def _register_edit(subparsers):
+    parser = subparsers.add_parser(
+        'edit',
+        help='Edit a user record in your editor',
+        description='Open a user record in your editor and apply changes on save (requires admin permissions)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible user edit 0000-0002-1825-0097
+    crucible user edit fabrice
+    crucible user edit user@lbl.gov
+""",
+    )
+    parser.add_argument('user', metavar='USER', nargs='?', default=None,
+                        help='ORCID, username, or email of the user')
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--orcid',    '-o', metavar='ORCID',    help='(deprecated, use positional USER)')
+    group.add_argument('--username', '-u', metavar='USERNAME', help='(deprecated, use positional USER)')
+    group.add_argument('--email',    '-e', metavar='EMAIL',    help='(deprecated, use positional USER)')
+    parser.set_defaults(func=_execute_edit)
+
+
+def _execute_edit(args):
+    """Execute the 'user edit' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import parse_user_ref
+    import warnings
+
+    orcid    = getattr(args, 'orcid', None)
+    username = getattr(args, 'username', None)
+    email    = getattr(args, 'email', None)
+    user_ref = getattr(args, 'user', None)
+
+    if orcid or username or email:
+        warnings.warn(
+            "--orcid/--username/--email are deprecated; pass the identifier "
+            "positionally instead: crucible user edit USER",
+            DeprecationWarning, stacklevel=2,
+        )
+        ref_kwargs = {'orcid': orcid, 'username': username, 'email': email}
+    elif user_ref:
+        ref_kwargs = parse_user_ref(user_ref)
+    else:
+        logger.error("Provide a user identifier: crucible user edit USER")
+        sys.exit(1)
+
+    try:
+        client = CrucibleClient()
+        user = client.users.get(**ref_kwargs)
+        if user is None:
+            logger.error("User not found")
+            sys.exit(1)
+
+        orcid = user.get('unique_id')
+        if not orcid:
+            logger.error("Could not determine user ORCID")
+            sys.exit(1)
+
+        _EDITABLE = ('first_name', 'last_name', 'email', 'username', 'is_service_account')
+        original = {k: user.get(k) for k in _EDITABLE}
+
+        try:
+            edited = term.open_editor_json(original)
+        except (RuntimeError, ValueError) as e:
+            logger.error(str(e))
+            sys.exit(1)
+
+        if edited is None:
+            logger.info("No changes.")
+            return
+
+        changes = {k: v for k, v in edited.items() if k in _EDITABLE and v != original.get(k)}
+        if not changes:
+            logger.info("No changes.")
+            return
+
+        result = client.users.update(orcid, **changes)
+        term.header("Changes")
+        term.diff(original, {k: result.get(k) for k in changes})
+
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
 
 
 def _register_add_access_group(subparsers):
@@ -382,9 +496,10 @@ def _register_add_access_group(subparsers):
         epilog="""
 Examples:
     crucible user add-access-group 0000-0002-1825-0097 my-group
+    crucible user add-access-group fabrice my-group
 """,
     )
-    parser.add_argument('orcid',      metavar='ORCID', help='User ORCID identifier')
+    parser.add_argument('user',       metavar='USER',  help='ORCID, username, or email of the user')
     parser.add_argument('group_name', metavar='GROUP', help='Access group name')
     parser.set_defaults(func=_execute_add_access_group)
 
@@ -392,10 +507,15 @@ Examples:
 def _execute_add_access_group(args):
     """Execute the 'user add-access-group' subcommand."""
     from crucible.client import CrucibleClient
+    from .helpers import resolve_orcid
     try:
         client = CrucibleClient()
-        client.users.add_to_access_group(args.orcid, args.group_name)
-        logger.info(f"Added {args.orcid} to access group '{args.group_name}'")
+        orcid = resolve_orcid(client, args.user)
+        client.users.add_to_access_group(orcid, args.group_name)
+        logger.info(f"Added {args.user} to access group '{args.group_name}'")
+    except ValueError as e:
+        logger.error(str(e))
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Error: {e}")
         if getattr(args, 'debug', False):
@@ -414,9 +534,10 @@ def _register_remove_access_group(subparsers):
         epilog="""
 Examples:
     crucible user remove-access-group 0000-0002-1825-0097 my-group
+    crucible user remove-access-group fabrice my-group
 """
     )
-    parser.add_argument('orcid',      metavar='ORCID', help='User ORCID identifier')
+    parser.add_argument('user',       metavar='USER',  help='ORCID, username, or email of the user')
     parser.add_argument('group_name', metavar='GROUP', help='Access group name')
     parser.set_defaults(func=_execute_remove_access_group)
 
@@ -424,10 +545,15 @@ Examples:
 def _execute_remove_access_group(args):
     """Execute the 'user remove-access-group' subcommand."""
     from crucible.client import CrucibleClient
+    from .helpers import resolve_orcid
     try:
         client = CrucibleClient()
-        client.users.remove_from_access_group(args.orcid, args.group_name)
-        logger.info(f"Removed {args.orcid} from access group '{args.group_name}'")
+        orcid = resolve_orcid(client, args.user)
+        client.users.remove_from_access_group(orcid, args.group_name)
+        logger.info(f"Removed {args.user} from access group '{args.group_name}'")
+    except ValueError as e:
+        logger.error(str(e))
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Error removing user from access group: {e}")
         sys.exit(1)
@@ -450,8 +576,7 @@ def _execute_list(args):
 
         rows = []
         for user in users:
-            name_parts = [user.get('first_name') or '', user.get('last_name') or '']
-            name     = ' '.join(p for p in name_parts if p) or '-'
+            name     = term.fmt_name(user, default='-', fallback_username=False)
             orcid    = term.orcid_link(user.get('unique_id')) or '-'
             email    = user.get('email') or '-'
             username = user.get('username') or '-'
@@ -476,9 +601,10 @@ def _register_list_datasets(subparsers):
         epilog="""
 Examples:
     crucible user list-datasets 0000-0002-1825-0097
+    crucible user list-datasets fabrice
 """
     )
-    parser.add_argument('orcid', metavar='ORCID', help='User ORCID identifier')
+    parser.add_argument('user', metavar='USER', help='ORCID, username, or email of the user')
     parser.set_defaults(func=_execute_list_datasets)
 
 
@@ -492,9 +618,10 @@ def _register_check_access(subparsers):
         epilog="""
 Examples:
     crucible user check-access 0000-0002-1825-0097 0tcbwt4cp9x1z000bazhkv5gkg
+    crucible user check-access fabrice 0tcbwt4cp9x1z000bazhkv5gkg
 """
     )
-    parser.add_argument('orcid', metavar='ORCID', help='User ORCID identifier')
+    parser.add_argument('user', metavar='USER', help='ORCID, username, or email of the user')
     parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
     parser.set_defaults(func=_execute_check_access)
 
@@ -510,9 +637,10 @@ def _register_list_access_groups(subparsers):
         epilog="""
 Examples:
     crucible user list-access-groups 0000-0002-1825-0097
+    crucible user list-access-groups fabrice
 """
     )
-    parser.add_argument('orcid', metavar='ORCID', help='User ORCID identifier')
+    parser.add_argument('user', metavar='USER', help='ORCID, username, or email of the user')
     parser.set_defaults(func=_execute_list_access_groups)
 
 
@@ -527,26 +655,32 @@ def _register_list_projects(subparsers):
         epilog="""
 Examples:
     crucible user list-projects 0000-0002-1825-0097
+    crucible user list-projects fabrice
 """
     )
-    parser.add_argument('orcid', metavar='ORCID', help='User ORCID identifier')
+    parser.add_argument('user', metavar='USER', help='ORCID, username, or email of the user')
     parser.set_defaults(func=_execute_list_projects)
 
 
 def _execute_list_datasets(args):
     """Execute the 'user list-datasets' subcommand."""
     from crucible.client import CrucibleClient
+    from .helpers import resolve_orcid
     try:
         client = CrucibleClient()
-        dataset_ids = client.users.list_datasets(args.orcid)
+        orcid = resolve_orcid(client, args.user)
+        dataset_ids = client.users.list_datasets(orcid)
 
-        term.header(f"Datasets · {args.orcid} ({len(dataset_ids)})")
+        term.header(f"Datasets · {args.user} ({len(dataset_ids)})")
         if not dataset_ids:
             print(f"  {term.dim('No datasets found.')}")
             return
         for dsid in dataset_ids:
             print(f"  {term.cyan(dsid)}")
 
+    except ValueError as e:
+        logger.error(str(e))
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Error listing user datasets: {e}")
         if getattr(args, "debug", False):
@@ -558,9 +692,11 @@ def _execute_list_datasets(args):
 def _execute_check_access(args):
     """Execute the 'user check-access' subcommand."""
     from crucible.client import CrucibleClient
+    from .helpers import resolve_orcid
     try:
         client = CrucibleClient()
-        perms = client.users.check_dataset_access(args.orcid, args.dataset_id)
+        orcid = resolve_orcid(client, args.user)
+        perms = client.users.check_dataset_access(orcid, args.dataset_id)
 
         _p = term.field_printer(14)
 
@@ -568,6 +704,9 @@ def _execute_check_access(args):
         _p("Read",  "yes" if perms.get('read')  else "no")
         _p("Write", "yes" if perms.get('write') else "no")
 
+    except ValueError as e:
+        logger.error(str(e))
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Error checking access: {e}")
         if getattr(args, "debug", False):
@@ -577,19 +716,24 @@ def _execute_check_access(args):
 
 
 def _execute_list_access_groups(args):
-    """Execute the 'user get-access-groups' subcommand."""
+    """Execute the 'user list-access-groups' subcommand."""
     from crucible.client import CrucibleClient
+    from .helpers import resolve_orcid
     try:
         client = CrucibleClient()
-        groups = client.users.list_access_groups(args.orcid)
+        orcid = resolve_orcid(client, args.user)
+        groups = client.users.list_access_groups(orcid)
 
-        term.header(f"Access Groups · {args.orcid} ({len(groups)})")
+        term.header(f"Access Groups · {args.user} ({len(groups)})")
         if not groups:
             print(f"  {term.dim('No access groups found.')}")
             return
         for g in groups:
             print(f"  {g}")
 
+    except ValueError as e:
+        logger.error(str(e))
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Error retrieving access groups: {e}")
         if getattr(args, "debug", False):
@@ -599,13 +743,15 @@ def _execute_list_access_groups(args):
 
 
 def _execute_list_projects(args):
-    """Execute the 'user get-projects' subcommand."""
+    """Execute the 'user list-projects' subcommand."""
     from crucible.client import CrucibleClient
+    from .helpers import resolve_orcid
     try:
         client = CrucibleClient()
-        projects = client.users.get_projects(args.orcid)
+        orcid = resolve_orcid(client, args.user)
+        projects = client.users.get_projects(orcid)
 
-        term.header(f"Projects · {args.orcid} ({len(projects)})")
+        term.header(f"Projects · {args.user} ({len(projects)})")
         if not projects:
             print(f"  {term.dim('No projects found.')}")
             return
@@ -620,6 +766,9 @@ def _execute_list_projects(args):
         ]
         term.table(rows, ['ID', 'Title', 'Organization'], max_widths=[20, 30, 20])
 
+    except ValueError as e:
+        logger.error(str(e))
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Error retrieving user projects: {e}")
         if getattr(args, "debug", False):

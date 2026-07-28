@@ -165,7 +165,7 @@ class Config:
         Returns:
             str: The graph explorer URL
         """
-        default_url = 'https://crucible-graph-explorer-776258882599.us-central1.run.app'
+        default_url = 'https://crucible.lbl.gov/explore'
         return self._data.get('graph_explorer_url', default_url)
 
     @property
@@ -351,7 +351,7 @@ def get_graph_explorer_url():
     Priority order:
     1. CRUCIBLE_GRAPH_EXPLORER_URL environment variable
     2. graph_explorer_url from ~/.config/nano-crucible/config.ini
-    3. Default: https://crucible-graph-explorer-776258882599.us-central1.run.app
+    3. Default: https://crucible.lbl.gov/explore
 
     Returns:
         str: The graph explorer URL
@@ -422,7 +422,7 @@ def create_config_file(api_key, api_url=None, cache_dir=None,
     config_file = config_dir / "config.ini"
 
     default_cache_dir           = str(user_cache_dir("nano-crucible"))
-    default_graph_explorer_url  = 'https://crucible-graph-explorer-776258882599.us-central1.run.app'
+    default_graph_explorer_url  = 'https://crucible.lbl.gov/explore'
 
     with open(config_file, 'w') as f:
 

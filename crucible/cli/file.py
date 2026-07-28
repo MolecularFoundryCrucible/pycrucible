@@ -41,6 +41,7 @@ def register_subcommand(subparsers):
     _register_get(file_subparsers)
     _register_download(file_subparsers)
     _register_ingestion(file_subparsers)
+    _register_delete(file_subparsers)
 
 
 def _register_list(subparsers):
@@ -214,6 +215,36 @@ def _execute_download(args):
         sys.exit(1)
 
 
+def _register_delete(subparsers):
+    parser = subparsers.add_parser(
+        'delete',
+        help='Delete a file by MFID',
+        description='Permanently delete a file record and its stored data.',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible file delete mf_abc123
+""",
+    )
+    parser.add_argument('file_id', metavar='FILE_ID', help='File MFID')
+    parser.set_defaults(func=_execute_delete)
+
+
+def _execute_delete(args):
+    """Execute 'crucible file delete'."""
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+        client.files.delete(args.file_id)
+        print(f"  {term.green('✓')} Deleted {args.file_id}")
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if getattr(args, 'debug', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
 def _register_ingestion(subparsers):
     parser = subparsers.add_parser(
         'ingestion',
@@ -243,11 +274,9 @@ def _execute_ingestion(args):
 
         rows = []
         for r in reqs:
-            status = r.get('status') or '-'
-            color  = term.green if status == 'complete' else (term.red if status == 'failed' else term.yellow)
             rows.append((
                 str(r.get('id', '-')),
-                color(status),
+                term.status_label(r.get('status')),
                 r.get('ingestion_class') or '-',
                 term.fmt_ts(r.get('created_at') or r.get('creation_time')) or '-',
             ))

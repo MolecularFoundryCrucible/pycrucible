@@ -355,13 +355,14 @@ class CastExecutor:
         self._ingest_if_needed(local_id, dsid, ds, files, client)
 
     def _create_sample(self, local_id: str, smp, client):
-        result = client.samples.create(
+        from crucible.models import Sample
+        result = client.samples.create(Sample(
             sample_name=smp.name,
             project_id=smp.project_id,
             sample_type=smp.type,
             description=smp.description,
             timestamp=smp.timestamp,
-        )
+        ))
         sid = result['unique_id']
         self._mark_created(local_id, sid, _hash_entity(smp))
         logger.info(f"Created sample '{smp.name}': {sid}")

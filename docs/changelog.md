@@ -1,5 +1,28 @@
 # Changelog
 
+## 3.1.0
+
+- `projects.get()`/`search()` no longer require membership; `lead`/`scientific_metadata` are membership-gated.
+- New `client.access_groups` resource: `request_join()`, `list_join_requests()`, `approve_join_request()`, `reject_join_request()` (requires the pending `feat/access-group-join-requests` API branch).
+- `client.projects.request_join()`/`list_join_requests()` delegate to `access_groups`.
+- `client.account.join_requests()` lists the caller's own join-request history.
+- New `crucible access-group`/`ag` CLI: `request`, `list`, `mine`, `approve`, `reject`.
+- New `crucible project request-join` and `crucible project list-join-requests`.
+- Fix `access_groups.request_join()`: always send a JSON body (API requires it even with no reason).
+- Join request and deletion request lists now show usernames instead of raw ORCIDs, drop the reason column, and show dates as `YYYY-MM-DD`.
+- New shared CLI helpers: `helpers.resolve_usernames()`, `term.fmt_date()`, `term.status_label()`, `term.fmt_name()` (de-duplication pass, no behavior change).
+- CLI: unified user identification. Most `user` subcommands and `project add-user`/`remove-user` now accept ORCID, username, or email directly. Old identifier flags are deprecated but still work.
+- CLI: unified service account identification. `sa` subcommands accept MFID or username directly. Old flags deprecated but still work.
+- New `client.service_accounts.list_access_groups()`/`add_to_access_group()`/`remove_from_access_group()` and matching `sa` CLI commands.
+- Fix `deletion approve`/`deletion reject`: batch commands now exit 1 if any request fails.
+- Fix `dataset add-access-group`: removed the decorative `--read` flag (read access is always granted; `--write` adds write).
+- `search_metadata()`: response unwrapped from the paginated envelope; default limit now 20; results include `resource_type`, `name`, `owner_orcid`, timestamps, `rank`.
+- `include_owner=True` on `datasets`/`samples` `get()`/`list()` and `client.get()` resolves the owner into a full user object.
+- `client.files.delete()` and `crucible file delete` to delete a file by MFID.
+- `samples.create()` now takes a `Sample` model as its first argument, consistent with `datasets.create()`.
+- `crucible project list-users` shows usernames and correctly reads `unique_id` as the ORCID.
+- Default graph explorer URL updated to `https://crucible.lbl.gov/explore`.
+
 ## 3.0.1
 
 - Fix `datasets.download()`: data files now saved inside `output_dir/{dsid}/` alongside `record.json`, not directly in `output_dir/`.

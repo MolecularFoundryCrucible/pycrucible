@@ -41,33 +41,12 @@ def register_subcommand(subparsers):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _short_ts(ts):
-    """YYYY-MM-DD — compact enough for a table column."""
-    if not ts:
-        return '-'
-    from datetime import datetime, timezone
-    try:
-        dt = datetime.fromisoformat(str(ts).strip())
-        return dt.strftime('%Y-%m-%d')
-    except Exception:
-        return str(ts)
-
-
-def _status_label(status):
-    """Return a styled status string."""
-    if not status:
-        return '-'
-    if status == 'pending':
-        return term.yellow(status)
-    if status == 'approved':
-        return term.green(status)
-    if status == 'rejected':
-        return term.red(status)
-    return status
-
 
 def _show_deletion_request(record, client=None):
     """Print a DeletionRequest record."""
+    from .helpers import resolve_usernames
+    names = resolve_usernames(client, [record.get('requester_id'), record.get('reviewer_id')])
+
     _p = term.field_printer(16)
     term.header("Deletion Request")
     _p("Request ID",    record.get('id'))
@@ -82,13 +61,13 @@ def _show_deletion_request(record, client=None):
     _p("Resource ID",   term.mfid_link(rid, url))
     _p("Resource Type", rtype)
     _p("Name",          record.get('resource_name'))
-    _p("Status",        _status_label(record.get('status')))
+    _p("Status",        term.status_label(record.get('status')))
     _p("Reason",        record.get('reason'))
     _p("Requested",     term.fmt_ts(record.get('request_time')))
-    _p("Requester ID",  record.get('requester_id'))
+    _p("Requester",     names.get(record.get('requester_id'), record.get('requester_id')))
     if record.get('reviewer_notes') or record.get('review_time'):
         _p("Review Time",  term.fmt_ts(record.get('review_time')))
-        _p("Reviewer ID",  record.get('reviewer_id'))
+        _p("Reviewer",     names.get(record.get('reviewer_id'), record.get('reviewer_id')))
         _p("Review Notes", record.get('reviewer_notes'))
 
 
@@ -278,7 +257,8 @@ def _execute_list_deleted(args):
             print(f"  {term.dim('No records found.')}")
             return
 
-        from .helpers import explorer_url
+        from .helpers import explorer_url, resolve_usernames
+        names = resolve_usernames(client, [r.get('requester_id') for r in records])
         rows = [
             (
                 str(r.get('id', '-')),
@@ -286,8 +266,8 @@ def _execute_list_deleted(args):
                                explorer_url(r.get('resource_id'), r.get('project_id'), r.get('resource_type'))),
                 r.get('resource_type') or '-',
                 r.get('resource_name') or '-',
-                _short_ts(r.get('deleted_at')),
-                r.get('requester_id') or '-',
+                term.fmt_date(r.get('deleted_at')),
+                names.get(r.get('requester_id'), r.get('requester_id')) or '-',
             )
             for r in records
         ]
@@ -376,7 +356,7 @@ def _execute_list(args):
             print(f"  {term.dim('No deletion requests found.')}")
             return
 
-        from .helpers import explorer_url
+        from .helpers import explorer_url, resolve_usernames
 
         def _resource_link(record):
             rid   = record.get('resource_id') or ''
@@ -384,9 +364,7 @@ def _execute_list(args):
             proj  = record.get('project_id')
             return term.mfid_link(rid, explorer_url(rid, proj, rtype)) if rid else '-'
 
-        def _short_reason(r):
-            reason = r.get('reason') or ''
-            return (reason[:28] + '…') if len(reason) > 29 else (reason or '-')
+        names = resolve_usernames(client, [r.get('requester_id') for r in records])
 
         rows = [
             (
@@ -394,15 +372,15 @@ def _execute_list(args):
                 _resource_link(record),
                 record.get('resource_type') or '-',
                 record.get('resource_name') or '-',
-                _status_label(record.get('status') or ''),
-                _short_ts(record.get('request_time')),
-                _short_reason(record),
+                term.status_label(record.get('status') or ''),
+                names.get(record.get('requester_id'), record.get('requester_id')) or '-',
+                term.fmt_date(record.get('request_time')),
             )
             for record in records
         ]
         term.table(rows,
-                   ['ID', 'Resource ID', 'Type', 'Name', 'Status', 'Requested', 'Reason'],
-                   max_widths=[6, 26, 10, 15, 10, 10, 29])
+                   ['ID', 'Resource ID', 'Type', 'Name', 'Status', 'Requester', 'Requested'],
+                   max_widths=[6, 26, 10, 15, 10, 20, 10])
     except Exception as e:
         logger.error(f"Error listing deletion requests: {e}")
         if getattr(args, 'debug', False):
@@ -429,7 +407,13 @@ def _execute_get(args):
 def _execute_approve(args):
     """Execute the 'deletion approve' subcommand."""
     from crucible.client import CrucibleClient
-    client = CrucibleClient()
+    try:
+        client = CrucibleClient()
+    except Exception as e:
+        logger.error(f"Error connecting: {e}")
+        sys.exit(1)
+
+    had_error = False
     for rid in args.request_id:
         try:
             record = client.deletions.approve(rid, reviewer_notes=args.notes)
@@ -437,10 +421,14 @@ def _execute_approve(args):
             print()
             _show_deletion_request(record, client=client)
         except Exception as e:
+            had_error = True
             logger.error(f"Error approving deletion request {rid}: {e}")
             if getattr(args, 'debug', False):
                 import traceback
                 traceback.print_exc()
+
+    if had_error:
+        sys.exit(1)
 
 
 def _execute_delete(args):
@@ -474,7 +462,13 @@ def _execute_delete(args):
 def _execute_reject(args):
     """Execute the 'deletion reject' subcommand."""
     from crucible.client import CrucibleClient
-    client = CrucibleClient()
+    try:
+        client = CrucibleClient()
+    except Exception as e:
+        logger.error(f"Error connecting: {e}")
+        sys.exit(1)
+
+    had_error = False
     for rid in args.request_id:
         try:
             record = client.deletions.reject(rid, reviewer_notes=args.notes)
@@ -482,7 +476,11 @@ def _execute_reject(args):
             print()
             _show_deletion_request(record, client=client)
         except Exception as e:
+            had_error = True
             logger.error(f"Error rejecting deletion request {rid}: {e}")
             if getattr(args, 'debug', False):
                 import traceback
                 traceback.print_exc()
+
+    if had_error:
+        sys.exit(1)

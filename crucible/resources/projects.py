@@ -31,17 +31,24 @@ class ProjectOperations(BaseResource):
     """
 
     def get(self, project_id: str, include_metadata: bool = False) -> Dict:
-        """Get details of a specific project.
+        """Get details of a specific project. Readable by any authenticated user.
 
-        The response includes a ``lead`` key with the project lead's full user
-        record (orcid, first_name, last_name, email, lbl_email).
+        The response always includes project_id, organization, status, title.
+
+        The ``lead`` field's shape depends on membership: members and admins
+        get the full user record (includes email); non-members get a public
+        record (unique_id, username, first_name, last_name — no email).
+
+        ``scientific_metadata`` is only ever populated for members/admins —
+        include_metadata is silently ignored for non-members.
 
         Args:
             project_id (str): Unique project identifier
             include_metadata (bool): Whether to include scientific metadata
+                                      (members/admins only)
 
         Returns:
-            Dict: Complete project information including embedded lead user
+            Dict: Project information, with membership-gated fields as described above
         """
         params = {'include_metadata': True} if include_metadata else {}
         return self._request('get', f'/projects/{project_id}', params=params or None)
@@ -187,10 +194,12 @@ class ProjectOperations(BaseResource):
         return self._request('post', f'/projects/{project_id}/users/{orcid}')
 
     def search(self, q: str, limit: int = 20) -> List[Dict]:
-        """Fuzzy search across projects. Available to all authenticated users.
+        """Fuzzy search across all projects (not just the caller's). Available
+        to all authenticated users — supports project discovery ahead of
+        request_join().
 
-        Matches against both title and project_id. Returns only projects
-        the caller is a member of.
+        Matches against both title and project_id. Results never include
+        lead or scientific_metadata, regardless of membership.
 
         Args:
             q: Search term (min 3 chars). Typo-tolerant.
@@ -201,6 +210,43 @@ class ProjectOperations(BaseResource):
         """
         result = self._request('get', '/projects/search', params={'q': q, 'limit': limit})
         return result.get('items', result) if isinstance(result, dict) else result
+
+    def request_join(self, project_id: str, reason: Optional[str] = None) -> Dict:
+        """Request to join this project. Any authenticated user.
+
+        Delegates to client.access_groups.request_join() — see there for full
+        list/approve/reject operations on join requests.
+
+        Args:
+            project_id: Unique project identifier.
+            reason: Optional explanation for the request.
+
+        Returns:
+            Dict: The created JoinRequest record (status will be "pending").
+
+        Raises:
+            HTTPError 404: Project doesn't exist.
+            HTTPError 409: Already a member, or already has a pending request.
+        """
+        return self._client.access_groups.request_join(project_id, reason=reason)
+
+    def list_join_requests(self, project_id: str, status: Optional[str] = None,
+                           limit: int = DEFAULT_LIMIT, offset: int = 0) -> List[Dict]:
+        """List join requests for this project. Admin or the project lead only.
+
+        Delegates to client.access_groups.list_join_requests(group_name=project_id).
+
+        Args:
+            project_id: Unique project identifier.
+            status: Filter by "pending", "approved", or "rejected".
+            limit: Maximum number of results.
+            offset: Starting position in the full result set.
+
+        Returns:
+            List[Dict]: Matching JoinRequest records, most recent first.
+        """
+        return self._client.access_groups.list_join_requests(
+            group_name=project_id, status=status, limit=limit, offset=offset)
 
     def get_or_create(self, project_id: str, get_project_info_function=_build_project_from_args,
                      **kwargs) -> Dict:

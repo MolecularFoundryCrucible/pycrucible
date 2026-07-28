@@ -25,7 +25,8 @@ class UserOperations(BaseResource):
             username: Optional[str] = None) -> Dict:
         """Get user details by ORCID, email, or username.
 
-        **Requires admin permissions (or self-lookup by username).**
+        ORCID and email lookups require admin. Username lookup returns a
+        public profile (no email) and is open to all authenticated users.
 
         Args:
             orcid (str, optional): User ORCID identifier
@@ -33,7 +34,7 @@ class UserOperations(BaseResource):
             username (str, optional): User's username
 
         Returns:
-            Dict: UserRead profile
+            Dict: UserRead (ORCID/email) or UserPublicRead (username)
 
         Raises:
             ValueError: If no identifier provided, no user found,
@@ -59,7 +60,7 @@ class UserOperations(BaseResource):
         else:
             raise ValueError('provide orcid, username, or email')
 
-    def search(self, q: str, limit: int = 50) -> List[Dict]:
+    def search(self, q: str, limit: int = 20) -> List[Dict]:
         """Search for users by name or username. Available to all authenticated users.
 
         Matches the query term against username, first name, and last name
@@ -103,7 +104,7 @@ class UserOperations(BaseResource):
                 emails: Optional[List[str]] = None) -> Dict:
         """Batch-resolve users by any mix of ORCIDs, usernames, or emails.
 
-        **Requires admin permissions.**
+        Open to all authenticated users. Returns public profiles (no email).
 
         Args:
             orcids: List of ORCID strings
@@ -111,7 +112,7 @@ class UserOperations(BaseResource):
             emails: List of email strings
 
         Returns:
-            Dict: Mapping of orcid → UserRead for all resolved users
+            Dict: Mapping of ORCID → UserPublicRead. Unresolved identifiers map to null.
         """
         body = {}
         if orcids:
