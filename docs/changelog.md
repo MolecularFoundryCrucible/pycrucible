@@ -1,31 +1,26 @@
 # Changelog
 
-## Unreleased
+## 3.1.0
 
-- `projects.get()`/`search()` no longer require membership; `lead`/`scientific_metadata` are membership-gated in the response.
-- New `client.access_groups` resource for the access-group join-request workflow: `request_join()`, `list_join_requests()`, `approve_join_request()`, `reject_join_request()`. Requires the `feat/access-group-join-requests` API branch (not yet merged) and its migration.
-- `client.projects.request_join(project_id)` and `client.projects.list_join_requests(project_id)` delegate to `access_groups` for convenience.
+- `projects.get()`/`search()` no longer require membership; `lead`/`scientific_metadata` are membership-gated.
+- New `client.access_groups` resource: `request_join()`, `list_join_requests()`, `approve_join_request()`, `reject_join_request()` (requires the pending `feat/access-group-join-requests` API branch).
+- `client.projects.request_join()`/`list_join_requests()` delegate to `access_groups`.
 - `client.account.join_requests()` lists the caller's own join-request history.
-- New `crucible access-group` CLI (alias `crucible ag`): `request`, `list`, `mine`, `approve`, `reject`. Same pending-branch caveat as above.
-- New `crucible project request-join` and `crucible project list-join-requests` — thin CLI wrappers over the `projects.request_join()`/`list_join_requests()` delegates.
-- Fix `access_groups.request_join()`: always send a JSON body — the API rejects a missing body even when `reason` is omitted.
-- Join request displays (`ag list`, `ag mine`, `project list-join-requests`, and single-record views) now show the requester's/reviewer's username instead of a raw ORCID, resolved via `users.resolve()`. List tables drop the `reason` column (still shown on single-record views) and show dates as `YYYY-MM-DD` instead of full timestamps.
-- `deletion list` and `deletion list-deleted` now resolve requester ORCID to username as well, and `deletion list` drops the reason column from its table (matching join requests). New shared helpers: `helpers.resolve_usernames()` and `term.fmt_date()`.
-- CLI cleanup pass: extracted `term.status_label()` (shared pending/approved/rejected/complete/failed color mapping, replacing 6 duplicated inline implementations across `deletion.py`, `access_group.py`, `ingestion.py`, `file.py`, `dataset.py`) and `term.fmt_name()` (shared first+last name join, replacing 9 duplicated implementations across `helpers.py`, `user.py`, `project.py`, `service_account.py`, `shell.py`, `account.py`). No behavior changes intended — purely a de-duplication pass.
-- CLI: unified user identification. `user get`, `user edit`, `user update`, `user add-access-group`, `user remove-access-group`, `user list-datasets`, `user check-access`, `user list-access-groups`, and `user list-projects` now accept a single `USER` argument (ORCID, username, or email — auto-detected). `project add-user`/`remove-user` gained a `--user`/`-u` flag for the same purpose. Old `--orcid`/`--username`/`--email` flags on `user get`, `user edit`, `project add-user`, `project remove-user` still work but are deprecated. New shared helpers: `helpers.parse_user_ref()` and `helpers.resolve_orcid()`.
-- New `client.service_accounts.list_access_groups()`, `add_to_access_group()`, `remove_from_access_group()` and matching `crucible sa list-access-groups`/`add-access-group`/`remove-access-group` CLI commands (service accounts are users, so these delegate to `client.users.*` under the hood).
-- New `helpers.resolve_sa_id()`, symmetric with `resolve_orcid()`: resolves an MFID-or-username to a bare MFID without fetching the full record when only the ID is needed. Used by `sa add-access-group`/`remove-access-group` in place of a full `_resolve_sa()` record fetch.
-- CLI: unified service account identification. `sa get`, `sa rotate-key`, `sa edit`, `sa update` now accept a single `SA` argument (MFID or username, auto-detected by matching the Crockford base32 MFID shape). If a value matches the MFID pattern but no such account exists, it's retried as a username — so a username that coincidentally looks like an MFID still resolves correctly. Old `--unique-id`/`--username` flags still work but are deprecated. New shared helper: `helpers.parse_sa_ref()`.
-- Fix `deletion approve`/`deletion reject`: batch commands now exit 1 if any request in the batch fails, instead of always exiting 0.
-- Fix `dataset add-access-group`: removed the `--read` flag, which could never be turned off and gave the false impression that write-only access was possible. Read access is always granted; `--write` adds write.
-
-- `search_metadata()`: updated for API change — response is now unwrapped from the paginated envelope, default limit changed to 20, and each result now includes `resource_type`, `name`, `owner_orcid`, `creation_time`, `modification_time`, and `rank` alongside `scientific_metadata`.
-
-- `include_owner=True` on `datasets.get/list()`, `samples.get/list()`, and `client.get()` resolves the owner into a full user object. CLI shows "First Last (@username)" instead of a raw ORCID. Support on `GET /resources/{id}` is pending API deployment.
-
-- `client.files.delete(file_id)` and `crucible file delete FILE_ID` to delete a file by MFID (`DELETE /files/{file_id}`).
-- `samples.create()` now takes a `Sample` model as its first argument, consistent with `datasets.create()`. Passing keyword arguments still works but raises a `DeprecationWarning`.
-- `crucible project list-users` now shows the username column and correctly reads `unique_id` as the ORCID (field was renamed on the API side).
+- New `crucible access-group`/`ag` CLI: `request`, `list`, `mine`, `approve`, `reject`.
+- New `crucible project request-join` and `crucible project list-join-requests`.
+- Fix `access_groups.request_join()`: always send a JSON body (API requires it even with no reason).
+- Join request and deletion request lists now show usernames instead of raw ORCIDs, drop the reason column, and show dates as `YYYY-MM-DD`.
+- New shared CLI helpers: `helpers.resolve_usernames()`, `term.fmt_date()`, `term.status_label()`, `term.fmt_name()` (de-duplication pass, no behavior change).
+- CLI: unified user identification. Most `user` subcommands and `project add-user`/`remove-user` now accept ORCID, username, or email directly. Old identifier flags are deprecated but still work.
+- CLI: unified service account identification. `sa` subcommands accept MFID or username directly. Old flags deprecated but still work.
+- New `client.service_accounts.list_access_groups()`/`add_to_access_group()`/`remove_from_access_group()` and matching `sa` CLI commands.
+- Fix `deletion approve`/`deletion reject`: batch commands now exit 1 if any request fails.
+- Fix `dataset add-access-group`: removed the decorative `--read` flag (read access is always granted; `--write` adds write).
+- `search_metadata()`: response unwrapped from the paginated envelope; default limit now 20; results include `resource_type`, `name`, `owner_orcid`, timestamps, `rank`.
+- `include_owner=True` on `datasets`/`samples` `get()`/`list()` and `client.get()` resolves the owner into a full user object.
+- `client.files.delete()` and `crucible file delete` to delete a file by MFID.
+- `samples.create()` now takes a `Sample` model as its first argument, consistent with `datasets.create()`.
+- `crucible project list-users` shows usernames and correctly reads `unique_id` as the ORCID.
 - Default graph explorer URL updated to `https://crucible.lbl.gov/explore`.
 
 ## 3.0.1
