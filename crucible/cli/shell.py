@@ -60,14 +60,16 @@ try:
     class _CrucibleCompleter(Completer):
         """Three-level argparse completer: resource -> subcommand -> flags."""
 
-        def __init__(self, parser, client=None, projects=None, deletions=None, state=None):
-            self._top          = _get_subparser_map(parser)
-            self._client       = client
-            self._projects     = projects  or []
-            self._deletions    = deletions or []
-            self._unlink_cache = {}  # mfid -> [(uid, name, entity_type), ...]
-            self._users        = []  # [(orcid, full_name), ...]
-            self._state        = state or {}
+        def __init__(self, parser, client=None, projects=None, deletions=None,
+                     join_requests=None, state=None):
+            self._top           = _get_subparser_map(parser)
+            self._client        = client
+            self._projects      = projects  or []
+            self._deletions     = deletions or []
+            self._join_requests = join_requests or []
+            self._unlink_cache  = {}  # mfid -> [(uid, name, entity_type), ...]
+            self._users         = []  # [(orcid, full_name), ...]
+            self._state         = state or {}
 
         def _lazy_projects(self):
             if not self._projects and self._client is not None:
@@ -173,6 +175,28 @@ try:
                         did + ' ',
                         start_position=-len(prefix),
                         display=_HTML(f'<b>{did}</b>'),
+                        display_meta=_HTML(' | '.join(parts)),
+                    )
+                return
+
+            if resource in ('ag', 'access-group') and len(words) >= 2 and words[1] in ('approve', 'reject', 'get'):
+                already = set(words[2:]) if trailing_space else set(words[2:-1])
+                prefix  = '' if trailing_space else words[-1]
+                for jr in self._join_requests:
+                    jid = str(jr.get('id', ''))
+                    if jid in already or not jid.startswith(prefix):
+                        continue
+                    group  = jr.get('group_name') or ''
+                    reason = (jr.get('reason') or '')[:24]
+                    parts  = []
+                    if group:
+                        parts.append(f'<b>{_html.escape(group)}</b>')
+                    if reason:
+                        parts.append(f'<ansibrightblack>{_html.escape(reason)}</ansibrightblack>')
+                    yield Completion(
+                        jid + ' ',
+                        start_position=-len(prefix),
+                        display=_HTML(f'<b>{jid}</b>'),
                         display_meta=_HTML(' | '.join(parts)),
                     )
                 return
@@ -481,44 +505,50 @@ class CrucibleShell:
     def _init_state(self, whoami_info):
         """Populate self.state from startup data."""
         from .helpers import (
-            fetch_projects, fetch_deletions, fetch_user_label,
+            fetch_projects, fetch_deletions, fetch_join_requests, fetch_user_label,
             fetch_current_project, fetch_current_session, fetch_api_label,
         )
-        deletions = fetch_deletions(self.client)
+        deletions     = fetch_deletions(self.client)
+        join_requests = fetch_join_requests(self.client)
         self.is_admin = deletions is not None
 
         self.state = {
-            'user_label':    fetch_user_label(self.client, whoami_info),
-            'projects':      fetch_projects(self.client),
-            'project':       fetch_current_project(),
-            'session':       fetch_current_session(),
-            'api_label':     fetch_api_label(),
-            'debug':         False,
-            'deletions':     deletions or [],
-            'recent_mfids':  deque(maxlen=15),
+            'user_label':     fetch_user_label(self.client, whoami_info),
+            'projects':       fetch_projects(self.client),
+            'project':        fetch_current_project(),
+            'session':        fetch_current_session(),
+            'api_label':      fetch_api_label(),
+            'debug':          False,
+            'deletions':      deletions or [],
+            'join_requests':  join_requests or [],
+            'recent_mfids':   deque(maxlen=15),
         }
 
     def refresh(self):
-        """Re-fetch projects, user info, and deletions. Updates state + completer."""
+        """Re-fetch projects, user info, deletions, and join requests. Updates state + completer."""
         from .helpers import (
-            fetch_projects, fetch_deletions, fetch_user_label,
+            fetch_projects, fetch_deletions, fetch_join_requests, fetch_user_label,
             fetch_current_project, fetch_current_session, fetch_api_label,
         )
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            proj_f = pool.submit(fetch_projects,  self.client)
-            del_f  = pool.submit(fetch_deletions, self.client)
-            new_projects  = proj_f.result()
-            new_deletions = del_f.result()
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            proj_f = pool.submit(fetch_projects,      self.client)
+            del_f  = pool.submit(fetch_deletions,     self.client)
+            jr_f   = pool.submit(fetch_join_requests, self.client)
+            new_projects      = proj_f.result()
+            new_deletions     = del_f.result()
+            new_join_requests = jr_f.result()
         self.is_admin = new_deletions is not None
-        self.state['projects']   = new_projects
-        self.state['user_label'] = fetch_user_label(self.client)
-        self.state['project']    = fetch_current_project()
-        self.state['session']    = fetch_current_session()
-        self.state['api_label']  = fetch_api_label()
-        self.state['deletions']  = new_deletions or []
+        self.state['projects']      = new_projects
+        self.state['user_label']    = fetch_user_label(self.client)
+        self.state['project']       = fetch_current_project()
+        self.state['session']       = fetch_current_session()
+        self.state['api_label']     = fetch_api_label()
+        self.state['deletions']     = new_deletions or []
+        self.state['join_requests'] = new_join_requests or []
         if self.completer is not None:
-            self.completer._projects  = new_projects
-            self.completer._deletions = new_deletions
+            self.completer._projects      = new_projects
+            self.completer._deletions     = new_deletions
+            self.completer._join_requests = new_join_requests
         print(f"Refreshed: {len(new_projects)} projects, user info reloaded.")
 
     def _toolbar(self):
@@ -818,6 +848,15 @@ class CrucibleShell:
             if self.completer is not None:
                 self.completer._deletions = new_deletions
 
+        # Re-fetch pending join requests after any ag/access-group command
+        if (len(words) >= 2 and words[0] in ('ag', 'access-group')
+                and words[1] in ('approve', 'reject', 'request')):
+            from .helpers import fetch_join_requests
+            new_join_requests = fetch_join_requests(self.client)
+            self.state['join_requests'] = new_join_requests
+            if self.completer is not None:
+                self.completer._join_requests = new_join_requests
+
         # Reload client and full state after config set / config edit
         if len(words) >= 2 and words[0] == 'config' and words[1] in ('set', 'edit'):
             from crucible.config import config as _cfg
@@ -864,6 +903,7 @@ class CrucibleShell:
             client=self.client,
             projects=self.state['projects'],
             deletions=self.state['deletions'],
+            join_requests=self.state['join_requests'],
             state=self.state,
         )
 

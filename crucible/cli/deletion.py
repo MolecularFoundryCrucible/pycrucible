@@ -106,16 +106,13 @@ def _register_list(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible deletion list              # pending only (default)
-    crucible deletion list --approved
-    crucible deletion list --rejected
-    crucible deletion list --all
+    crucible deletion list                    # pending only (default)
+    crucible deletion list --status approved
+    crucible deletion list --status all
 """,
     )
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('--approved', action='store_true', help='Show approved requests')
-    group.add_argument('--rejected', action='store_true', help='Show rejected requests')
-    group.add_argument('--all',      action='store_true', help='Show all requests regardless of status')
+    parser.add_argument('--status', choices=['pending', 'approved', 'rejected', 'all'],
+                        default='pending', help='Filter by status (default: pending)')
     parser.set_defaults(func=_execute_list)
 
 
@@ -335,22 +332,10 @@ def _execute_list(args):
     try:
         client = CrucibleClient()
 
-        if args.all:
-            status = None
-            status_label = 'all'
-        elif args.approved:
-            status = 'approved'
-            status_label = 'approved'
-        elif args.rejected:
-            status = 'rejected'
-            status_label = 'rejected'
-        else:
-            status = 'pending'
-            status_label = 'pending'
-
+        status = None if args.status == 'all' else args.status
         records = sorted(client.deletions.list(status=status), key=lambda r: r.get('id') or 0)
 
-        term.header(f"Deletion Requests — {status_label} ({len(records)})")
+        term.header(f"Deletion Requests — {args.status} ({len(records)})")
 
         if not records:
             print(f"  {term.dim('No deletion requests found.')}")

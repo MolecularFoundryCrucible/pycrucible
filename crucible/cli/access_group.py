@@ -28,6 +28,7 @@ def register_subcommand(subparsers):
         _register_request(ag_subparsers)
         _register_list(ag_subparsers)
         _register_mine(ag_subparsers)
+        _register_get(ag_subparsers)
         _register_approve(ag_subparsers)
         _register_reject(ag_subparsers)
 
@@ -90,6 +91,7 @@ def _execute_request(args):
         client = CrucibleClient()
         record = client.access_groups.request_join(args.group_name, reason=args.reason)
         logger.info("✓ Join request submitted")
+        print()
         _show_join_request(record, client=client)
     except Exception as e:
         logger.error(f"Error: {e}")
@@ -108,15 +110,16 @@ def _register_list(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
+    crucible ag list                          # pending only (default)
     crucible ag list --group my-project
-    crucible ag list --group my-project --status pending
-    crucible ag list --status pending
+    crucible ag list --status approved
+    crucible ag list --status all
 """,
     )
     parser.add_argument('--group', dest='group_name', metavar='GROUP', default=None,
                         help='Filter to one group. Required for a non-admin lead.')
-    parser.add_argument('--status', choices=['pending', 'approved', 'rejected'], default=None,
-                        help='Filter by status')
+    parser.add_argument('--status', choices=['pending', 'approved', 'rejected', 'all'],
+                        default='pending', help='Filter by status (default: pending)')
     parser.add_argument('--requester', dest='requester_id', metavar='ORCID', default=None,
                         help='Filter to one user\'s requests (admin use)')
     parser.add_argument('--limit', type=int, default=100, metavar='N')
@@ -127,11 +130,12 @@ def _execute_list(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
+        status = None if args.status == 'all' else args.status
         records = client.access_groups.list_join_requests(
-            group_name=args.group_name, status=args.status,
+            group_name=args.group_name, status=status,
             requester_id=args.requester_id, limit=args.limit,
         )
-        term.header(f"Join Requests ({len(records)})")
+        term.header(f"Join Requests — {args.status} ({len(records)})")
         if not records:
             print(f"  {term.dim('None found.')}")
             return
@@ -155,12 +159,13 @@ def _register_mine(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible ag mine
-    crucible ag mine --status pending
+    crucible ag mine                  # pending only (default)
+    crucible ag mine --status approved
+    crucible ag mine --status all
 """,
     )
-    parser.add_argument('--status', choices=['pending', 'approved', 'rejected'], default=None,
-                        help='Filter by status')
+    parser.add_argument('--status', choices=['pending', 'approved', 'rejected', 'all'],
+                        default='pending', help='Filter by status (default: pending)')
     parser.add_argument('--limit', type=int, default=100, metavar='N')
     parser.set_defaults(func=_execute_mine)
 
@@ -169,8 +174,9 @@ def _execute_mine(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        records = client.account.join_requests(status=args.status, limit=args.limit)
-        term.header(f"My Join Requests ({len(records)})")
+        status = None if args.status == 'all' else args.status
+        records = client.account.join_requests(status=status, limit=args.limit)
+        term.header(f"My Join Requests — {args.status} ({len(records)})")
         if not records:
             print(f"  {term.dim('None found.')}")
             return
@@ -185,32 +191,30 @@ def _execute_mine(args):
         sys.exit(1)
 
 
-# ── approve / reject ───────────────────────────────────────────────────────────
+# ── get ───────────────────────────────────────────────────────────────────────
 
-def _register_approve(subparsers):
+def _register_get(subparsers):
     parser = subparsers.add_parser(
-        'approve',
-        help='Approve a pending join request (admin or group lead)',
+        'get',
+        help='Get a join request by ID (admin only)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible ag approve 42
-    crucible ag approve 42 -m "Welcome aboard"
+    crucible ag get 42
 """,
     )
     parser.add_argument('request_id', type=int, metavar='REQUEST_ID', help='Join request ID')
-    parser.add_argument('-m', '--message', dest='reviewer_notes', metavar='TEXT', default=None,
-                        help='Optional reviewer notes')
-    parser.set_defaults(func=_execute_approve)
+    parser.set_defaults(func=_execute_get)
 
 
-def _execute_approve(args):
+def _execute_get(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        record = client.access_groups.approve_join_request(args.request_id,
-                                                            reviewer_notes=args.reviewer_notes)
-        logger.info(f"✓ Join request {args.request_id} approved")
+        record = client.access_groups.get(args.request_id)
+        if record is None:
+            logger.error(f"Join request not found: {args.request_id}")
+            sys.exit(1)
         _show_join_request(record, client=client)
     except Exception as e:
         logger.error(f"Error: {e}")
@@ -220,18 +224,65 @@ def _execute_approve(args):
         sys.exit(1)
 
 
+# ── approve / reject ───────────────────────────────────────────────────────────
+
+def _register_approve(subparsers):
+    parser = subparsers.add_parser(
+        'approve',
+        help='Approve one or more pending join requests (admin or group lead)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible ag approve 42
+    crucible ag approve 42 43 44 -m "Welcome aboard"
+""",
+    )
+    parser.add_argument('request_id', metavar='REQUEST_ID', nargs='+', type=int,
+                        help='Integer ID(s) of join requests to approve')
+    parser.add_argument('-m', '--message', dest='reviewer_notes', metavar='TEXT', default=None,
+                        help='Optional reviewer notes')
+    parser.set_defaults(func=_execute_approve)
+
+
+def _execute_approve(args):
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+    except Exception as e:
+        logger.error(f"Error connecting: {e}")
+        sys.exit(1)
+
+    had_error = False
+    for rid in args.request_id:
+        try:
+            record = client.access_groups.approve_join_request(rid, reviewer_notes=args.reviewer_notes)
+            logger.info(f"✓ Join request {rid} approved")
+            print()
+            _show_join_request(record, client=client)
+        except Exception as e:
+            had_error = True
+            logger.error(f"Error approving join request {rid}: {e}")
+            if getattr(args, 'debug', False):
+                import traceback
+                traceback.print_exc()
+
+    if had_error:
+        sys.exit(1)
+
+
 def _register_reject(subparsers):
     parser = subparsers.add_parser(
         'reject',
-        help='Reject a pending join request (admin or group lead)',
+        help='Reject one or more pending join requests (admin or group lead)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
     crucible ag reject 42
-    crucible ag reject 42 -m "Not currently accepting new members"
+    crucible ag reject 42 43 44 -m "Not currently accepting new members"
 """,
     )
-    parser.add_argument('request_id', type=int, metavar='REQUEST_ID', help='Join request ID')
+    parser.add_argument('request_id', metavar='REQUEST_ID', nargs='+', type=int,
+                        help='Integer ID(s) of join requests to reject')
     parser.add_argument('-m', '--message', dest='reviewer_notes', metavar='TEXT', default=None,
                         help='Optional reviewer notes')
     parser.set_defaults(func=_execute_reject)
@@ -241,13 +292,23 @@ def _execute_reject(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        record = client.access_groups.reject_join_request(args.request_id,
-                                                           reviewer_notes=args.reviewer_notes)
-        logger.info(f"✓ Join request {args.request_id} rejected")
-        _show_join_request(record, client=client)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
+        logger.error(f"Error connecting: {e}")
+        sys.exit(1)
+
+    had_error = False
+    for rid in args.request_id:
+        try:
+            record = client.access_groups.reject_join_request(rid, reviewer_notes=args.reviewer_notes)
+            logger.info(f"✓ Join request {rid} rejected")
+            print()
+            _show_join_request(record, client=client)
+        except Exception as e:
+            had_error = True
+            logger.error(f"Error rejecting join request {rid}: {e}")
+            if getattr(args, 'debug', False):
+                import traceback
+                traceback.print_exc()
+
+    if had_error:
         sys.exit(1)

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `ag list`/`ag mine` now default to pending requests (matching `deletion list`).
+- `deletion list` and `ag list`/`ag mine` share one `--status` flag (`pending`/`approved`/`rejected`/`all`).
+- New `ag get REQUEST_ID` and `client.access_groups.get()` (admin only).
+- `ag approve`/`ag reject` accept multiple request IDs, like `deletion approve`/`reject`.
+- Shell autocomplete for `ag approve`/`reject`/`get` request IDs, mirroring the existing `deletion` completer.
+
 ## 3.1.0
 
 - `projects.get()`/`search()` no longer require membership; `lead`/`scientific_metadata` are membership-gated.

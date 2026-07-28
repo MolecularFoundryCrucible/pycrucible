@@ -86,6 +86,14 @@ def fetch_deletions(client):
         return None
 
 
+def fetch_join_requests(client):
+    """Return pending join requests, or None if the user lacks permission."""
+    try:
+        return client.access_groups.list_join_requests(status='pending')
+    except Exception:
+        return None
+
+
 def resolve_usernames(client, orcids):
     """Batch-resolve ORCIDs to usernames. Returns {orcid: username_or_orcid}."""
     orcids = sorted({o for o in orcids if o})
