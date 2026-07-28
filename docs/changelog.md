@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `projects.get()`/`search()` no longer require membership; `lead`/`scientific_metadata` are membership-gated in the response.
 - New `client.access_groups` resource for the access-group join-request workflow: `request_join()`, `list_join_requests()`, `approve_join_request()`, `reject_join_request()`. Requires the `feat/access-group-join-requests` API branch (not yet merged) and its migration.
 - `client.projects.request_join(project_id)` and `client.projects.list_join_requests(project_id)` delegate to `access_groups` for convenience.
 - `client.account.join_requests()` lists the caller's own join-request history.

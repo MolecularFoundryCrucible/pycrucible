@@ -872,7 +872,8 @@ def _register_search(subparsers):
     parser = subparsers.add_parser(
         'search',
         help='Fuzzy search projects by name or ID',
-        description='Fuzzy search across projects you are a member of.',
+        description='Fuzzy search across all projects, including ones you are not a member of. '
+                    'Use "crucible project request-join" to ask to join a project you find.',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
