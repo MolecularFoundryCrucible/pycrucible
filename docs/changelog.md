@@ -9,6 +9,8 @@
 - Shell autocomplete for `ag approve`/`reject`/`get` request IDs, mirroring the existing `deletion` completer.
 - Shell username autocomplete now uses the public `users.search()` endpoint (works for non-admins) instead of the admin-only `users.list()`, and completes to username instead of ORCID.
 - Shell autocomplete extended to more `user`/`project` subcommands taking a USER/PROJECT_ID positional, plus new completion for `sa` commands and `ag request`/`project request-join` group names.
+- Shell autocomplete for `instrument get` (by name, fetched once per session) and `--project`/`-pid` flags on `dataset`/`sample` commands.
+- Shell autocomplete for dataset/sample IDs across nearly all subcommands (by name, live search, falls back to recently-viewed items below the 3-char search minimum) and for `-s/--sample`, `-c/--child`, `-d/--dataset` flag values.
 
 ## 3.1.0
 

@@ -102,6 +102,19 @@ def fetch_service_accounts(client):
         return None
 
 
+def fetch_instruments(client):
+    """Return [(instrument_name, unique_id), ...] for all instruments.
+
+    Instruments are a small, globally-readable set (not admin-gated),
+    so fetch-all-once is appropriate here rather than live search.
+    """
+    try:
+        return [(i.get('instrument_name') or '', i.get('unique_id') or '')
+                for i in client.instruments.list() if i.get('instrument_name')]
+    except Exception:
+        return []
+
+
 def resolve_usernames(client, orcids):
     """Batch-resolve ORCIDs to usernames. Returns {orcid: username_or_orcid}."""
     orcids = sorted({o for o in orcids if o})

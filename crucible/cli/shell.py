@@ -61,15 +61,17 @@ try:
         """Three-level argparse completer: resource -> subcommand -> flags."""
 
         def __init__(self, parser, client=None, projects=None, deletions=None,
-                     join_requests=None, service_accounts=None, state=None):
+                     join_requests=None, service_accounts=None, instruments=None, state=None):
             self._top               = _get_subparser_map(parser)
             self._client            = client
             self._projects          = projects  or []
             self._deletions         = deletions or []
             self._join_requests     = join_requests or []
             self._service_accounts  = service_accounts or []
+            self._instruments       = instruments or []
             self._unlink_cache      = {}  # mfid -> [(uid, name, entity_type), ...]
             self._user_search_cache = {}  # query -> [(username, name, orcid), ...]
+            self._entity_search_cache = {}  # (entity_type, project_id, query) -> [(uid, name), ...]
             self._state             = state or {}
 
         def _lazy_projects(self):
@@ -77,6 +79,12 @@ try:
                 from .helpers import fetch_projects
                 self._projects = fetch_projects(self._client)
             return self._projects
+
+        def _lazy_instruments(self):
+            if not self._instruments and self._client is not None:
+                from .helpers import fetch_instruments
+                self._instruments = fetch_instruments(self._client)
+            return self._instruments
 
         def _search_users(self, query):
             """Search users by name/username via the public search endpoint (no admin required).
@@ -118,6 +126,75 @@ try:
                     display=_HTML(f'<b>{_html.escape(username)}</b>'),
                     display_meta=_HTML(f'<ansibrightblack>{_html.escape(meta)}{_html.escape(orcid)}</ansibrightblack>'),
                 )
+
+        def _search_entities(self, entity_type, query, project_id=None):
+            """Search datasets or samples by name via the public search endpoint.
+
+            Cached per (entity_type, project_id, query) for the session.
+            Returns [(unique_id, name), ...].
+            """
+            key = (entity_type, project_id, query)
+            if key in self._entity_search_cache:
+                return self._entity_search_cache[key]
+            results = []
+            if self._client is not None:
+                try:
+                    resource   = getattr(self._client, entity_type)  # 'datasets' or 'samples'
+                    name_field = 'dataset_name' if entity_type == 'datasets' else 'sample_name'
+                    for r in resource.search(query, project_id=project_id):
+                        uid = r.get('unique_id') or ''
+                        if uid:
+                            results.append((uid, r.get(name_field) or '(unnamed)'))
+                except Exception:
+                    pass
+            self._entity_search_cache[key] = results
+            return results
+
+        def _yield_entity_completions(self, entity_type, arg_text, query, icon):
+            """Yield MFID completions (displayed by name) for a dataset/sample name argument.
+
+            Below the 3-char search minimum, falls back to recently-viewed
+            entities of this type from session history instead of live search.
+            """
+            if len(query) < 3:
+                for uid, name, rtype in self._state.get('recent_mfids', []):
+                    if rtype == entity_type.rstrip('s') and query.lower() in name.lower():
+                        yield Completion(
+                            uid + ' ',
+                            start_position=-len(arg_text),
+                            display=_HTML(f'<b>{_html.escape(uid)}</b>'),
+                            display_meta=_HTML(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
+                        )
+                return
+            project_id = self._state.get('project')
+            for uid, name in self._search_entities(entity_type, query, project_id=project_id):
+                yield Completion(
+                    uid + ' ',
+                    start_position=-len(arg_text),
+                    display=_HTML(f'<b>{_html.escape(uid)}</b>'),
+                    display_meta=_HTML(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
+                )
+
+        @staticmethod
+        def _multiword_arg(text, num_preceding_words):
+            """Extract the raw text typed for a positional argument that may
+            contain spaces (e.g. an instrument or dataset name), given the
+            number of complete words before it (resource + subcommand, etc).
+
+            Returns (arg_text, query): arg_text is the exact trailing text
+            (used for start_position so a Completion replaces it precisely),
+            query is arg_text with trailing whitespace stripped (what to
+            search for). Returns None if that argument hasn't been reached
+            yet, or if a flag (a token starting with '-') appears in it,
+            meaning the positional was already completed and a flag started.
+            """
+            parts = text.split(' ', num_preceding_words)
+            if len(parts) <= num_preceding_words:
+                return None
+            arg_text = parts[num_preceding_words]
+            if any(tok.startswith('-') for tok in arg_text.split(' ') if tok):
+                return None
+            return arg_text, arg_text.rstrip()
 
         def _unlink_neighbors(self, mfid):
             """Return [(uid, name, entity_type)] of entities directly linked to mfid (cached)."""
@@ -353,6 +430,40 @@ try:
                             )
                     return
 
+            if resource == 'instrument' and len(words) >= 2 and words[1] == 'get':
+                # Complete the NAME_OR_ID positional (instrument names may contain spaces).
+                span = self._multiword_arg(text, 2)
+                if span is None:
+                    return  # already past the positional (a flag was typed)
+                arg_text, query = span
+                query_lower = query.lower()
+                for name, uid in self._lazy_instruments():
+                    if query_lower not in name.lower():
+                        continue
+                    yield Completion(
+                        name + ' ',
+                        start_position=-len(arg_text),
+                        display=_HTML(f'<b>{_html.escape(name)}</b>'),
+                        display_meta=_HTML(f'<ansibrightblack>{_html.escape(uid)}</ansibrightblack>'),
+                    )
+                return
+
+            if resource in ('dataset', 'sample') and len(words) >= 2:
+                # Complete the ID positional (by name, resolving to MFID) for
+                # every subcommand except the handful that don't take one.
+                _NO_ID_SUBS = {'list', 'create', 'search', 'search-metadata', 'search-md',
+                               'parsers', 'ingestors'}
+                if words[1] not in _NO_ID_SUBS:
+                    span = self._multiword_arg(text, 2)
+                    if span is not None:
+                        arg_text, query = span
+                        entity_type = 'datasets' if resource == 'dataset' else 'samples'
+                        icon = _ENTITY_ICONS.get(resource, '')
+                        yield from self._yield_entity_completions(entity_type, arg_text, query, icon)
+                        return
+                    # Positional already filled (a flag followed) — fall through
+                    # to flag completion below only if this resource has one.
+
             if resource in ('cast', 'cd', 'ls'):
                 current = (words[1] if len(words) == 2 and not trailing_space else
                            '' if trailing_space and len(words) == 1 else None)
@@ -461,14 +572,51 @@ try:
             current_word = '' if trailing_space else words[-1]
             prev = (words[-1] if trailing_space else words[-2]) if len(words) >= 2 else ''
 
+            _PROJECT_FLAGS = ('--project', '-pid', '--project-id')
+            # Flags whose value is a dataset or sample MFID, by resource context.
+            # Values here can't contain unquoted spaces (argparse flag values are
+            # single tokens), so completion is a plain prefix/substring search
+            # rather than the multi-word span logic used for positionals.
+            _ENTITY_FLAGS = {
+                'dataset': {'-s': 'samples', '--sample': 'samples', '-c': 'datasets', '--child': 'datasets'},
+                'sample':  {'-d': 'datasets', '--dataset': 'datasets', '-c': 'samples', '--child': 'samples'},
+            }.get(resource, {})
+
             if current_word and not current_word.startswith('-'):
-                # Mid-typing a positional value or flag value — no completions unless it's --orcid
+                # Mid-typing a flag value.
                 if prev == '--orcid':
                     yield from self._yield_user_completions(current_word)
+                elif prev in _PROJECT_FLAGS:
+                    for pid, title in self._lazy_projects():
+                        if pid.startswith(current_word):
+                            yield Completion(
+                                pid + ' ', start_position=-len(current_word),
+                                display=_HTML(f'<b>{pid}</b>'),
+                                display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'),
+                            )
+                elif prev in _ENTITY_FLAGS:
+                    entity_type = _ENTITY_FLAGS[prev]
+                    icon = _ENTITY_ICONS.get(entity_type.rstrip('s'), '')
+                    yield from self._yield_entity_completions(entity_type, current_word, current_word, icon)
                 return
 
             if not current_word and prev == '--orcid':
                 yield from self._yield_user_completions('')
+                return
+
+            if not current_word and prev in _PROJECT_FLAGS:
+                for pid, title in self._lazy_projects():
+                    yield Completion(
+                        pid + ' ', start_position=0,
+                        display=_HTML(f'<b>{pid}</b>'),
+                        display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'),
+                    )
+                return
+
+            if not current_word and prev in _ENTITY_FLAGS:
+                entity_type = _ENTITY_FLAGS[prev]
+                icon = _ENTITY_ICONS.get(entity_type.rstrip('s'), '')
+                yield from self._yield_entity_completions(entity_type, '', '', icon)
                 return
 
             for flag in sub_parser._option_string_actions:
