@@ -272,11 +272,8 @@ def _execute_list_deleted(args):
                    max_widths=[6, 26, 10, 20, 12, 22])
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _execute_get_deleted(args):
@@ -302,11 +299,8 @@ def _execute_get_deleted(args):
         _p("Reviewer Notes", record.get('reviewer_notes'))
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _execute_request(args):
@@ -319,11 +313,8 @@ def _execute_request(args):
         print()
         _show_deletion_request(record, client=client)
     except Exception as e:
-        logger.error(f"Error submitting deletion request: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("submitting deletion request", e, args)
 
 
 def _execute_list(args):
@@ -367,11 +358,8 @@ def _execute_list(args):
                    ['ID', 'Resource ID', 'Type', 'Name', 'Status', 'Requester', 'Requested'],
                    max_widths=[6, 26, 10, 15, 10, 20, 10])
     except Exception as e:
-        logger.error(f"Error listing deletion requests: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing deletion requests", e, args)
 
 
 def _execute_get(args):
@@ -382,11 +370,8 @@ def _execute_get(args):
         record = client.deletions.get(args.request_id)
         _show_deletion_request(record, client=client)
     except Exception as e:
-        logger.error(f"Error fetching deletion request: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("fetching deletion request", e, args)
 
 
 def _execute_approve(args):
@@ -395,8 +380,8 @@ def _execute_approve(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        logger.error(f"Error connecting: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("connecting", e)
 
     had_error = False
     for rid in args.request_id:
@@ -437,11 +422,8 @@ def _execute_delete(args):
             traceback.print_exc()
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _execute_reject(args):
@@ -450,8 +432,8 @@ def _execute_reject(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        logger.error(f"Error connecting: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("connecting", e)
 
     had_error = False
     for rid in args.request_id:

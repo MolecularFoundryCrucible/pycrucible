@@ -106,11 +106,8 @@ def _execute_list(args):
         term.table(rows, ['File', 'Size', 'MFID', 'Dataset', 'Status'], max_widths=[40, 10, 30, 30, 10])
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_get(subparsers):
@@ -155,11 +152,8 @@ def _execute_get(args):
             _p("Status", term.yellow("Pending ingestion"))
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_download(subparsers):
@@ -208,11 +202,8 @@ def _execute_download(args):
     except SystemExit:
         raise
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_delete(subparsers):
@@ -238,11 +229,8 @@ def _execute_delete(args):
         client.files.delete(args.file_id)
         print(f"  {term.green('✓')} Deleted {args.file_id}")
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_ingestion(subparsers):
@@ -283,8 +271,5 @@ def _execute_ingestion(args):
         term.table(rows, ['ID', 'Status', 'Class', 'Created'], max_widths=[8, 12, 25, 20])
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)

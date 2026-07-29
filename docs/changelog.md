@@ -12,6 +12,7 @@
 - Shell autocomplete for `instrument get` (by name, fetched once per session) and `--project`/`-pid` flags on `dataset`/`sample` commands.
 - Shell autocomplete for dataset/sample IDs across nearly all subcommands (by name, live search, falls back to recently-viewed items below the 3-char search minimum) and for `-s/--sample`, `-c/--child`, `-d/--dataset` flag values.
 - Shell autocomplete now also shows live matches while typing `user search TERM`.
+- CLI housekeeping: extracted `helpers.fail()` to replace ~113 duplicated error-handling blocks across 16 files; fixed 4 latent bugs where `_edit_*` helpers passed a bare `debug` bool where `fail()` expected an args-like object (would have silently swallowed `--debug`); removed two dead unused-in-file helper functions in `dataset.py`/`sample.py`.
 
 ## 3.1.0
 

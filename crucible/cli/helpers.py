@@ -9,10 +9,35 @@ shell.py (which would create circular imports).
 """
 
 import re
+import sys
+import logging
 from concurrent.futures import ThreadPoolExecutor
+
+logger = logging.getLogger(__name__)
 
 _ORCID_RE = re.compile(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$')
 _MFID_RE  = re.compile(r'^[0-9a-hjkmnp-tv-z]{26}$')  # Crockford base32, no i/l/o/u
+
+
+def fail(action: str, error: Exception, args=None) -> None:
+    """Log a CLI error and exit(1), printing a traceback if --debug was passed.
+
+    `action` is the same trailing text every _execute_* function already
+    writes by hand, e.g. fail("deleting dataset", e, args) logs
+    "Error deleting dataset: <e>". Pass action="" for the bare "Error: <e>" form.
+
+    `args` may be an argparse Namespace (checks args.debug) or a plain bool
+    (some helpers like _edit_dataset take a bare `debug` flag, not the full
+    Namespace) — pass whichever is in scope at the call site.
+
+    Never returns — exits the process, same as every call site did manually.
+    """
+    logger.error(f"Error {action}: {error}" if action else f"Error: {error}")
+    debug = args if isinstance(args, bool) else getattr(args, 'debug', False)
+    if debug:
+        import traceback
+        traceback.print_exc()
+    sys.exit(1)
 
 
 def parse_user_ref(value: str) -> dict:

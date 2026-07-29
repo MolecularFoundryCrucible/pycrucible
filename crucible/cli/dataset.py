@@ -60,10 +60,6 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
         u, p = r.get('unique_id'), r.get('project_id')
         return term.mfid_link(u, explorer_url(u, p, 'dataset'))
 
-    def _s_link(r):
-        u, p = r.get('unique_id'), r.get('project_id')
-        return term.mfid_link(u, explorer_url(u, p, 'sample'))
-
     term.header("Dataset")
 
     dr = dataset.get('deletion_request')
@@ -708,11 +704,8 @@ def _execute_update(args):
             logger.info(f"✓ Scientific metadata {action} for dataset {args.dataset_id}")
 
     except Exception as e:
-        logger.error(f"Error updating dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("updating dataset", e, args)
 
 
 def _register_delete(subparsers):
@@ -746,11 +739,8 @@ def _execute_delete(args):
         client.datasets.delete(args.dataset_id)
         logger.info(f"✓ Deleted dataset {args.dataset_id}")
     except Exception as e:
-        logger.error(f"Error deleting dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("deleting dataset", e, args)
 
 
 def _register_edit(subparsers):
@@ -825,11 +815,8 @@ def _edit_dataset(dsid, client, debug=False):
         term.header("Changes")
         term.diff(original, diff_updated)
     except Exception as e:
-        logger.error(f"Error updating dataset: {e}")
-        if debug:
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("updating dataset", e, debug)
 
 
 def _execute_edit(args):
@@ -838,8 +825,8 @@ def _execute_edit(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        logger.error(f"Error connecting: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("connecting", e)
     _edit_dataset(args.dataset_id, client, debug=getattr(args, 'debug', False))
 
 
@@ -895,11 +882,8 @@ def _execute_add_sample(args):
         logger.info(f"✓ Linked sample {args.sample} to dataset {args.dataset_id}")
 
     except Exception as e:
-        logger.error(f"Error linking sample to dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("linking sample to dataset", e, args)
 
 
 def _register_remove_sample(subparsers):
@@ -927,11 +911,8 @@ def _execute_remove_sample(args):
         client.datasets.remove_sample(args.dataset_id, args.sample)
         logger.info(f"✓ Unlinked sample {args.sample} from dataset {args.dataset_id}")
     except Exception as e:
-        logger.error(f"Error unlinking sample from dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("unlinking sample from dataset", e, args)
 
 
 def _register_remove_child(subparsers):
@@ -959,11 +940,8 @@ def _execute_remove_child(args):
         client.datasets.remove_child(args.parent_id, args.child)
         logger.info(f"✓ Unlinked child dataset {args.child} from parent dataset {args.parent_id}")
     except Exception as e:
-        logger.error(f"Error unlinking child dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("unlinking child dataset", e, args)
 
 
 def _register_list_parents(subparsers):
@@ -1134,11 +1112,8 @@ def _execute_download(args):
                 logger.info(f"  {path}")
 
     except Exception as e:
-        logger.error(f"Error downloading dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("downloading dataset", e, args)
 
 
 def _register_add_file(subparsers):
@@ -1234,11 +1209,8 @@ def _execute_add_file(args):
         term.table(rows, ['File', 'Size', ''], max_widths=[60, 10, 4])
 
     except Exception as e:
-        logger.error(f"Error uploading file(s): {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("uploading file(s)", e, args)
 
 
 def _register_list_files(subparsers):
@@ -1291,11 +1263,8 @@ def _execute_list_files(args):
             print(f"\n  {term.dim('Download links are valid for 1 hour.')}")
 
     except Exception as e:
-        logger.error(f"Error listing files: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing files", e, args)
 
 
 def _register_ingestion(subparsers):
@@ -1338,11 +1307,8 @@ def _execute_ingestion(args):
                    max_widths=[8, 12, 25, 30, 20])
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_search(subparsers):
@@ -1393,11 +1359,8 @@ def _execute_search(args):
             ))
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 20])
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_search_metadata(subparsers):
@@ -1440,11 +1403,8 @@ def _execute_search_metadata(args):
                 else:
                     print(f"    {term.dim(key + ':')} {value}")
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_add_keyword(subparsers):
@@ -1476,11 +1436,8 @@ def _execute_add_keyword(args):
         logger.info(f"✓ Keyword '{args.keyword}' added to {args.dataset_id}")
 
     except Exception as e:
-        logger.error(f"Error adding keyword: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("adding keyword", e, args)
 
 
 def _register_list_keywords(subparsers):
@@ -1517,11 +1474,8 @@ def _execute_list_keywords(args):
             print(f"  {word}{suffix}")
 
     except Exception as e:
-        logger.error(f"Error retrieving keywords: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("retrieving keywords", e, args)
 
 
 def _register_list_access_groups(subparsers):
@@ -1552,11 +1506,8 @@ def _execute_list_access_groups(args):
             for g in groups:
                 print(f"  {g}")
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_add_access_group(subparsers):
@@ -1588,11 +1539,8 @@ def _execute_add_access_group(args):
         perms = 'read+write' if args.write else 'read'
         logger.info(f"✓ Access group '{args.group_name}' added to {args.dataset_id} ({perms})")
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_parsers(subparsers):
@@ -1709,11 +1657,8 @@ def _execute_list(args):
                                max_widths=[35, 26, 15, 20])
 
     except Exception as e:
-        logger.error(f"Error listing datasets: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing datasets", e, args)
 
 
 def _execute_get(args):
@@ -1742,11 +1687,8 @@ def _execute_get(args):
                           graph=graph,
                           include_metadata=include_metadata)
     except Exception as e:
-        logger.error(f"Error retrieving dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("retrieving dataset", e, args)
 
 
 def _execute_create(args):
@@ -1875,11 +1817,8 @@ def _execute_create(args):
             timestamp=timestamp,
         )
     except Exception as e:
-        logger.error(f"Error parsing file: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("parsing file", e, args)
 
     # If a custom ingestor is used and the user didn't explicitly set -m,
     # clear the parser's default measurement so the server assigns it
@@ -1965,11 +1904,8 @@ def _execute_link(args):
         logger.info(f"✓ Linked dataset {args.child} as child of {args.parent}")
 
     except Exception as e:
-        logger.error(f"Error linking datasets: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("linking datasets", e, args)
 
 
 def _execute_list_parents(args):
@@ -1989,11 +1925,8 @@ def _execute_list_parents(args):
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 15])
 
     except Exception as e:
-        logger.error(f"Error listing parent datasets: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing parent datasets", e, args)
 
 
 def _execute_list_children(args):
@@ -2013,11 +1946,8 @@ def _execute_list_children(args):
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 15])
 
     except Exception as e:
-        logger.error(f"Error listing child datasets: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing child datasets", e, args)
 
 
 def _execute_list_samples(args):
@@ -2037,11 +1967,8 @@ def _execute_list_samples(args):
         term.table(rows, ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
 
     except Exception as e:
-        logger.error(f"Error listing samples: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing samples", e, args)
 
 
 def _execute_parsers(args):

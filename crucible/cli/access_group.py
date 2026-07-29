@@ -94,11 +94,8 @@ def _execute_request(args):
         print()
         _show_join_request(record, client=client)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 # ── list ──────────────────────────────────────────────────────────────────────
@@ -143,11 +140,8 @@ def _execute_list(args):
                   ['ID', 'Group', 'Status', 'Requester', 'Requested'],
                   max_widths=[6, 20, 10, 20, 12])
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 # ── mine ──────────────────────────────────────────────────────────────────────
@@ -184,11 +178,8 @@ def _execute_mine(args):
                   ['ID', 'Group', 'Status', 'Requester', 'Requested'],
                   max_widths=[6, 20, 10, 20, 12])
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 # ── get ───────────────────────────────────────────────────────────────────────
@@ -217,11 +208,8 @@ def _execute_get(args):
             sys.exit(1)
         _show_join_request(record, client=client)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 # ── approve / reject ───────────────────────────────────────────────────────────
@@ -249,8 +237,8 @@ def _execute_approve(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        logger.error(f"Error connecting: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("connecting", e)
 
     had_error = False
     for rid in args.request_id:
@@ -293,8 +281,8 @@ def _execute_reject(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        logger.error(f"Error connecting: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("connecting", e)
 
     had_error = False
     for rid in args.request_id:
