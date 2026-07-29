@@ -212,6 +212,35 @@ try:
                 result = []
             return result
 
+        # Dispatch table for get_completions(): resource name(s) -> handler method
+        # name. Each handler is a generator that yields Completions and returns
+        # True if it fully handled the request, or False to fall through to the
+        # next matching handler and eventually the generic subcommand/flag
+        # completion in _complete_generic(). Order matters only in that a
+        # resource name should appear in exactly one entry (verified: no overlaps).
+        _RESOURCE_HANDLERS = {
+            'debug':           '_complete_debug',
+            'use':             '_complete_use',
+            'deletion':        '_complete_deletion',
+            'ag':              '_complete_access_group',
+            'access-group':    '_complete_access_group',
+            'sa':              '_complete_service_account',
+            'service-account': '_complete_service_account',
+            'unlink':          '_complete_unlink',
+            'get':             '_complete_recent_mfid',
+            'edit':            '_complete_recent_mfid',
+            'open':            '_complete_recent_mfid',
+            'tree':            '_complete_recent_mfid',
+            'user':            '_complete_user',
+            'project':         '_complete_project',
+            'instrument':      '_complete_instrument',
+            'dataset':         '_complete_dataset_or_sample',
+            'sample':          '_complete_dataset_or_sample',
+            'cast':            '_complete_path',
+            'cd':              '_complete_path',
+            'ls':              '_complete_path',
+        }
+
         def get_completions(self, document, complete_event):
             text           = document.text_before_cursor
             words          = text.split()
@@ -226,53 +255,69 @@ try:
                 return
 
             resource = words[0]
+            ctx = (text, words, trailing_space, resource)
 
-            if resource == 'debug':
-                if len(words) > 2:
+            handler_name = self._RESOURCE_HANDLERS.get(resource)
+            if handler_name:
+                handled = yield from getattr(self, handler_name)(ctx)
+                if handled:
                     return
-                prefix = words[1] if len(words) == 2 and not trailing_space else ''
-                for choice in ('on', 'off'):
-                    if choice.startswith(prefix):
-                        yield Completion(choice + ' ', start_position=-len(prefix))
-                return
 
-            if resource == 'use':
-                if len(words) > 2 or (trailing_space and len(words) == 2):
-                    return
-                prefix = words[1] if len(words) == 2 else ''
-                for pid, title in self._lazy_projects():
-                    if pid.startswith(prefix):
-                        yield Completion(pid + ' ', start_position=-len(prefix),
-                                         display=_HTML(f'<b>{pid}</b>'),
-                                         display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'))
-                return
+            yield from self._complete_generic(ctx)
 
-            if resource == 'deletion' and len(words) >= 2 and words[1] in ('approve', 'reject', 'get'):
-                already = set(words[2:]) if trailing_space else set(words[2:-1])
-                prefix  = '' if trailing_space else words[-1]
-                for d in self._deletions:
-                    did = str(d.get('id', ''))
-                    if did in already or not did.startswith(prefix):
-                        continue
-                    rtype  = d.get('resource_type') or ''
-                    name   = (d.get('resource_name') or '')[:15]
-                    reason = (d.get('reason') or '')[:24]
-                    parts  = []
-                    if rtype:
-                        parts.append(f'{rtype}')
-                    if name:
-                        parts.append(f'<b>{_html.escape(name)}</b>')
-                    if reason:
-                        parts.append(f'<ansibrightblack>{_html.escape(reason)}</ansibrightblack>')
-                    yield Completion(
-                        did + ' ',
-                        start_position=-len(prefix),
-                        display=_HTML(f'<b>{did}</b>'),
-                        display_meta=_HTML(' | '.join(parts)),
-                    )
-                return
+        def _complete_debug(self, ctx):
+            text, words, trailing_space, resource = ctx
+            if len(words) > 2:
+                return True
+            prefix = words[1] if len(words) == 2 and not trailing_space else ''
+            for choice in ('on', 'off'):
+                if choice.startswith(prefix):
+                    yield Completion(choice + ' ', start_position=-len(prefix))
+            return True
 
-            if resource in ('ag', 'access-group') and len(words) >= 2 and words[1] in ('approve', 'reject', 'get'):
+        def _complete_use(self, ctx):
+            text, words, trailing_space, resource = ctx
+            if len(words) > 2 or (trailing_space and len(words) == 2):
+                return True
+            prefix = words[1] if len(words) == 2 else ''
+            for pid, title in self._lazy_projects():
+                if pid.startswith(prefix):
+                    yield Completion(pid + ' ', start_position=-len(prefix),
+                                     display=_HTML(f'<b>{pid}</b>'),
+                                     display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'))
+            return True
+
+        def _complete_deletion(self, ctx):
+            text, words, trailing_space, resource = ctx
+            if not (len(words) >= 2 and words[1] in ('approve', 'reject', 'get')):
+                return False
+            already = set(words[2:]) if trailing_space else set(words[2:-1])
+            prefix  = '' if trailing_space else words[-1]
+            for d in self._deletions:
+                did = str(d.get('id', ''))
+                if did in already or not did.startswith(prefix):
+                    continue
+                rtype  = d.get('resource_type') or ''
+                name   = (d.get('resource_name') or '')[:15]
+                reason = (d.get('reason') or '')[:24]
+                parts  = []
+                if rtype:
+                    parts.append(f'{rtype}')
+                if name:
+                    parts.append(f'<b>{_html.escape(name)}</b>')
+                if reason:
+                    parts.append(f'<ansibrightblack>{_html.escape(reason)}</ansibrightblack>')
+                yield Completion(
+                    did + ' ',
+                    start_position=-len(prefix),
+                    display=_HTML(f'<b>{did}</b>'),
+                    display_meta=_HTML(' | '.join(parts)),
+                )
+            return True
+
+        def _complete_access_group(self, ctx):
+            text, words, trailing_space, resource = ctx
+            if len(words) >= 2 and words[1] in ('approve', 'reject', 'get'):
                 already = set(words[2:]) if trailing_space else set(words[2:-1])
                 prefix  = '' if trailing_space else words[-1]
                 for jr in self._join_requests:
@@ -292,16 +337,16 @@ try:
                         display=_HTML(f'<b>{jid}</b>'),
                         display_meta=_HTML(' | '.join(parts)),
                     )
-                return
+                return True
 
-            if resource in ('ag', 'access-group') and len(words) >= 2 and words[1] == 'request':
+            if len(words) >= 2 and words[1] == 'request':
                 # Complete the GROUP positional (currently always a project_id).
                 if trailing_space and len(words) == 2:
                     prefix = ''
                 elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
                     prefix = words[2]
                 else:
-                    return  # GROUP already filled
+                    return True  # GROUP already filled
                 for pid, title in self._lazy_projects():
                     if pid.startswith(prefix):
                         yield Completion(
@@ -310,231 +355,266 @@ try:
                             display=_HTML(f'<b>{pid}</b>'),
                             display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'),
                         )
-                return
+                return True
 
-            if resource in ('sa', 'service-account') and len(words) >= 2:
-                # Complete the SA positional (MFID or username) for subcommands that take one.
-                _SA_SUBS = {'get', 'rotate-key', 'edit', 'update', 'list-access-groups',
-                            'add-access-group', 'remove-access-group'}
-                if words[1] in _SA_SUBS:
-                    if trailing_space and len(words) == 2:
-                        prefix = ''
-                    elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
-                        prefix = words[2]
-                    else:
-                        return  # SA already filled
-                    prefix_lower = prefix.lower()
-                    for sa in self._service_accounts:
-                        username = sa.get('username') or ''
-                        if not username.lower().startswith(prefix_lower):
-                            continue
-                        name = term.fmt_name(sa, default='', fallback_username=False)
-                        yield Completion(
-                            username + ' ',
-                            start_position=-len(prefix),
-                            display=_HTML(f'<b>{_html.escape(username)}</b>'),
-                            display_meta=_HTML(f'<ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
-                        )
-                    return
+            return False
 
-            if resource == 'unlink' and self._client is not None:
-                # Positional form: unlink MFID1 MFID2
-                # Complete MFID2 from the graph neighbors of MFID1.
-                first = None
+        def _complete_service_account(self, ctx):
+            text, words, trailing_space, resource = ctx
+            if len(words) < 2:
+                return False
+            # Complete the SA positional (MFID or username) for subcommands that take one.
+            _SA_SUBS = {'get', 'rotate-key', 'edit', 'update', 'list-access-groups',
+                        'add-access-group', 'remove-access-group'}
+            if words[1] not in _SA_SUBS:
+                return False
+            if trailing_space and len(words) == 2:
                 prefix = ''
-                if trailing_space and len(words) == 2 and not words[1].startswith('-'):
-                    first, prefix = words[1], ''
-                elif not trailing_space and len(words) == 3 \
-                        and not words[1].startswith('-') and not words[2].startswith('-'):
-                    first, prefix = words[1], words[2]
-                if first:
-                    for uid, name, etype in self._unlink_neighbors(first):
-                        if uid.startswith(prefix):
-                            icon_html = _ENTITY_ICONS.get(etype, '<ansibrightblack>[?]</ansibrightblack>')
-                            meta = f'{icon_html} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'
-                            yield Completion(
-                                uid + ' ',
-                                start_position=-len(prefix),
-                                display=_HTML(f'<b>{_html.escape(uid)}</b>'),
-                                display_meta=_HTML(meta),
-                            )
-                    return
+            elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
+                prefix = words[2]
+            else:
+                return True  # SA already filled
+            prefix_lower = prefix.lower()
+            for sa in self._service_accounts:
+                username = sa.get('username') or ''
+                if not username.lower().startswith(prefix_lower):
+                    continue
+                name = term.fmt_name(sa, default='', fallback_username=False)
+                yield Completion(
+                    username + ' ',
+                    start_position=-len(prefix),
+                    display=_HTML(f'<b>{_html.escape(username)}</b>'),
+                    display_meta=_HTML(f'<ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
+                )
+            return True
 
-            if resource in ('get', 'edit', 'open', 'tree'):
-                # Complete the first positional MFID from recently visited resources.
-                if trailing_space and len(words) == 1:
-                    prefix = ''
-                    for uid, name, rtype in self._state.get('recent_mfids', []):
-                        if uid.startswith(prefix):
-                            icon = _ENTITY_ICONS.get(rtype, '<ansibrightblack>[?]</ansibrightblack>')
-                            yield Completion(
-                                uid + ' ',
-                                start_position=-len(prefix),
-                                display=_HTML(f'<b>{_html.escape(uid)}</b>'),
-                                display_meta=_HTML(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
-                            )
-                    return
-                elif not trailing_space and len(words) == 2 and not words[1].startswith('-'):
-                    prefix = words[1]
-                    for uid, name, rtype in self._state.get('recent_mfids', []):
-                        if uid.startswith(prefix):
-                            icon = _ENTITY_ICONS.get(rtype, '<ansibrightblack>[?]</ansibrightblack>')
-                            yield Completion(
-                                uid + ' ',
-                                start_position=-len(prefix),
-                                display=_HTML(f'<b>{_html.escape(uid)}</b>'),
-                                display_meta=_HTML(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
-                            )
-                    return
-                # ID already filled — complete flags from the top-level parser
-                parser = self._top.get(resource)
-                if parser:
-                    current_word = '' if trailing_space else words[-1]
-                    for flag in parser._option_string_actions:
-                        if flag.startswith(current_word):
-                            yield Completion(flag + ' ', start_position=-len(current_word))
-                return
-
-            if resource == 'user' and len(words) >= 2:
-                # Complete the USER positional (ORCID/username/email) by username search.
-                # 'search' is included too — TERM is free text, but showing live
-                # matches while typing is useful preview, not just identifier lookup.
-                _USER_SUBS = {'get', 'update', 'edit', 'add-access-group', 'remove-access-group',
-                              'list-datasets', 'check-access', 'list-access-groups', 'list-projects',
-                              'search'}
-                if words[1] in _USER_SUBS:
-                    if trailing_space and len(words) == 2:
-                        prefix = ''
-                    elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
-                        prefix = words[2]
-                    else:
-                        return  # USER already filled
-                    yield from self._yield_user_completions(prefix)
-                    return
-
-            if resource == 'project' and len(words) >= 2:
-                # Complete the PROJECT_ID positional for subcommands that take one.
-                _PID_SUBS = {'get', 'update', 'list-users', 'add-user', 'remove-user',
-                             'request-join', 'list-join-requests'}
-                if words[1] in _PID_SUBS:
-                    if trailing_space and len(words) == 2:
-                        prefix = ''
-                    elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
-                        prefix = words[2]
-                    else:
-                        return  # project ID already filled
-                    for pid, title in self._lazy_projects():
-                        if pid.startswith(prefix):
-                            yield Completion(
-                                pid + ' ',
-                                start_position=-len(prefix),
-                                display=_HTML(f'<b>{pid}</b>'),
-                                display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'),
-                            )
-                    return
-
-            if resource == 'instrument' and len(words) >= 2 and words[1] == 'get':
-                # Complete the NAME_OR_ID positional (instrument names may contain spaces).
-                span = self._multiword_arg(text, 2)
-                if span is None:
-                    return  # already past the positional (a flag was typed)
-                arg_text, query = span
-                query_lower = query.lower()
-                for name, uid in self._lazy_instruments():
-                    if query_lower not in name.lower():
-                        continue
+        def _complete_unlink(self, ctx):
+            text, words, trailing_space, resource = ctx
+            if self._client is None:
+                return False
+            # Positional form: unlink MFID1 MFID2
+            # Complete MFID2 from the graph neighbors of MFID1.
+            first = None
+            prefix = ''
+            if trailing_space and len(words) == 2 and not words[1].startswith('-'):
+                first, prefix = words[1], ''
+            elif not trailing_space and len(words) == 3 \
+                    and not words[1].startswith('-') and not words[2].startswith('-'):
+                first, prefix = words[1], words[2]
+            if not first:
+                return False
+            for uid, name, etype in self._unlink_neighbors(first):
+                if uid.startswith(prefix):
+                    icon_html = _ENTITY_ICONS.get(etype, '<ansibrightblack>[?]</ansibrightblack>')
+                    meta = f'{icon_html} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'
                     yield Completion(
-                        name + ' ',
-                        start_position=-len(arg_text),
-                        display=_HTML(f'<b>{_html.escape(name)}</b>'),
-                        display_meta=_HTML(f'<ansibrightblack>{_html.escape(uid)}</ansibrightblack>'),
+                        uid + ' ',
+                        start_position=-len(prefix),
+                        display=_HTML(f'<b>{_html.escape(uid)}</b>'),
+                        display_meta=_HTML(meta),
                     )
-                return
+            return True
 
-            if resource in ('dataset', 'sample') and len(words) >= 2:
-                # Complete the ID positional (by name, resolving to MFID) for
-                # every subcommand except the handful that don't take one.
-                _NO_ID_SUBS = {'list', 'create', 'search', 'search-metadata', 'search-md',
-                               'parsers', 'ingestors'}
-                if words[1] not in _NO_ID_SUBS:
-                    span = self._multiword_arg(text, 2)
-                    if span is not None:
-                        arg_text, query = span
-                        entity_type = 'datasets' if resource == 'dataset' else 'samples'
-                        icon = _ENTITY_ICONS.get(resource, '')
-                        yield from self._yield_entity_completions(entity_type, arg_text, query, icon)
-                        return
-                    # Positional already filled (a flag followed) — fall through
-                    # to flag completion below only if this resource has one.
+        def _complete_recent_mfid(self, ctx):
+            text, words, trailing_space, resource = ctx
+            # Complete the first positional MFID from recently visited resources.
+            if trailing_space and len(words) == 1:
+                prefix = ''
+                for uid, name, rtype in self._state.get('recent_mfids', []):
+                    if uid.startswith(prefix):
+                        icon = _ENTITY_ICONS.get(rtype, '<ansibrightblack>[?]</ansibrightblack>')
+                        yield Completion(
+                            uid + ' ',
+                            start_position=-len(prefix),
+                            display=_HTML(f'<b>{_html.escape(uid)}</b>'),
+                            display_meta=_HTML(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
+                        )
+                return True
+            elif not trailing_space and len(words) == 2 and not words[1].startswith('-'):
+                prefix = words[1]
+                for uid, name, rtype in self._state.get('recent_mfids', []):
+                    if uid.startswith(prefix):
+                        icon = _ENTITY_ICONS.get(rtype, '<ansibrightblack>[?]</ansibrightblack>')
+                        yield Completion(
+                            uid + ' ',
+                            start_position=-len(prefix),
+                            display=_HTML(f'<b>{_html.escape(uid)}</b>'),
+                            display_meta=_HTML(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
+                        )
+                return True
+            # ID already filled — complete flags from the top-level parser
+            parser = self._top.get(resource)
+            if parser:
+                current_word = '' if trailing_space else words[-1]
+                for flag in parser._option_string_actions:
+                    if flag.startswith(current_word):
+                        yield Completion(flag + ' ', start_position=-len(current_word))
+            return True
 
-            if resource in ('cast', 'cd', 'ls'):
-                current = (words[1] if len(words) == 2 and not trailing_space else
-                           '' if trailing_space and len(words) == 1 else None)
-                if current is not None and not current.startswith('-'):
-                    expanded   = os.path.expanduser(current)
-                    search_dir = os.path.dirname(expanded) or '.'
-                    prefix     = os.path.basename(expanded)
+        def _complete_user(self, ctx):
+            text, words, trailing_space, resource = ctx
+            if len(words) < 2:
+                return False
+            # Complete the USER positional (ORCID/username/email) by username search.
+            # 'search' is included too — TERM is free text, but showing live
+            # matches while typing is useful preview, not just identifier lookup.
+            _USER_SUBS = {'get', 'update', 'edit', 'add-access-group', 'remove-access-group',
+                          'list-datasets', 'check-access', 'list-access-groups', 'list-projects',
+                          'search'}
+            if words[1] not in _USER_SUBS:
+                return False
+            if trailing_space and len(words) == 2:
+                prefix = ''
+            elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
+                prefix = words[2]
+            else:
+                return True  # USER already filled
+            yield from self._yield_user_completions(prefix)
+            return True
 
-                    results = []
+        def _complete_project(self, ctx):
+            text, words, trailing_space, resource = ctx
+            if len(words) < 2:
+                return False
+            # Complete the PROJECT_ID positional for subcommands that take one.
+            _PID_SUBS = {'get', 'update', 'list-users', 'add-user', 'remove-user',
+                         'request-join', 'list-join-requests'}
+            if words[1] not in _PID_SUBS:
+                return False
+            if trailing_space and len(words) == 2:
+                prefix = ''
+            elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
+                prefix = words[2]
+            else:
+                return True  # project ID already filled
+            for pid, title in self._lazy_projects():
+                if pid.startswith(prefix):
+                    yield Completion(
+                        pid + ' ',
+                        start_position=-len(prefix),
+                        display=_HTML(f'<b>{pid}</b>'),
+                        display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'),
+                    )
+            return True
 
-                    # For cd: always offer '..' when at a directory boundary
-                    if resource == 'cd' and '..'.startswith(prefix):
-                        remaining = '..'[len(prefix):]
-                        results.append((False, '', Completion(
-                            remaining + '/',
+        def _complete_instrument(self, ctx):
+            text, words, trailing_space, resource = ctx
+            if not (len(words) >= 2 and words[1] == 'get'):
+                return False
+            # Complete the NAME_OR_ID positional (instrument names may contain spaces).
+            span = self._multiword_arg(text, 2)
+            if span is None:
+                return True  # already past the positional (a flag was typed)
+            arg_text, query = span
+            query_lower = query.lower()
+            for name, uid in self._lazy_instruments():
+                if query_lower not in name.lower():
+                    continue
+                yield Completion(
+                    name + ' ',
+                    start_position=-len(arg_text),
+                    display=_HTML(f'<b>{_html.escape(name)}</b>'),
+                    display_meta=_HTML(f'<ansibrightblack>{_html.escape(uid)}</ansibrightblack>'),
+                )
+            return True
+
+        def _complete_dataset_or_sample(self, ctx):
+            text, words, trailing_space, resource = ctx
+            if len(words) < 2:
+                return False
+            # Complete the ID positional (by name, resolving to MFID) for
+            # every subcommand except the handful that don't take one.
+            _NO_ID_SUBS = {'list', 'create', 'search', 'search-metadata', 'search-md',
+                           'parsers', 'ingestors'}
+            if words[1] in _NO_ID_SUBS:
+                return False
+            span = self._multiword_arg(text, 2)
+            if span is None:
+                # Positional already filled (a flag followed) — fall through
+                # to flag completion in _complete_generic().
+                return False
+            arg_text, query = span
+            entity_type = 'datasets' if resource == 'dataset' else 'samples'
+            icon = _ENTITY_ICONS.get(resource, '')
+            yield from self._yield_entity_completions(entity_type, arg_text, query, icon)
+            return True
+
+        def _complete_path(self, ctx):
+            text, words, trailing_space, resource = ctx
+            current = (words[1] if len(words) == 2 and not trailing_space else
+                       '' if trailing_space and len(words) == 1 else None)
+            if current is not None and not current.startswith('-'):
+                expanded   = os.path.expanduser(current)
+                search_dir = os.path.dirname(expanded) or '.'
+                prefix     = os.path.basename(expanded)
+
+                results = []
+
+                # For cd: always offer '..' when at a directory boundary
+                if resource == 'cd' and '..'.startswith(prefix):
+                    remaining = '..'[len(prefix):]
+                    results.append((False, '', Completion(
+                        remaining + '/',
+                        start_position=0,
+                        display=_HTML('<ansiblue><b>../</b></ansiblue>'),
+                    )))
+
+                try:
+                    scan = os.scandir(search_dir)
+                except (PermissionError, FileNotFoundError):
+                    return True
+
+                with scan:
+                    for entry in scan:
+                        if not entry.name.startswith(prefix):
+                            continue
+                        is_dir    = entry.is_dir(follow_symlinks=True)
+                        is_hidden = entry.name.startswith('.')
+                        is_crux   = entry.name.endswith('.crux')
+
+                        if resource == 'cd'   and not is_dir:   continue
+                        if resource == 'cast' and not (is_dir or is_crux): continue
+
+                        display_name    = entry.name + ('/' if is_dir else '')
+                        completion_text = entry.name[len(prefix):] + ('/' if is_dir else '')
+                        esc = _html.escape(display_name)
+
+                        if is_dir:
+                            disp = f'<ansiblue><b>{esc}</b></ansiblue>'
+                        elif is_crux:
+                            disp = f'<ansiyellow><b>{esc}</b></ansiyellow>'
+                        elif is_hidden:
+                            disp = f'<ansibrightblack>{esc}</ansibrightblack>'
+                        else:
+                            disp = esc
+
+                        results.append((is_hidden, display_name.lower(), Completion(
+                            completion_text,
                             start_position=0,
-                            display=_HTML('<ansiblue><b>../</b></ansiblue>'),
+                            display=_HTML(disp),
                         )))
 
-                    try:
-                        scan = os.scandir(search_dir)
-                    except (PermissionError, FileNotFoundError):
-                        return
+                results.sort(key=lambda x: (x[0], x[1]))
+                yield from (c for _, _, c in results)
+                return True
 
-                    with scan:
-                        for entry in scan:
-                            if not entry.name.startswith(prefix):
-                                continue
-                            is_dir    = entry.is_dir(follow_symlinks=True)
-                            is_hidden = entry.name.startswith('.')
-                            is_crux   = entry.name.endswith('.crux')
+            # Flag completion for cast
+            if resource == 'cast':
+                current_word = '' if trailing_space else words[-1]
+                if current_word.startswith('-'):
+                    cast_parser = self._top.get('cast')
+                    if cast_parser:
+                        for flag in cast_parser._option_string_actions:
+                            if flag.startswith(current_word):
+                                yield Completion(flag + ' ', start_position=-len(current_word))
+            return True
 
-                            if resource == 'cd'   and not is_dir:   continue
-                            if resource == 'cast' and not (is_dir or is_crux): continue
-
-                            display_name    = entry.name + ('/' if is_dir else '')
-                            completion_text = entry.name[len(prefix):] + ('/' if is_dir else '')
-                            esc = _html.escape(display_name)
-
-                            if is_dir:
-                                disp = f'<ansiblue><b>{esc}</b></ansiblue>'
-                            elif is_crux:
-                                disp = f'<ansiyellow><b>{esc}</b></ansiyellow>'
-                            elif is_hidden:
-                                disp = f'<ansibrightblack>{esc}</ansibrightblack>'
-                            else:
-                                disp = esc
-
-                            results.append((is_hidden, display_name.lower(), Completion(
-                                completion_text,
-                                start_position=0,
-                                display=_HTML(disp),
-                            )))
-
-                    results.sort(key=lambda x: (x[0], x[1]))
-                    yield from (c for _, _, c in results)
-                    return
-
-                # Flag completion for cast
-                if resource == 'cast':
-                    current_word = '' if trailing_space else words[-1]
-                    if current_word.startswith('-'):
-                        cast_parser = self._top.get('cast')
-                        if cast_parser:
-                            for flag in cast_parser._option_string_actions:
-                                if flag.startswith(current_word):
-                                    yield Completion(flag + ' ', start_position=-len(current_word))
-                return
+        def _complete_generic(self, ctx):
+            """Fallback completion shared by every resource: subcommand names,
+            then (for dataset/sample/user flag values) dynamic flag values,
+            then plain flag names from the matched subparser.
+            """
+            text, words, trailing_space, resource = ctx
 
             sub_map = _get_subparser_map(self._top.get(resource)) \
                       if resource in self._top else {}
