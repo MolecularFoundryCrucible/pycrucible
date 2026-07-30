@@ -330,11 +330,11 @@ class CastExecutor:
         """Request ingestion if files are present and ingestion not yet requested."""
         if not files or self._ingestion_id(local_id) is not None:
             return
-        ingestor = ds.ingestor or 'ApiUploadIngestor'
+        ingestor = ds.ingestor
         cloud_path = f"api-uploads/{os.path.basename(files[0])}"
         req = client.datasets.request_ingestion(dsid, cloud_path, ingestor)
         self._mark_ingested(local_id, req['id'])
-        logger.info(f"Requested ingestion for '{ds.name}' ({dsid}) with {ingestor}")
+        logger.info(f"Requested ingestion for '{ds.name}' ({dsid}) with {ingestor or 'auto-detected ingestor'}")
 
     def _create_dataset(self, local_id: str, ds, client):
         dataset, files, metadata, keywords, thumbnail = self._resolve_all_assets(ds, client)

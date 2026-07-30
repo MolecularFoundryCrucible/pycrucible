@@ -259,7 +259,7 @@ class BaseParser:
 
         return crucible_dataset
     
-    def upload_dataset(self, ingestor='ApiUploadIngestor',
+    def upload_dataset(self, ingestor=None,
                        verbose=False, wait_for_ingestion_response=True):
         """
         Upload the parsed dataset to Crucible.
@@ -268,7 +268,8 @@ class BaseParser:
         project_id, owner_orcid, dataset_name, metadata, keywords).
 
         Args:
-            ingestor (str, optional): Ingestion class to use. Defaults to 'ApiUploadIngestor'
+            ingestor (str, optional): Ingestion class to use. Defaults to None
+                (server auto-detects from the file format).
             verbose (bool, optional): Print detailed progress. Defaults to False.
             wait_for_ingestion_response (bool, optional): Wait for ingestion to complete. Defaults to True.
 
