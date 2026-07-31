@@ -2,23 +2,30 @@
 
 ## Unreleased
 
-- Fix: `cast` called nonexistent `client.datasets.upload_file()`/`request_ingestion()`; any recipe with files crashed. Now uses `add_file()` (upload + ingestion request in one call, per file) and tracks each file's ingestion request separately in the lock.
-- Fix: `BaseParser.upload_dataset()` defaulted to `ingestor='ApiUploadIngestor'`, forcing generic upload and skipping server-side auto-detection. Now defaults to `None` (auto-detect), matching `client.datasets.create()`. `LAMMPSParser` keeps the old default since it already parses client-side.
-- Fix: `BaseParser` set a `source_folder` field on every `Dataset` it built; that field was removed from the model and silently leaked into POST bodies via `extra='allow'`.
-- Parser entry-point discovery (`get_all_parsers()`) now logs a warning instead of silently swallowing a broken third-party parser.
-- Fix: shell username autocomplete was silently dropping users with no username set; now falls back to their ORCID so they remain selectable.
-- `ag list`/`ag mine` now default to pending requests (matching `deletion list`).
-- `deletion list` and `ag list`/`ag mine` share one `--status` flag (`pending`/`approved`/`rejected`/`all`).
-- New `ag get REQUEST_ID` and `client.access_groups.get()` (admin only).
-- `ag approve`/`ag reject` accept multiple request IDs, like `deletion approve`/`reject`.
-- Shell autocomplete for `ag approve`/`reject`/`get` request IDs, mirroring the existing `deletion` completer.
-- Shell username autocomplete now uses the public `users.search()` endpoint (works for non-admins) instead of the admin-only `users.list()`, and completes to username instead of ORCID.
-- Shell autocomplete extended to more `user`/`project` subcommands taking a USER/PROJECT_ID positional, plus new completion for `sa` commands and `ag request`/`project request-join` group names.
-- Shell autocomplete for `instrument get` (by name, fetched once per session) and `--project`/`-pid` flags on `dataset`/`sample` commands.
-- Shell autocomplete for dataset/sample IDs across nearly all subcommands (by name, live search, falls back to recently-viewed items below the 3-char search minimum) and for `-s/--sample`, `-c/--child`, `-d/--dataset` flag values.
-- Shell autocomplete now also shows live matches while typing `user search TERM`.
-- CLI housekeeping: extracted `helpers.fail()` to replace ~113 duplicated error-handling blocks across 16 files; fixed 4 latent bugs where `_edit_*` helpers passed a bare `debug` bool where `fail()` expected an args-like object (would have silently swallowed `--debug`); removed two dead unused-in-file helper functions in `dataset.py`/`sample.py`.
-- Shell housekeeping: refactored `_CrucibleCompleter.get_completions()` from one ~410-line if/elif chain into a thin dispatch table plus 13 named `_complete_*` handler methods. No behavior change — verified with a full regression pass over every completion feature.
+### Added
+
+- New `ag get` command and `client.access_groups.get()`.
+- Shell autocomplete for `ag` request IDs.
+- Shell autocomplete extended to more `user`/`project`/`sa`/`ag` commands.
+- Shell autocomplete for `instrument get` and `--project`/`-pid` flags.
+- Shell autocomplete for dataset/sample IDs across most subcommands.
+- Shell autocomplete for `user search` shows live matches while typing.
+
+### Changed
+
+- `ag list`/`ag mine` now default to pending requests, matching `deletion list`.
+- `deletion list` and `ag list`/`ag mine` share one `--status` flag.
+- `ag approve`/`ag reject` accept multiple request IDs.
+- Shell username autocomplete now works for non-admins and completes to username.
+- Broken third-party parsers now log a warning instead of silently disappearing.
+
+### Fixed
+
+- `cast`: uploading files in a recipe always crashed.
+- Parser-based uploads forced generic ingestion instead of letting the server auto-detect.
+- Parser-based uploads sent a stale, unused field to the server.
+- Users without a username disappeared from shell autocomplete; they now show by ORCID.
+- Some `edit` commands silently ignored `--debug`.
 
 ## 3.1.0
 
