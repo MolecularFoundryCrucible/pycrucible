@@ -22,7 +22,8 @@
 ### Fixed
 
 - `cast`: uploading files in a recipe always crashed.
-- Parser-based uploads forced generic ingestion instead of letting the server auto-detect.
+- `cast`: resuming a recipe after a partial failure always crashed.
+- `dataset create`/parser-based uploads forced generic ingestion instead of letting the server auto-detect.
 - Parser-based uploads sent a stale, unused field to the server.
 - Users without a username disappeared from shell autocomplete; they now show by ORCID.
 - Some `edit` commands silently ignored `--debug`.
