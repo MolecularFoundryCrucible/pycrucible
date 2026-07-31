@@ -584,9 +584,9 @@ Examples:
     ingestor_arg = parser.add_argument(
         '--ingestor',
         dest='ingestor',
-        default='ApiUploadIngestor',
+        default=None,
         metavar='CLASS',
-        help='Server-side ingestor class to use (default: ApiUploadIngestor). '
+        help='Server-side ingestor class to use (default: auto-detected from file format). '
              'Run "crucible dataset ingestors" to see all available options.'
     )
     if ARGCOMPLETE_AVAILABLE:
@@ -1822,7 +1822,7 @@ def _execute_create(args):
 
     # If a custom ingestor is used and the user didn't explicitly set -m,
     # clear the parser's default measurement so the server assigns it
-    if args.ingestor != 'ApiUploadIngestor' and args.measurement is None:
+    if args.ingestor is not None and args.measurement is None:
         parser.measurement = None
 
     # Display dataset information
@@ -1841,7 +1841,7 @@ def _execute_create(args):
     _p("Public",      "yes" if parser.public else "no")
     _p("Instrument",  parser.instrument_name)
     _p("MFID",        dataset_mfid or term.dim("(server assigns)"))
-    _p("Ingestor",    args.ingestor)
+    _p("Ingestor",    args.ingestor or term.dim("(server detects)"))
 
     if parser.files_to_upload:
         print(f"\n  {term.dim(f'Files ({len(parser.files_to_upload)})')}")

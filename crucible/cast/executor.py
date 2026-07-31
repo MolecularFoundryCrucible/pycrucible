@@ -135,6 +135,14 @@ class CastExecutor:
         }
         self._save_lock()
 
+    def _ingested_file_count(self, local_id: str) -> int:
+        """Count uploaded files for this entity that got an ingestion request."""
+        entry = self._lock["ids"].get(local_id)
+        if isinstance(entry, dict):
+            return sum(1 for r in (entry.get("files") or {}).values()
+                      if r.get("ingestion_id") is not None)
+        return 0
+
     def reset(self):
         """Clear the entire lock - all entities will be recreated on next apply."""
         self._lock = {"ids": {}, "links": []}
@@ -147,7 +155,6 @@ class CastExecutor:
         for entry in self._lock["ids"].values():
             if isinstance(entry, dict):
                 entry["files"] = {}
-                entry["ingestion_id"] = None
         self._save_lock()
         logger.info("File tracking cleared - files will be re-uploaded to existing records")
 
