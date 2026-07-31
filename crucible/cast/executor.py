@@ -247,8 +247,7 @@ class CastExecutor:
                 _, files, _, _, thumbnail = self._resolve_all_assets(ds, client)
             else:
                 files, thumbnail = ds.files or [], None
-            self._upload_files(local_id, entry["server_id"], files, thumbnail, client)
-            self._ingest_if_needed(local_id, entry["server_id"], ds, files, client)
+            self._upload_files(local_id, entry["server_id"], files, thumbnail, ds.ingestor, client)
 
         elif dry_run:
             logger.info(f"[dry-run] Would create dataset: {ds.name}")
