@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fix: shell username autocomplete was silently dropping users with no username set; now falls back to their ORCID so they remain selectable.
 - `ag list`/`ag mine` now default to pending requests (matching `deletion list`).
 - `deletion list` and `ag list`/`ag mine` share one `--status` flag (`pending`/`approved`/`rejected`/`all`).
 - New `ag get REQUEST_ID` and `client.access_groups.get()` (admin only).

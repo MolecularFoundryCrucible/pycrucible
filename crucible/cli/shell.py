@@ -91,6 +91,12 @@ try:
 
             Cached per exact query string for the session — cheap and avoids
             re-hitting the API on every keystroke once a prefix was searched.
+
+            Returns [(identifier, name, orcid), ...] where identifier is the
+            username if set, else the ORCID (always present, server-assigned) —
+            so a matched user is never silently dropped just for lacking a
+            username. Callers can tell which case they're in: identifier ==
+            orcid means there's no username.
             """
             if query in self._user_search_cache:
                 return self._user_search_cache[query]
@@ -98,18 +104,20 @@ try:
             if self._client is not None:
                 try:
                     for u in self._client.users.search(query):
-                        username = u.get('username') or ''
-                        if not username:
+                        orcid = u.get('unique_id') or ''
+                        if not orcid:
                             continue
+                        identifier = u.get('username') or orcid
                         name = term.fmt_name(u, default='', fallback_username=False)
-                        results.append((username, name, u.get('unique_id') or ''))
+                        results.append((identifier, name, orcid))
                 except Exception:
                     pass
             self._user_search_cache[query] = results
             return results
 
         def _yield_user_completions(self, prefix):
-            """Yield username completions for a user-identifier argument.
+            """Yield completions for a user-identifier argument: username where
+            set, ORCID as a fallback for users without one.
 
             Requires 3+ characters (matches the `crucible user search` minimum)
             since this hits the live search endpoint rather than a local cache.
@@ -118,13 +126,16 @@ try:
             """
             if len(prefix) < 3:
                 return
-            for username, name, orcid in self._search_users(prefix):
+            for identifier, name, orcid in self._search_users(prefix):
                 meta = f'{name}  ' if name else ''
+                # Only show the ORCID as metadata when it's not already the
+                # completion value itself (i.e. the user has a real username).
+                meta_orcid = orcid if identifier != orcid else ''
                 yield Completion(
-                    username + ' ',
+                    identifier + ' ',
                     start_position=-len(prefix),
-                    display=_HTML(f'<b>{_html.escape(username)}</b>'),
-                    display_meta=_HTML(f'<ansibrightblack>{_html.escape(meta)}{_html.escape(orcid)}</ansibrightblack>'),
+                    display=_HTML(f'<b>{_html.escape(identifier)}</b>'),
+                    display_meta=_HTML(f'<ansibrightblack>{_html.escape(meta)}{_html.escape(meta_orcid)}</ansibrightblack>'),
                 )
 
         def _search_entities(self, entity_type, query, project_id=None):
