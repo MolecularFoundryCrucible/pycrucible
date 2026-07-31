@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Fix: `cast` called nonexistent `client.datasets.upload_file()`/`request_ingestion()`; any recipe with files crashed. Now uses `add_file()` (upload + ingestion request in one call, per file) and tracks each file's ingestion request separately in the lock.
+- Fix: `BaseParser.upload_dataset()` defaulted to `ingestor='ApiUploadIngestor'`, forcing generic upload and skipping server-side auto-detection. Now defaults to `None` (auto-detect), matching `client.datasets.create()`. `LAMMPSParser` keeps the old default since it already parses client-side.
+- Fix: `BaseParser` set a `source_folder` field on every `Dataset` it built; that field was removed from the model and silently leaked into POST bodies via `extra='allow'`.
+- Parser entry-point discovery (`get_all_parsers()`) now logs a warning instead of silently swallowing a broken third-party parser.
 - Fix: shell username autocomplete was silently dropping users with no username set; now falls back to their ORCID so they remain selectable.
 - `ag list`/`ag mine` now default to pending requests (matching `deletion list`).
 - `deletion list` and `ag list`/`ag mine` share one `--status` flag (`pending`/`approved`/`rejected`/`all`).

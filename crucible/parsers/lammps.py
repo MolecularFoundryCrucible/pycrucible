@@ -245,11 +245,27 @@ class LAMMPSParser(BaseParser):
         ase_atoms.wrap()
         
         # Write directly to file
-        write(file_path, ase_atoms, 
+        write(file_path, ase_atoms,
               format='png',
-              show_unit_cell=2, 
-              scale=20, 
+              show_unit_cell=2,
+              scale=20,
               maxwidth=512,
               rotation='90x,0y,90z')
-        
+
         return file_path
+
+    def upload_dataset(self, ingestor='ApiUploadIngestor',
+                       verbose=False, wait_for_ingestion_response=True):
+        """
+        Upload the parsed dataset to Crucible.
+
+        Defaults to 'ApiUploadIngestor' (generic upload, no further parsing)
+        rather than the base class's auto-detect default, since parse() has
+        already extracted metadata client-side; letting the server also run
+        an auto-detected ingestor would be redundant.
+        """
+        return super().upload_dataset(
+            ingestor=ingestor,
+            verbose=verbose,
+            wait_for_ingestion_response=wait_for_ingestion_response,
+        )

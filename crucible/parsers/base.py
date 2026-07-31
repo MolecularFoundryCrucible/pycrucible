@@ -6,7 +6,6 @@ Base parser class for uploading datasets to Crucible.
 Provides the generic upload interface that format-specific parsers extend.
 """
 
-import os
 import json
 import logging
 import socket
@@ -74,7 +73,6 @@ class BaseParser:
         self.instrument_name = instrument_name
         self.data_format     = data_format
         self.data_type       = data_type
-        self.source_folder   = os.getcwd()
         self.thumbnail       = None
 
         # Handle metadata - can be a dict or path to JSON file
@@ -254,12 +252,11 @@ class BaseParser:
             instrument_name = self.instrument_name,
             data_format    = self.data_format,
             data_type      = self.data_type,
-            source_folder  = self.source_folder,
         )
 
         return crucible_dataset
     
-    def upload_dataset(self, ingestor='ApiUploadIngestor',
+    def upload_dataset(self, ingestor=None,
                        verbose=False, wait_for_ingestion_response=True):
         """
         Upload the parsed dataset to Crucible.
@@ -268,7 +265,8 @@ class BaseParser:
         project_id, owner_orcid, dataset_name, metadata, keywords).
 
         Args:
-            ingestor (str, optional): Ingestion class to use. Defaults to 'ApiUploadIngestor'
+            ingestor (str, optional): Ingestion class to use. Defaults to None,
+                which lets the server auto-detect the ingestor from the file(s).
             verbose (bool, optional): Print detailed progress. Defaults to False.
             wait_for_ingestion_response (bool, optional): Wait for ingestion to complete. Defaults to True.
 
