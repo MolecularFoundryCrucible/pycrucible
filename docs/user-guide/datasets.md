@@ -21,7 +21,7 @@
 
 | Relationship | Key(s) | Description |
 |---|---|---|
-| **Files** | `files_to_upload` in `create()`; `add_file_to_dataset(dsid, file_path)` to add later | Zero or more files can be attached to a dataset. Each file is uploaded to cloud storage and triggers an ingestion process to parse metadata and generate thumbnails. |
+| **Files** | `files_to_upload` in `create()`; `add_file(dsid, file_path)` to add later | Zero or more files can be attached to a dataset. Each file is uploaded to cloud storage and triggers an ingestion process to parse metadata and generate thumbnails. |
 | **Scientific metadata** | `scientific_metadata` in `create()`; `metadata` in `update_scientific_metadata()` / `replace_scientific_metadata()` | A free-form JSON object for experiment-specific parameters. Stored separately from structured fields and searchable across datasets. |
 | **Thumbnails** | `add_thumbnail(dsid, image)` | Small preview images representing the data or results. Generated automatically by ingestors where supported, or uploaded manually. |
 | **Samples** | `sample_id` in `add_sample(dataset_id, sample_id)` | A dataset can be linked to one or more samples, and a sample to one or more datasets — capturing which material was measured. |
@@ -105,7 +105,7 @@ client.datasets.update(
 Add files to an existing dataset:
 
 ```python
-client.datasets.add_file_to_dataset("ds-abc123", "additional_file.dat")
+client.datasets.add_file("ds-abc123", "additional_file.dat")
 ```
 
 ### How the data ingestion process works
@@ -187,7 +187,7 @@ Link datasets to represent a processing pipeline:
 
 ```python
 # raw → processed
-client.datasets.link_parent_child(parent_id=raw_dsid, child_id=processed_dsid)
+client.datasets.link_parent_child(parent_dataset_id=raw_dsid, child_dataset_id=processed_dsid)
 
 # List relationships
 parents = client.datasets.list_parents("ds-processed")

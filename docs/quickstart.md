@@ -94,12 +94,14 @@ print(ds["dataset_name"])
 ## Create a sample
 
 ```python
-sample = client.samples.create(
+from crucible.models import Sample
+
+sample = client.samples.create(Sample(
     sample_name="Silicon wafer A",
     sample_type="substrate",
     project_id="my-project",
     description="FZ silicon, 100-orientation, 4-inch wafer",
-)
+))
 
 print(sample["unique_id"])  # system-assigned sample ID
 ```
@@ -115,7 +117,7 @@ client.samples.add_dataset(sample["unique_id"], dataset["unique_id"])
 You can also link datasets to each other (e.g., raw → processed):
 
 ```python
-client.datasets.link_parent_child(parent_id=raw_unique_id, child_id=processed_unique_id)
+client.datasets.link_parent_child(parent_dataset_id=raw_unique_id, child_dataset_id=processed_unique_id)
 ```
 
 ---

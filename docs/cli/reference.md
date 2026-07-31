@@ -28,7 +28,7 @@ Use `crucible <resource> <action> --help` for full option details on any command
 | `dataset parsers` | | List available client-side parsers |
 | `dataset ingestors` | | List available server-side ingestors |
 
-**Updatable fields** (via `--set`): `dataset_name`, `measurement`, `data_format`, `session_name`, `instrument_name`, `instrument_id`, `project_id`, `owner_orcid`, `source_folder`, `file_to_upload`, `public`, `timestamp`
+**Updatable fields** (via `--set`): `dataset_name`, `measurement`, `data_type`, `session_name`, `instrument_name`, `project_id`, `timestamp`, `description`, `public`
 
 ```bash
 # Upload a file
@@ -62,7 +62,7 @@ crucible dataset search "temperature" --limit 10
 | `sample list-children ID` | `--limit N` | List child samples |
 | `sample list-datasets ID` | `--limit N` `-v` | List datasets linked to a sample |
 
-**Updatable fields** (via `--set`): `sample_name`, `sample_type`, `description`, `project_id`, `owner_orcid`, `timestamp`
+**Updatable fields** (via `--set`): `sample_name`, `sample_type`, `public`, `project_id`, `timestamp`, `description`
 
 ```bash
 crucible sample create -n "Silicon Wafer A" -pid my-project --type substrate
