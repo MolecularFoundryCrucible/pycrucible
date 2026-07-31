@@ -27,6 +27,7 @@
 - Parser-based uploads sent a stale, unused field to the server.
 - Users without a username disappeared from shell autocomplete; they now show by ORCID.
 - Some `edit` commands silently ignored `--debug`.
+- Docs and the tutorial notebook referenced removed/renamed methods and wrong parameter names in several places.
 
 ## 3.1.0
 
