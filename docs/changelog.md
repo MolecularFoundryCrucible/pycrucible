@@ -4,6 +4,8 @@
 
 ### Added
 
+- New `client.datasets.add_remote_file()` and `client.files.update()` to catalog files that live outside GCS (Globus, NERSC, a shared filesystem) without uploading them.
+- `dataset create --no-upload`/`--backend`/`--access-note` to catalog files by path instead of uploading them.
 - New `ag get` command and `client.access_groups.get()`.
 - Shell autocomplete for `ag` request IDs.
 - Shell autocomplete extended to more `user`/`project`/`sa`/`ag` commands.
@@ -13,6 +15,7 @@
 
 ### Changed
 
+- `datasets.create()`'s `files_to_upload` renamed to `files` (accepts a mix of local paths and `AssociatedFile` objects); old name still works with a deprecation warning.
 - `ag list`/`ag mine` now default to pending requests, matching `deletion list`.
 - `deletion list` and `ag list`/`ag mine` share one `--status` flag.
 - `ag approve`/`ag reject` accept multiple request IDs.
@@ -21,6 +24,8 @@
 
 ### Fixed
 
+- `files.download()` crashed with a raw exception on a non-GCS file instead of a clear error.
+- `AssociatedFile` silently dropped `storage_backend`/`access_note` fields returned by the API.
 - `cast`: uploading files in a recipe always crashed.
 - `cast`: resuming a recipe after a partial failure always crashed.
 - `dataset create`/parser-based uploads forced generic ingestion instead of letting the server auto-detect.

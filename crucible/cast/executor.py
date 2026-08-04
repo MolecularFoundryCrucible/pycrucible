@@ -341,7 +341,7 @@ class CastExecutor:
         # file upload does not create a duplicate record.
         result = client.datasets.create(
             dataset,
-            files_to_upload=None,
+            files=None,
             scientific_metadata=metadata,
             keywords=keywords,
         )

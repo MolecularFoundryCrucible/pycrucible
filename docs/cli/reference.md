@@ -10,7 +10,7 @@ Use `crucible <resource> <action> --help` for full option details on any command
 |---|---|---|
 | `dataset list` | `-pid ID` `-m TYPE` `-k WORD` `--session NAME` `--limit N` `-v` | List datasets with optional filters |
 | `dataset get ID` | `-v` `--include-metadata` `-o json` | Get dataset details; `-v` shows ownership, file info, keywords; `-o json` prints raw record |
-| `dataset create -i FILE` | `-t TYPE` `-pid ID` `-n NAME` `-m TYPE` `--timestamp DATE` `--metadata JSON` `-k WORDS` `--session NAME` `--instrument NAME` `--public` `--mfid [ID]` `--dry-run` | Upload file(s) and create a dataset record |
+| `dataset create -i FILE` | `-t TYPE` `-pid ID` `-n NAME` `-m TYPE` `--timestamp DATE` `--metadata JSON` `-k WORDS` `--session NAME` `--instrument NAME` `--public` `--mfid [ID]` `--dry-run` `--no-upload` `--backend NAME` `--access-note TEXT` | Upload file(s) and create a dataset record; `--no-upload` catalogs files by path instead (generic uploads only) |
 | `dataset update ID` | `--set KEY=VALUE` `--metadata JSON` `--overwrite` | Update model fields (`--set`) and/or scientific metadata (`--metadata`) |
 | `dataset list-files ID` | | List associated files with download links and sizes |
 | `dataset add-file ID FILE` | | Upload and attach a file to an existing dataset |

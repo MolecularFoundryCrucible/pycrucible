@@ -280,7 +280,7 @@ class BaseParser:
         # Upload to Crucible using resource-based API
         result = self.client.datasets.create(
             dataset,
-            files_to_upload=self.files_to_upload,
+            files=self.files_to_upload,
             scientific_metadata=self.scientific_metadata,
             keywords=self.keywords,
             # get_user_info_function=self.client.get_user,

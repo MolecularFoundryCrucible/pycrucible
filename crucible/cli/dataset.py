@@ -19,7 +19,8 @@ from . import term
 def _build_file_display(af_list, link_map, dsid):
     """Build display entries for a dataset's files.
 
-    Returns list of dicts with keys: name, size, url (None if not ingested), ingested.
+    Returns list of dicts with keys: name, size, url (None if not ingested),
+    ingested, backend ('gcs' unless the file is cataloged elsewhere).
     link_map is {mfid: signed_url} from get_download_links.
     """
     import os as _os
@@ -28,6 +29,7 @@ def _build_file_display(af_list, link_map, dsid):
     for f in af_list:
         mfid         = f.get('mfid')
         storage_path = f.get('storage_path') or ''
+        backend      = f.get('storage_backend') or 'gcs'
         if storage_path.startswith(prefix_sp):
             name     = storage_path[len(prefix_sp):]
             ingested = True
@@ -40,6 +42,7 @@ def _build_file_display(af_list, link_map, dsid):
             'size':     f.get('size'),
             'url':      link_map.get(mfid) if ingested else None,
             'ingested': ingested,
+            'backend':  backend,
         })
     return result
 
@@ -132,9 +135,12 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
         if file_display:
             term.subheader(f"Files ({len(file_display)})")
             for item in sorted(file_display, key=lambda x: x['name']):
-                name = item['name']
-                sz   = f"  {term.dim(term.fmt_size(item['size']))}" if item['size'] is not None else ''
-                if item['ingested']:
+                name    = item['name']
+                backend = item['backend']
+                sz      = f"  {term.dim(term.fmt_size(item['size']))}" if item['size'] is not None else ''
+                if backend != 'gcs':
+                    label = f"{term.dim(name)} {term.cyan(f'({backend})')}"
+                elif item['ingested']:
                     label = term.hyperlink(term.cyan(name), item['url']) if item['url'] else term.cyan(name)
                 else:
                     label = f"{term.dim(name)} {term.yellow('(pending ingestion)')}"
@@ -598,6 +604,31 @@ Examples:
         action='store_true',
         dest='dry_run',
         help='Show what would be uploaded without actually uploading'
+    )
+
+    # Catalog-only (non-GCS) files
+    parser.add_argument(
+        '--no-upload',
+        action='store_true',
+        dest='no_upload',
+        help="Catalog the input file(s) by path instead of uploading them to GCS "
+             "(e.g. files on Globus/NERSC/a shared filesystem). Only supported for "
+             "generic uploads (no -t/--type). Files must exist at the given path."
+    )
+    parser.add_argument(
+        '--backend',
+        dest='backend',
+        default=None,
+        metavar='NAME',
+        help="Storage backend name for --no-upload files (e.g. 'globus', 'nersc-perlmutter'). "
+             "Default: 'local'."
+    )
+    parser.add_argument(
+        '--access-note',
+        dest='access_note',
+        default=None,
+        metavar='TEXT',
+        help="Free-text note on how to access --no-upload files (e.g. 'request via NERSC allocation X')."
     )
 
     parser.set_defaults(func=_execute_create)
@@ -1249,9 +1280,12 @@ def _execute_list_files(args):
 
         rows = []
         for item in sorted(file_display, key=lambda x: x['name']):
-            name = item['name']
-            size = term.fmt_size(item['size']) if item['size'] is not None else '-'
-            if item['ingested']:
+            name    = item['name']
+            backend = item['backend']
+            size    = term.fmt_size(item['size']) if item['size'] is not None else '-'
+            if backend != 'gcs':
+                label = f"{term.dim(name)} {term.cyan(f'({backend})')}"
+            elif item['ingested']:
                 label = term.hyperlink(term.cyan(name), item['url']) if item['url'] else term.cyan(name)
             else:
                 label = f"{term.dim(name)} {term.yellow('(pending)')}"
@@ -1782,6 +1816,10 @@ def _execute_create(args):
         # None - let server assign mfid
         logger.debug("No mfid provided, server will assign one")
 
+    if args.no_upload and args.dataset_type is not None:
+        logger.error("--no-upload is only supported for generic uploads (omit -t/--type).")
+        sys.exit(1)
+
     # Determine parser class
     if args.dataset_type is None:
         from crucible.parsers import get_all_parsers
@@ -1841,10 +1879,16 @@ def _execute_create(args):
     _p("Public",      "yes" if parser.public else "no")
     _p("Instrument",  parser.instrument_name)
     _p("MFID",        dataset_mfid or term.dim("(server assigns)"))
-    _p("Ingestor",    args.ingestor or term.dim("(server detects)"))
+    if args.no_upload:
+        _p("Backend", args.backend or 'local')
+        if args.access_note:
+            _p("Access note", args.access_note)
+    else:
+        _p("Ingestor", args.ingestor or term.dim("(server detects)"))
 
     if parser.files_to_upload:
-        print(f"\n  {term.dim(f'Files ({len(parser.files_to_upload)})')}")
+        label = 'Files (cataloged, not uploaded)' if args.no_upload else 'Files'
+        print(f"\n  {term.dim(f'{label} ({len(parser.files_to_upload)})')}")
         for f in parser.files_to_upload:
             print(f"    {Path(f).name}")
 
@@ -1865,15 +1909,34 @@ def _execute_create(args):
     # Upload or dry run
     if args.dry_run:
         print("")
-        logger.info("Dry run — not uploading. Remove --dry-run to upload.")
+        logger.info("Dry run - not uploading. Remove --dry-run to upload.")
     else:
         print("")
         try:
-            result = parser.upload_dataset(
-                ingestor=args.ingestor,
-                verbose=getattr(args, 'debug', False),
-                wait_for_ingestion_response=True
-            )
+            if args.no_upload:
+                from crucible.client import CrucibleClient
+                from crucible.models import AssociatedFile
+                remote_files = [
+                    AssociatedFile(
+                        filename=Path(f).name,
+                        storage_path=str(Path(f).resolve()),
+                        storage_backend=args.backend or 'local',
+                        access_note=args.access_note,
+                    )
+                    for f in parser.files_to_upload
+                ]
+                result = CrucibleClient().datasets.create(
+                    parser.to_dataset(),
+                    scientific_metadata=parser.scientific_metadata,
+                    keywords=parser.keywords,
+                    files=remote_files,
+                )
+            else:
+                result = parser.upload_dataset(
+                    ingestor=args.ingestor,
+                    verbose=getattr(args, 'debug', False),
+                    wait_for_ingestion_response=True
+                )
 
             logger.info("✓ Upload successful")
             created = result.get('created_record', {}) if result else {}

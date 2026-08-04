@@ -74,7 +74,7 @@ dataset = client.datasets.create(
         instrument_name="Rigaku_XRD",
         project_id="my-project",
     ),
-    files_to_upload=["xrd_data.xy"],
+    files=["xrd_data.xy"],
     scientific_metadata={"wavelength_angstrom": 0.7749, "temperature_K": 300},
     keywords=["XRD", "powder diffraction"],
 )
