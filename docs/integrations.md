@@ -27,10 +27,10 @@ We have intentionally developed the scientific metadata field to be flexible and
 
     1.  Metadata is available in instrument logs or output files **with an ingestion class available**
         - Pass the files to `client.datasets.create()` as files to upload. Each file will be added to the dataset and the ingestion process will update with parsed metadata and thumbnails where relevant. 
-        - Use the client to `add_file_to_dataset` for each file you want to add, loosens the constraint that files need to be known and present at the time of dataset creation - ingestion process parses the metadata and updates the dataset
+        - Use the client to `add_file` for each file you want to add, loosens the constraint that files need to be known and present at the time of dataset creation - ingestion process parses the metadata and updates the dataset
     2. Metadata is available in output files but no ingestion class supports the data type
         - Develop or Request an ingestion class for your data type ([GitHub](https://github.com/MolecularFoundryCrucible/crucible-ingestion), [Discord](https://discord.gg/Wrepphsgbx))
-        - Parse the files locally and upload parsed information as json using the python client. Use the client to `add_file_to_dataset`. 
+        - Parse the files locally and upload parsed information as json using the python client. Use the client to `add_file`. 
     3. Metadata is not captured in output files from the instrument
         - Create forms, Jupyter notebooks, or UI's to capure this information and upload via the API during dataset creation or using `client.datasets.update()`
         - Take pictures of lab notebooks, handwritten notes, or experimental set up and upload as associated files. Currently these will not be parsed into json dictionaries, but it is possible to envision that future! 

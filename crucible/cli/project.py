@@ -337,11 +337,8 @@ def _execute_list(args):
                        max_widths=[20, 30, 20, 25])
 
     except Exception as e:
-        logger.error(f"Error listing projects: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing projects", e, args)
 
 
 def _lead_name(project):
@@ -396,11 +393,8 @@ def _execute_get(args):
             _show_project(project, include_metadata=include_metadata)
 
     except Exception as e:
-        logger.error(f"Error retrieving project: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("retrieving project", e, args)
 
 
 def _execute_create(args):
@@ -488,11 +482,8 @@ def _execute_create(args):
         _show_project(result)
 
     except Exception as e:
-        logger.error(f"Error creating project: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("creating project", e, args)
 
 
 def _execute_list_users(args):
@@ -516,11 +507,8 @@ def _execute_list_users(args):
             term.table(rows, ['Username', 'Name', 'ORCID', 'Email'], max_widths=[20, 25, 19, 35])
 
     except Exception as e:
-        logger.error(f"Error listing project users: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing project users", e, args)
 
 
 def _execute_add_user(args):
@@ -584,11 +572,8 @@ def _execute_add_user(args):
             traceback.print_exc()
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error adding user to project: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("adding user to project", e, args)
 
 
 def _execute_update(args):
@@ -633,11 +618,8 @@ def _execute_update(args):
             logger.info(f"✓ Scientific metadata {action} for project {args.project_id}")
 
     except Exception as e:
-        logger.error(f"Error updating project: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("updating project", e, args)
 
 
 def _execute_remove_user(args):
@@ -690,11 +672,8 @@ def _execute_remove_user(args):
             traceback.print_exc()
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error removing user from project: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("removing user from project", e, args)
 
 
 def _register_request_join(subparsers):
@@ -726,11 +705,8 @@ def _execute_request_join(args):
         logger.info("✓ Join request submitted")
         _show_join_request(record, client=client)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_list_join_requests(subparsers):
@@ -769,11 +745,8 @@ def _execute_list_join_requests(args):
                   ['ID', 'Group', 'Status', 'Requester', 'Requested'],
                   max_widths=[6, 20, 10, 20, 12])
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _project_updatable_fields():
@@ -850,11 +823,8 @@ def _edit_project(project_id, client, debug=False):
         term.header("Changes")
         term.diff(original, diff_updated)
     except Exception as e:
-        logger.error(f"Error updating project: {e}")
-        if debug:
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("updating project", e, debug)
 
 
 def _execute_edit(args):
@@ -863,8 +833,8 @@ def _execute_edit(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        logger.error(f"Error connecting: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("connecting", e)
     _edit_project(args.project_id, client, debug=getattr(args, 'debug', False))
 
 
@@ -903,11 +873,8 @@ def _execute_search(args):
                  r.get('organization') or '-') for r in results]
         term.table(rows, ['ID', 'Title', 'Organization'], max_widths=[20, 30, 20])
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_search_metadata(subparsers):
@@ -936,8 +903,5 @@ def _execute_search_metadata(args):
         for r in results:
             print(f"  {term.cyan(r.get('unique_id', '-'))}")
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)

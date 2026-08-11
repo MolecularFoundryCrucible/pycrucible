@@ -22,6 +22,19 @@ class FileOperations(BaseResource):
     Access via: client.files.get(), client.files.list(), etc.
     """
 
+    @staticmethod
+    def _parse(raw: Optional[Dict]) -> Optional[Dict]:
+        """Validate a raw API response dict through the AssociatedFile Pydantic model.
+
+        Preserves any extra fields returned by the server (extra='allow'), same
+        pattern as DatasetOperations._parse(). Passes through None (e.g. a 204
+        response with no body) unchanged.
+        """
+        if raw is None:
+            return None
+        from ..models import AssociatedFile
+        return AssociatedFile.model_validate(raw).model_dump()
+
     def get(self, file_id: str) -> Dict:
         """Get metadata for a single file by its MFID.
 
@@ -29,9 +42,10 @@ class FileOperations(BaseResource):
             file_id: File MFID
 
         Returns:
-            Dict: File record (mfid, filename, storage_path, size, sha256_hash, dataset_mfid)
+            Dict: File record (mfid, filename, storage_path, storage_backend,
+                access_note, size, sha256_hash, dataset_mfid)
         """
-        return self._request('get', f'/files/{file_id}')
+        return self._parse(self._request('get', f'/files/{file_id}'))
 
     def list(self, limit: int = DEFAULT_LIMIT,
              sha256_hash: Optional[str] = None) -> List[Dict]:
@@ -42,12 +56,13 @@ class FileOperations(BaseResource):
             sha256_hash: Filter by SHA-256 hex digest
 
         Returns:
-            List[Dict]: File records (mfid, filename, storage_path, size, sha256_hash, dataset_mfid)
+            List[Dict]: File records (mfid, filename, storage_path, storage_backend,
+                access_note, size, sha256_hash, dataset_mfid)
         """
         params = {}
         if sha256_hash:
             params['sha256_hash'] = sha256_hash
-        return self._paginate('/files', params, limit=limit)
+        return [self._parse(f) for f in self._paginate('/files', params, limit=limit)]
 
     def download(self, file_id: str, output_dir: str = '.') -> str:
         """Download a single file by MFID to a local directory.
@@ -60,13 +75,23 @@ class FileOperations(BaseResource):
             str: Path of the downloaded file
 
         Raises:
-            RuntimeError: If the file has not been ingested yet.
+            RuntimeError: If the file has not been ingested yet, or if it's not
+                stored on GCS (Crucible cannot fetch it directly in that case).
         """
         import tempfile
 
         file_record = self.get(file_id)
+
+        backend = file_record.get('storage_backend') or 'gcs'
+        if backend != 'gcs':
+            note = f"\nNote: {file_record['access_note']}" if file_record.get('access_note') else ""
+            raise RuntimeError(
+                f"File {file_id} is stored on '{backend}', not GCS - Crucible can't fetch it directly.\n"
+                f"Location: {file_record.get('storage_path') or '(not set)'}{note}"
+            )
+
         if not file_record.get('storage_path'):
-            raise RuntimeError(f"File {file_id} has not been ingested yet — cannot download")
+            raise RuntimeError(f"File {file_id} has not been ingested yet - cannot download")
 
         url = self.get_download_link(file_id)
 
@@ -138,6 +163,18 @@ class FileOperations(BaseResource):
             file_id: File MFID (AssociatedFile mfid)
         """
         self._request('delete', f'/files/{file_id}')
+
+    def update(self, file_id: str, **updates) -> Dict:
+        """Update fields on a file record.
+
+        Args:
+            file_id: File MFID
+            **updates: Fields to update, e.g. storage_path='...', access_note='...'
+
+        Returns:
+            Dict: Updated file record.
+        """
+        return self._parse(self._request('patch', f'/files/{file_id}', json=updates))
 
     def get_download_link(self, file_id: str) -> str:
         """Get a signed download URL for a single file.

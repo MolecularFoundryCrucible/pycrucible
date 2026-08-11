@@ -400,11 +400,8 @@ def _execute_update(args):
             logger.info(f"✓ Scientific metadata {action} for sample {args.sample_id}")
 
     except Exception as e:
-        logger.error(f"Error updating sample: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("updating sample", e, args)
 
 
 def _register_edit(subparsers):
@@ -475,11 +472,8 @@ def _edit_sample(sid, client, debug=False):
         term.header("Changes")
         term.diff(original, diff_updated)
     except Exception as e:
-        logger.error(f"Error updating sample: {e}")
-        if debug:
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("updating sample", e, debug)
 
 
 def _execute_edit(args):
@@ -488,8 +482,8 @@ def _execute_edit(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        logger.error(f"Error connecting: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("connecting", e)
     _edit_sample(args.sample_id, client, debug=getattr(args, 'debug', False))
 
 
@@ -680,11 +674,8 @@ def _execute_list(args):
                                ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
 
     except Exception as e:
-        logger.error(f"Error listing samples: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing samples", e, args)
 
 
 def _show_sample(sample, client, verbose=False, graph=False, include_metadata=False, links=None):
@@ -692,10 +683,6 @@ def _show_sample(sample, client, verbose=False, graph=False, include_metadata=Fa
     _p = term.field_printer(14)
 
     from .helpers import explorer_url
-
-    def _ds_link(r):
-        u, p = r.get('unique_id'), r.get('project_id')
-        return term.mfid_link(u, explorer_url(u, p, 'dataset'))
 
     def _s_link(r):
         u, p = r.get('unique_id'), r.get('project_id')
@@ -803,11 +790,8 @@ def _execute_get(args):
                          graph=graph,
                          include_metadata=include_metadata)
     except Exception as e:
-        logger.error(f"Error retrieving sample: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("retrieving sample", e, args)
 
 
 def _execute_create(args):
@@ -837,8 +821,8 @@ def _execute_create(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        logger.error(f"Error connecting: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("connecting", e)
 
     if name is None:
         while True:
@@ -915,11 +899,8 @@ def _execute_create(args):
         _show_sample(result, client)
 
     except Exception as e:
-        logger.error(f"Error creating sample: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("creating sample", e, args)
 
 
 def _execute_link(args):
@@ -932,11 +913,8 @@ def _execute_link(args):
         logger.info(f"✓ Linked sample {args.child} as child of {args.parent}")
 
     except Exception as e:
-        logger.error(f"Error linking samples: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("linking samples", e, args)
 
 
 def _execute_list_parents(args):
@@ -954,11 +932,8 @@ def _execute_list_parents(args):
                  s.get('sample_type') or '-') for s in parents]
         term.table(rows, ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
     except Exception as e:
-        logger.error(f"Error listing parent samples: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing parent samples", e, args)
 
 
 def _execute_list_children(args):
@@ -976,11 +951,8 @@ def _execute_list_children(args):
                  s.get('sample_type') or '-') for s in children]
         term.table(rows, ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
     except Exception as e:
-        logger.error(f"Error listing child samples: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing child samples", e, args)
 
 
 def _execute_list_datasets(args):
@@ -998,11 +970,8 @@ def _execute_list_datasets(args):
                  ds.get('measurement') or '-') for ds in datasets]
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 15])
     except Exception as e:
-        logger.error(f"Error listing datasets: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing datasets", e, args)
 
 
 def _execute_link_dataset(args):
@@ -1016,11 +985,8 @@ def _execute_link_dataset(args):
         logger.info(f"✓ Linked sample {sample_id} to dataset {args.dataset}")
 
     except Exception as e:
-        logger.error(f"Error linking dataset to sample: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("linking dataset to sample", e, args)
 
 
 def _register_remove_child(subparsers):
@@ -1048,11 +1014,8 @@ def _execute_remove_child(args):
         client.samples.remove_child(args.parent_id, args.child)
         logger.info(f"✓ Unlinked child sample {args.child} from parent sample {args.parent_id}")
     except Exception as e:
-        logger.error(f"Error unlinking child sample: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("unlinking child sample", e, args)
 
 
 def _register_remove_dataset(subparsers):
@@ -1080,11 +1043,8 @@ def _execute_remove_dataset(args):
         client.samples.remove_dataset(args.sample_id, args.dataset)
         logger.info(f"✓ Unlinked sample {args.sample_id} from dataset {args.dataset}")
     except Exception as e:
-        logger.error(f"Error unlinking dataset from sample: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("unlinking dataset from sample", e, args)
 
 
 def _register_search(subparsers):
@@ -1134,11 +1094,8 @@ def _execute_search(args):
             ))
         term.table(rows, ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_search_metadata(subparsers):
@@ -1167,8 +1124,5 @@ def _execute_search_metadata(args):
         for r in results:
             print(f"  {term.cyan(r.get('unique_id') or r.get('sample_mfid', '-'))}")
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)

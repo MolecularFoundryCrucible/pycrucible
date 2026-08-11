@@ -27,6 +27,14 @@ def _bare_name(file_record: dict) -> str:
     return os.path.basename(staging) or file_record.get('mfid', '')
 
 
+def _status_label(file_record: dict) -> str:
+    """Short colored status for a file record: ingested / pending / a non-gcs backend name."""
+    backend = file_record.get('storage_backend') or 'gcs'
+    if backend != 'gcs':
+        return term.cyan(backend)
+    return term.green('ingested') if file_record.get('storage_path') else term.yellow('pending')
+
+
 def register_subcommand(subparsers):
     """Register the top-level 'file' subcommand."""
     parser = subparsers.add_parser(
@@ -100,17 +108,14 @@ def _execute_list(args):
             size         = term.fmt_size(f.get('size')) if f.get('size') is not None else '-'
             mfid         = f.get('mfid', '')
             dataset_mfid = f.get('dataset_mfid', '')
-            status       = term.green('ingested') if f.get('storage_path') else term.yellow('pending')
+            status       = _status_label(f)
             rows.append((term.cyan(name), size, term.dim(mfid), term.dim(dataset_mfid), status))
 
         term.table(rows, ['File', 'Size', 'MFID', 'Dataset', 'Status'], max_widths=[40, 10, 30, 30, 10])
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_get(subparsers):
@@ -144,7 +149,13 @@ def _execute_get(args):
         _p("Size",    term.fmt_size(f.get('size')))
         _p("SHA256",  f.get('sha256_hash'))
 
-        if f.get('storage_path'):
+        backend = f.get('storage_backend') or 'gcs'
+        if backend != 'gcs':
+            _p("Status",   term.cyan(f"Cataloged ({backend})"))
+            _p("Location", f.get('storage_path') or term.dim("(not set)"))
+            if f.get('access_note'):
+                _p("Access note", f['access_note'])
+        elif f.get('storage_path'):
             _p("Status", term.green("Ingested"))
             try:
                 url = client.files.get_download_link(args.file_id)
@@ -155,11 +166,8 @@ def _execute_get(args):
             _p("Status", term.yellow("Pending ingestion"))
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_download(subparsers):
@@ -208,11 +216,8 @@ def _execute_download(args):
     except SystemExit:
         raise
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_delete(subparsers):
@@ -238,11 +243,8 @@ def _execute_delete(args):
         client.files.delete(args.file_id)
         print(f"  {term.green('✓')} Deleted {args.file_id}")
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_ingestion(subparsers):
@@ -283,8 +285,5 @@ def _execute_ingestion(args):
         term.table(rows, ['ID', 'Status', 'Class', 'Created'], max_widths=[8, 12, 25, 20])
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)

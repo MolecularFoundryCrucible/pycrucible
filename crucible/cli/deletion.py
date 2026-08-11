@@ -106,16 +106,13 @@ def _register_list(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible deletion list              # pending only (default)
-    crucible deletion list --approved
-    crucible deletion list --rejected
-    crucible deletion list --all
+    crucible deletion list                    # pending only (default)
+    crucible deletion list --status approved
+    crucible deletion list --status all
 """,
     )
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('--approved', action='store_true', help='Show approved requests')
-    group.add_argument('--rejected', action='store_true', help='Show rejected requests')
-    group.add_argument('--all',      action='store_true', help='Show all requests regardless of status')
+    parser.add_argument('--status', choices=['pending', 'approved', 'rejected', 'all'],
+                        default='pending', help='Filter by status (default: pending)')
     parser.set_defaults(func=_execute_list)
 
 
@@ -275,11 +272,8 @@ def _execute_list_deleted(args):
                    max_widths=[6, 26, 10, 20, 12, 22])
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _execute_get_deleted(args):
@@ -305,11 +299,8 @@ def _execute_get_deleted(args):
         _p("Reviewer Notes", record.get('reviewer_notes'))
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _execute_request(args):
@@ -322,11 +313,8 @@ def _execute_request(args):
         print()
         _show_deletion_request(record, client=client)
     except Exception as e:
-        logger.error(f"Error submitting deletion request: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("submitting deletion request", e, args)
 
 
 def _execute_list(args):
@@ -335,22 +323,10 @@ def _execute_list(args):
     try:
         client = CrucibleClient()
 
-        if args.all:
-            status = None
-            status_label = 'all'
-        elif args.approved:
-            status = 'approved'
-            status_label = 'approved'
-        elif args.rejected:
-            status = 'rejected'
-            status_label = 'rejected'
-        else:
-            status = 'pending'
-            status_label = 'pending'
-
+        status = None if args.status == 'all' else args.status
         records = sorted(client.deletions.list(status=status), key=lambda r: r.get('id') or 0)
 
-        term.header(f"Deletion Requests — {status_label} ({len(records)})")
+        term.header(f"Deletion Requests — {args.status} ({len(records)})")
 
         if not records:
             print(f"  {term.dim('No deletion requests found.')}")
@@ -382,11 +358,8 @@ def _execute_list(args):
                    ['ID', 'Resource ID', 'Type', 'Name', 'Status', 'Requester', 'Requested'],
                    max_widths=[6, 26, 10, 15, 10, 20, 10])
     except Exception as e:
-        logger.error(f"Error listing deletion requests: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing deletion requests", e, args)
 
 
 def _execute_get(args):
@@ -397,11 +370,8 @@ def _execute_get(args):
         record = client.deletions.get(args.request_id)
         _show_deletion_request(record, client=client)
     except Exception as e:
-        logger.error(f"Error fetching deletion request: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("fetching deletion request", e, args)
 
 
 def _execute_approve(args):
@@ -410,8 +380,8 @@ def _execute_approve(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        logger.error(f"Error connecting: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("connecting", e)
 
     had_error = False
     for rid in args.request_id:
@@ -452,11 +422,8 @@ def _execute_delete(args):
             traceback.print_exc()
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _execute_reject(args):
@@ -465,8 +432,8 @@ def _execute_reject(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        logger.error(f"Error connecting: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("connecting", e)
 
     had_error = False
     for rid in args.request_id:

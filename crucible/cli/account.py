@@ -122,11 +122,8 @@ def _execute_verify(args):
             traceback.print_exc()
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _show_profile(user):
@@ -155,11 +152,8 @@ def _execute_show(args):
         else:
             _show_profile(user)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _execute_edit(args):
@@ -202,11 +196,8 @@ def _execute_edit(args):
         term.diff(editable, {k: edited[k] for k in changes})
         _show_profile(result)
     except Exception as e:
-        logger.error(f"Error updating profile: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("updating profile", e, args)
 
 
 def _execute_update(args):
@@ -228,11 +219,8 @@ def _execute_update(args):
         result = CrucibleClient().account.update_profile(**fields)
         _show_profile(result)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _execute_api_key(args):
@@ -254,8 +242,5 @@ def _execute_api_key(args):
             traceback.print_exc()
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)

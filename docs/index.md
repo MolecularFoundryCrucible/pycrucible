@@ -57,7 +57,7 @@ dataset = client.datasets.create(
         instrument_name="SAXS beamline",
         project_id=project["project_id"],
     ),
-    files_to_upload=["saxs_run42.dat"],
+    files=["saxs_run42.dat"],
     scientific_metadata={"energy_keV": 10.0, "sample_detector_distance_m": 1.5},
     keywords=["SAXS", "nanoparticles", "gold"],
 )

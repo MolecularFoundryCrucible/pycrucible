@@ -76,11 +76,8 @@ def _execute_list(args):
                    max_widths=[8, 12, 25, 30, 20])
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_list_ingestors(subparsers):
@@ -111,11 +108,8 @@ def _execute_list_ingestors(args):
             print(f"  {name}")
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_get(subparsers):
@@ -152,11 +146,8 @@ def _execute_get(args):
             _p("Error", term.red(r.get('error_message')))
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_wait(subparsers):
@@ -189,8 +180,5 @@ def _execute_wait(args):
             sys.exit(1)
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)

@@ -120,11 +120,8 @@ def _execute_search(args):
         term.table(rows, ['Username', 'Name', 'ORCID'], max_widths=[20, 25, 19])
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_create(subparsers):
@@ -242,11 +239,8 @@ def _execute_get(args):
             _show_user(user)
 
     except Exception as e:
-        logger.error(f"Error retrieving user: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("retrieving user", e, args)
 
 
 def _execute_create(args):
@@ -327,11 +321,8 @@ def _execute_create(args):
         _show_user(result)
 
     except Exception as e:
-        logger.error(f"Error creating user: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("creating user", e, args)
 
 
 def _register_update(subparsers):
@@ -479,11 +470,8 @@ def _execute_edit(args):
         term.diff(original, {k: result.get(k) for k in changes})
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_add_access_group(subparsers):
@@ -517,11 +505,8 @@ def _execute_add_access_group(args):
         logger.error(str(e))
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_remove_access_group(subparsers):
@@ -584,11 +569,8 @@ def _execute_list(args):
         term.table(rows, ['Username', 'Name', 'ORCID', 'Email'], max_widths=[20, 25, 19, 35])
 
     except Exception as e:
-        logger.error(f"Error listing users: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing users", e, args)
 
 
 def _register_list_datasets(subparsers):
@@ -682,11 +664,8 @@ def _execute_list_datasets(args):
         logger.error(str(e))
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error listing user datasets: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing user datasets", e, args)
 
 
 def _execute_check_access(args):
@@ -708,11 +687,8 @@ def _execute_check_access(args):
         logger.error(str(e))
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error checking access: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("checking access", e, args)
 
 
 def _execute_list_access_groups(args):
@@ -735,11 +711,8 @@ def _execute_list_access_groups(args):
         logger.error(str(e))
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error retrieving access groups: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("retrieving access groups", e, args)
 
 
 def _execute_list_projects(args):
@@ -770,8 +743,5 @@ def _execute_list_projects(args):
         logger.error(str(e))
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error retrieving user projects: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("retrieving user projects", e, args)

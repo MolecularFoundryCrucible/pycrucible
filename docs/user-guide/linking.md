@@ -29,7 +29,7 @@ Use parent-child links to represent processing pipelines:
 
 ```python
 # Establish raw → processed relationship
-client.datasets.link_parent_child(parent_id="ds-raw", child_id="ds-processed")
+client.datasets.link_parent_child(parent_dataset_id="ds-raw", child_dataset_id="ds-processed")
 
 # Remove it
 client.datasets.remove_child(parent_id="ds-raw", child_id="ds-processed")

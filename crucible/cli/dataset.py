@@ -19,7 +19,8 @@ from . import term
 def _build_file_display(af_list, link_map, dsid):
     """Build display entries for a dataset's files.
 
-    Returns list of dicts with keys: name, size, url (None if not ingested), ingested.
+    Returns list of dicts with keys: name, size, url (None if not ingested),
+    ingested, backend ('gcs' unless the file is cataloged elsewhere).
     link_map is {mfid: signed_url} from get_download_links.
     """
     import os as _os
@@ -28,6 +29,7 @@ def _build_file_display(af_list, link_map, dsid):
     for f in af_list:
         mfid         = f.get('mfid')
         storage_path = f.get('storage_path') or ''
+        backend      = f.get('storage_backend') or 'gcs'
         if storage_path.startswith(prefix_sp):
             name     = storage_path[len(prefix_sp):]
             ingested = True
@@ -40,6 +42,7 @@ def _build_file_display(af_list, link_map, dsid):
             'size':     f.get('size'),
             'url':      link_map.get(mfid) if ingested else None,
             'ingested': ingested,
+            'backend':  backend,
         })
     return result
 
@@ -59,10 +62,6 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
     def _ds_link(r):
         u, p = r.get('unique_id'), r.get('project_id')
         return term.mfid_link(u, explorer_url(u, p, 'dataset'))
-
-    def _s_link(r):
-        u, p = r.get('unique_id'), r.get('project_id')
-        return term.mfid_link(u, explorer_url(u, p, 'sample'))
 
     term.header("Dataset")
 
@@ -136,9 +135,12 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
         if file_display:
             term.subheader(f"Files ({len(file_display)})")
             for item in sorted(file_display, key=lambda x: x['name']):
-                name = item['name']
-                sz   = f"  {term.dim(term.fmt_size(item['size']))}" if item['size'] is not None else ''
-                if item['ingested']:
+                name    = item['name']
+                backend = item['backend']
+                sz      = f"  {term.dim(term.fmt_size(item['size']))}" if item['size'] is not None else ''
+                if backend != 'gcs':
+                    label = f"{term.dim(name)} {term.cyan(f'({backend})')}"
+                elif item['ingested']:
                     label = term.hyperlink(term.cyan(name), item['url']) if item['url'] else term.cyan(name)
                 else:
                     label = f"{term.dim(name)} {term.yellow('(pending ingestion)')}"
@@ -604,6 +606,31 @@ Examples:
         help='Show what would be uploaded without actually uploading'
     )
 
+    # Catalog-only (non-GCS) files
+    parser.add_argument(
+        '--no-upload',
+        action='store_true',
+        dest='no_upload',
+        help="Catalog the input file(s) by path instead of uploading them to GCS "
+             "(e.g. files on Globus/NERSC/a shared filesystem). Only supported for "
+             "generic uploads (no -t/--type). Files must exist at the given path."
+    )
+    parser.add_argument(
+        '--backend',
+        dest='backend',
+        default=None,
+        metavar='NAME',
+        help="Storage backend name for --no-upload files (e.g. 'globus', 'nersc-perlmutter'). "
+             "Default: 'local'."
+    )
+    parser.add_argument(
+        '--access-note',
+        dest='access_note',
+        default=None,
+        metavar='TEXT',
+        help="Free-text note on how to access --no-upload files (e.g. 'request via NERSC allocation X')."
+    )
+
     parser.set_defaults(func=_execute_create)
 
 
@@ -708,11 +735,8 @@ def _execute_update(args):
             logger.info(f"✓ Scientific metadata {action} for dataset {args.dataset_id}")
 
     except Exception as e:
-        logger.error(f"Error updating dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("updating dataset", e, args)
 
 
 def _register_delete(subparsers):
@@ -746,11 +770,8 @@ def _execute_delete(args):
         client.datasets.delete(args.dataset_id)
         logger.info(f"✓ Deleted dataset {args.dataset_id}")
     except Exception as e:
-        logger.error(f"Error deleting dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("deleting dataset", e, args)
 
 
 def _register_edit(subparsers):
@@ -825,11 +846,8 @@ def _edit_dataset(dsid, client, debug=False):
         term.header("Changes")
         term.diff(original, diff_updated)
     except Exception as e:
-        logger.error(f"Error updating dataset: {e}")
-        if debug:
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("updating dataset", e, debug)
 
 
 def _execute_edit(args):
@@ -838,8 +856,8 @@ def _execute_edit(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        logger.error(f"Error connecting: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("connecting", e)
     _edit_dataset(args.dataset_id, client, debug=getattr(args, 'debug', False))
 
 
@@ -895,11 +913,8 @@ def _execute_add_sample(args):
         logger.info(f"✓ Linked sample {args.sample} to dataset {args.dataset_id}")
 
     except Exception as e:
-        logger.error(f"Error linking sample to dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("linking sample to dataset", e, args)
 
 
 def _register_remove_sample(subparsers):
@@ -927,11 +942,8 @@ def _execute_remove_sample(args):
         client.datasets.remove_sample(args.dataset_id, args.sample)
         logger.info(f"✓ Unlinked sample {args.sample} from dataset {args.dataset_id}")
     except Exception as e:
-        logger.error(f"Error unlinking sample from dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("unlinking sample from dataset", e, args)
 
 
 def _register_remove_child(subparsers):
@@ -959,11 +971,8 @@ def _execute_remove_child(args):
         client.datasets.remove_child(args.parent_id, args.child)
         logger.info(f"✓ Unlinked child dataset {args.child} from parent dataset {args.parent_id}")
     except Exception as e:
-        logger.error(f"Error unlinking child dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("unlinking child dataset", e, args)
 
 
 def _register_list_parents(subparsers):
@@ -1134,11 +1143,8 @@ def _execute_download(args):
                 logger.info(f"  {path}")
 
     except Exception as e:
-        logger.error(f"Error downloading dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("downloading dataset", e, args)
 
 
 def _register_add_file(subparsers):
@@ -1234,11 +1240,8 @@ def _execute_add_file(args):
         term.table(rows, ['File', 'Size', ''], max_widths=[60, 10, 4])
 
     except Exception as e:
-        logger.error(f"Error uploading file(s): {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("uploading file(s)", e, args)
 
 
 def _register_list_files(subparsers):
@@ -1277,9 +1280,12 @@ def _execute_list_files(args):
 
         rows = []
         for item in sorted(file_display, key=lambda x: x['name']):
-            name = item['name']
-            size = term.fmt_size(item['size']) if item['size'] is not None else '-'
-            if item['ingested']:
+            name    = item['name']
+            backend = item['backend']
+            size    = term.fmt_size(item['size']) if item['size'] is not None else '-'
+            if backend != 'gcs':
+                label = f"{term.dim(name)} {term.cyan(f'({backend})')}"
+            elif item['ingested']:
                 label = term.hyperlink(term.cyan(name), item['url']) if item['url'] else term.cyan(name)
             else:
                 label = f"{term.dim(name)} {term.yellow('(pending)')}"
@@ -1291,11 +1297,8 @@ def _execute_list_files(args):
             print(f"\n  {term.dim('Download links are valid for 1 hour.')}")
 
     except Exception as e:
-        logger.error(f"Error listing files: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing files", e, args)
 
 
 def _register_ingestion(subparsers):
@@ -1338,11 +1341,8 @@ def _execute_ingestion(args):
                    max_widths=[8, 12, 25, 30, 20])
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_search(subparsers):
@@ -1393,11 +1393,8 @@ def _execute_search(args):
             ))
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 20])
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_search_metadata(subparsers):
@@ -1440,11 +1437,8 @@ def _execute_search_metadata(args):
                 else:
                     print(f"    {term.dim(key + ':')} {value}")
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_add_keyword(subparsers):
@@ -1476,11 +1470,8 @@ def _execute_add_keyword(args):
         logger.info(f"✓ Keyword '{args.keyword}' added to {args.dataset_id}")
 
     except Exception as e:
-        logger.error(f"Error adding keyword: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("adding keyword", e, args)
 
 
 def _register_list_keywords(subparsers):
@@ -1517,11 +1508,8 @@ def _execute_list_keywords(args):
             print(f"  {word}{suffix}")
 
     except Exception as e:
-        logger.error(f"Error retrieving keywords: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("retrieving keywords", e, args)
 
 
 def _register_list_access_groups(subparsers):
@@ -1552,11 +1540,8 @@ def _execute_list_access_groups(args):
             for g in groups:
                 print(f"  {g}")
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_add_access_group(subparsers):
@@ -1588,11 +1573,8 @@ def _execute_add_access_group(args):
         perms = 'read+write' if args.write else 'read'
         logger.info(f"✓ Access group '{args.group_name}' added to {args.dataset_id} ({perms})")
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_parsers(subparsers):
@@ -1709,11 +1691,8 @@ def _execute_list(args):
                                max_widths=[35, 26, 15, 20])
 
     except Exception as e:
-        logger.error(f"Error listing datasets: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing datasets", e, args)
 
 
 def _execute_get(args):
@@ -1742,11 +1721,8 @@ def _execute_get(args):
                           graph=graph,
                           include_metadata=include_metadata)
     except Exception as e:
-        logger.error(f"Error retrieving dataset: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("retrieving dataset", e, args)
 
 
 def _execute_create(args):
@@ -1840,6 +1816,10 @@ def _execute_create(args):
         # None - let server assign mfid
         logger.debug("No mfid provided, server will assign one")
 
+    if args.no_upload and args.dataset_type is not None:
+        logger.error("--no-upload is only supported for generic uploads (omit -t/--type).")
+        sys.exit(1)
+
     # Determine parser class
     if args.dataset_type is None:
         from crucible.parsers import get_all_parsers
@@ -1875,11 +1855,8 @@ def _execute_create(args):
             timestamp=timestamp,
         )
     except Exception as e:
-        logger.error(f"Error parsing file: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("parsing file", e, args)
 
     # If a custom ingestor is used and the user didn't explicitly set -m,
     # clear the parser's default measurement so the server assigns it
@@ -1902,10 +1879,16 @@ def _execute_create(args):
     _p("Public",      "yes" if parser.public else "no")
     _p("Instrument",  parser.instrument_name)
     _p("MFID",        dataset_mfid or term.dim("(server assigns)"))
-    _p("Ingestor",    args.ingestor or term.dim("(server detects)"))
+    if args.no_upload:
+        _p("Backend", args.backend or 'local')
+        if args.access_note:
+            _p("Access note", args.access_note)
+    else:
+        _p("Ingestor", args.ingestor or term.dim("(server detects)"))
 
     if parser.files_to_upload:
-        print(f"\n  {term.dim(f'Files ({len(parser.files_to_upload)})')}")
+        label = 'Files (cataloged, not uploaded)' if args.no_upload else 'Files'
+        print(f"\n  {term.dim(f'{label} ({len(parser.files_to_upload)})')}")
         for f in parser.files_to_upload:
             print(f"    {Path(f).name}")
 
@@ -1926,15 +1909,34 @@ def _execute_create(args):
     # Upload or dry run
     if args.dry_run:
         print("")
-        logger.info("Dry run — not uploading. Remove --dry-run to upload.")
+        logger.info("Dry run - not uploading. Remove --dry-run to upload.")
     else:
         print("")
         try:
-            result = parser.upload_dataset(
-                ingestor=args.ingestor,
-                verbose=getattr(args, 'debug', False),
-                wait_for_ingestion_response=True
-            )
+            if args.no_upload:
+                from crucible.client import CrucibleClient
+                from crucible.models import AssociatedFile
+                remote_files = [
+                    AssociatedFile(
+                        filename=Path(f).name,
+                        storage_path=str(Path(f).resolve()),
+                        storage_backend=args.backend or 'local',
+                        access_note=args.access_note,
+                    )
+                    for f in parser.files_to_upload
+                ]
+                result = CrucibleClient().datasets.create(
+                    parser.to_dataset(),
+                    scientific_metadata=parser.scientific_metadata,
+                    keywords=parser.keywords,
+                    files=remote_files,
+                )
+            else:
+                result = parser.upload_dataset(
+                    ingestor=args.ingestor,
+                    verbose=getattr(args, 'debug', False),
+                    wait_for_ingestion_response=True
+                )
 
             logger.info("✓ Upload successful")
             created = result.get('created_record', {}) if result else {}
@@ -1965,11 +1967,8 @@ def _execute_link(args):
         logger.info(f"✓ Linked dataset {args.child} as child of {args.parent}")
 
     except Exception as e:
-        logger.error(f"Error linking datasets: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("linking datasets", e, args)
 
 
 def _execute_list_parents(args):
@@ -1989,11 +1988,8 @@ def _execute_list_parents(args):
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 15])
 
     except Exception as e:
-        logger.error(f"Error listing parent datasets: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing parent datasets", e, args)
 
 
 def _execute_list_children(args):
@@ -2013,11 +2009,8 @@ def _execute_list_children(args):
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 15])
 
     except Exception as e:
-        logger.error(f"Error listing child datasets: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing child datasets", e, args)
 
 
 def _execute_list_samples(args):
@@ -2037,11 +2030,8 @@ def _execute_list_samples(args):
         term.table(rows, ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
 
     except Exception as e:
-        logger.error(f"Error listing samples: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing samples", e, args)
 
 
 def _execute_parsers(args):

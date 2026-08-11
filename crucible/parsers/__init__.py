@@ -14,8 +14,12 @@ that register them under the ``crucible.parsers`` entry-point group::
     myparser = "mypackage.mymodule:MyParserClass"
 """
 
+import logging
+
 from .base import BaseParser
 from .lammps import LAMMPSParser
+
+logger = logging.getLogger(__name__)
 
 # Built-in parser registry (lowercase keys)
 PARSER_REGISTRY = {
@@ -40,9 +44,9 @@ def get_all_parsers():
                 try:
                     all_parsers[ep.name.lower()] = ep.load()
                 except Exception:
-                    pass
+                    logger.warning(f"Failed to load third-party parser '{ep.name}'", exc_info=True)
     except Exception:
-        pass
+        logger.warning("Failed to discover third-party parsers via entry points", exc_info=True)
     return all_parsers
 
 

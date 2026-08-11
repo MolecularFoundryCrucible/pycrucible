@@ -9,8 +9,9 @@ Lock file format (JSON, written next to the .crux file as <name>.crux.lock):
         "local_id": {
             "server_id": "ds-abc123",
             "hash": "a3f9...",
-            "files": {"relative/path/to/file.dm4": "sha256hex..."},
-            "ingestion_id": 42
+            "files": {
+                "relative/path/to/file.dm4": {"sha256": "sha256hex...", "ingestion_id": 42}
+            }
         },
         ...
     },
@@ -21,8 +22,9 @@ The entity hash is computed from the entity's definition at creation time. On re
 if the hash changed, the entity is skipped with a warning so the user can decide
 whether to update it manually.
 
-File uploads and ingestion requests are tracked separately: a re-run after a partial
-failure will skip already-uploaded files and skip re-requesting ingestion.
+Each file's upload and ingestion request happen together in one call
+(client.datasets.add_file()); a re-run after a partial failure skips files
+already recorded in the lock and re-attempts the rest.
 """
 
 import fcntl
@@ -111,7 +113,7 @@ class CastExecutor:
 
     def _mark_created(self, local_id: str, server_id: str, entity_hash: str):
         self._lock["ids"][local_id] = {"server_id": server_id, "hash": entity_hash,
-                                       "files": {}, "ingestion_id": None}
+                                       "files": {}}
         self._save_lock()
 
     def _uploaded_files(self, local_id: str) -> Dict[str, str]:
@@ -120,25 +122,26 @@ class CastExecutor:
         entry = self._lock["ids"].get(local_id)
         if isinstance(entry, dict):
             return {
-                str((self.plan.base_dir / rel).resolve()): sha256
-                for rel, sha256 in (entry.get("files") or {}).items()
+                str((self.plan.base_dir / rel).resolve()): record["sha256"]
+                for rel, record in (entry.get("files") or {}).items()
             }
         return {}
 
-    def _mark_file_uploaded(self, local_id: str, path: str, sha256: str):
+    def _mark_file_uploaded(self, local_id: str, path: str, sha256: str,
+                            ingestion_id: Optional[int]):
         rel = os.path.relpath(path, self.plan.base_dir)
-        self._lock["ids"][local_id].setdefault("files", {})[rel] = sha256
+        self._lock["ids"][local_id].setdefault("files", {})[rel] = {
+            "sha256": sha256, "ingestion_id": ingestion_id,
+        }
         self._save_lock()
 
-    def _ingestion_id(self, local_id: str) -> Optional[int]:
+    def _ingested_file_count(self, local_id: str) -> int:
+        """Count uploaded files for this entity that got an ingestion request."""
         entry = self._lock["ids"].get(local_id)
         if isinstance(entry, dict):
-            return entry.get("ingestion_id")
-        return None
-
-    def _mark_ingested(self, local_id: str, ingestion_id: int):
-        self._lock["ids"][local_id]["ingestion_id"] = ingestion_id
-        self._save_lock()
+            return sum(1 for r in (entry.get("files") or {}).values()
+                      if r.get("ingestion_id") is not None)
+        return 0
 
     def reset(self):
         """Clear the entire lock - all entities will be recreated on next apply."""
@@ -152,7 +155,6 @@ class CastExecutor:
         for entry in self._lock["ids"].values():
             if isinstance(entry, dict):
                 entry["files"] = {}
-                entry["ingestion_id"] = None
         self._save_lock()
         logger.info("File tracking cleared - files will be re-uploaded to existing records")
 
@@ -252,8 +254,7 @@ class CastExecutor:
                 _, files, _, _, thumbnail = self._resolve_all_assets(ds, client)
             else:
                 files, thumbnail = ds.files or [], None
-            self._upload_files(local_id, entry["server_id"], files, thumbnail, client)
-            self._ingest_if_needed(local_id, entry["server_id"], ds, files, client)
+            self._upload_files(local_id, entry["server_id"], files, thumbnail, ds.ingestor, client)
 
         elif dry_run:
             logger.info(f"[dry-run] Would create dataset: {ds.name}")
@@ -312,29 +313,26 @@ class CastExecutor:
             return dataset, ds.files or [], metadata, ds.keywords or None, None
 
     def _upload_files(self, local_id: str, dsid: str, files: List[str],
-                      thumbnail, client):
-        """Upload files not yet tracked in the lock."""
+                      thumbnail, ingestor: Optional[str], client):
+        """Upload files not yet tracked in the lock.
+
+        `add_file()` uploads and requests ingestion for a file in one call, so
+        the two are tracked together per file. `ingestor=None` (the default,
+        when a .crux dataset doesn't set `ingestor:`) lets the server
+        auto-detect the ingestor from the file, matching client.datasets.create().
+        """
         already_uploaded = self._uploaded_files(local_id)
         for f in files:
             if f in already_uploaded:
                 logger.info(f"Skip upload '{os.path.basename(f)}' (already uploaded)")
                 continue
-            client.datasets.upload_file(dsid, f)
-            self._mark_file_uploaded(local_id, f, _file_sha256(f))
+            result = client.datasets.add_file(dsid, f, ingestion_class=ingestor)
+            ingestion_request = result.get('ingestion_request') or {}
+            self._mark_file_uploaded(local_id, f, _file_sha256(f), ingestion_request.get('id'))
             logger.info(f"Uploaded '{os.path.basename(f)}' to {dsid}")
 
         if thumbnail is not None:
             client.datasets.add_thumbnail(dsid, thumbnail)
-
-    def _ingest_if_needed(self, local_id: str, dsid: str, ds, files: List[str], client):
-        """Request ingestion if files are present and ingestion not yet requested."""
-        if not files or self._ingestion_id(local_id) is not None:
-            return
-        ingestor = ds.ingestor
-        cloud_path = f"api-uploads/{os.path.basename(files[0])}"
-        req = client.datasets.request_ingestion(dsid, cloud_path, ingestor)
-        self._mark_ingested(local_id, req['id'])
-        logger.info(f"Requested ingestion for '{ds.name}' ({dsid}) with {ingestor or 'auto-detected ingestor'}")
 
     def _create_dataset(self, local_id: str, ds, client):
         dataset, files, metadata, keywords, thumbnail = self._resolve_all_assets(ds, client)
@@ -343,7 +341,7 @@ class CastExecutor:
         # file upload does not create a duplicate record.
         result = client.datasets.create(
             dataset,
-            files_to_upload=None,
+            files=None,
             scientific_metadata=metadata,
             keywords=keywords,
         )
@@ -351,8 +349,7 @@ class CastExecutor:
         self._mark_created(local_id, dsid, _hash_entity(ds))
         logger.info(f"Created dataset '{ds.name}': {dsid}")
 
-        self._upload_files(local_id, dsid, files, thumbnail, client)
-        self._ingest_if_needed(local_id, dsid, ds, files, client)
+        self._upload_files(local_id, dsid, files, thumbnail, ds.ingestor, client)
 
     def _create_sample(self, local_id: str, smp, client):
         from crucible.models import Sample

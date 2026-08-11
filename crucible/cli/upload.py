@@ -327,11 +327,8 @@ def execute(args):
             data_format=args.data_format
         )
     except Exception as e:
-        logger.error(f"Error parsing file: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("parsing file", e, args)
 
     # Display dataset information (always shown)
     logger.info("\n=== Dataset Information ===")

@@ -145,8 +145,8 @@ def _execute_create(args):
         result = client.service_accounts.create(username=username, unique_id=unique_id)
         _show_sa(result, key=result.get('api_key'))
     except Exception as e:
-        logger.error(f"Error: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e)
 
 
 def _register_rotate_key(subparsers):
@@ -180,8 +180,8 @@ def _execute_rotate_key(args):
     except SystemExit:
         raise
     except Exception as e:
-        logger.error(f"Error: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e)
 
 
 def _register_get(subparsers):
@@ -214,8 +214,8 @@ def _execute_get(args):
     except SystemExit:
         raise
     except Exception as e:
-        logger.error(f"Error: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e)
 
 
 def _register_list(subparsers):
@@ -242,8 +242,8 @@ def _execute_list(args):
             rows.append((sa.get('username') or '-', sa.get('unique_id') or '-'))
         term.table(rows, ['Username', 'MFID'], max_widths=[30, 30])
     except Exception as e:
-        logger.error(f"Error: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e)
 
 
 def _register_edit(subparsers):
@@ -297,8 +297,8 @@ def _execute_edit(args):
     except SystemExit:
         raise
     except Exception as e:
-        logger.error(f"Error: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e)
 
 
 def _register_update(subparsers):
@@ -348,8 +348,8 @@ def _execute_update(args):
     except SystemExit:
         raise
     except Exception as e:
-        logger.error(f"Error: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e)
 
 
 def _register_list_access_groups(subparsers):
@@ -390,8 +390,8 @@ def _execute_list_access_groups(args):
     except SystemExit:
         raise
     except Exception as e:
-        logger.error(f"Error: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e)
 
 
 def _register_add_access_group(subparsers):
@@ -421,8 +421,8 @@ def _execute_add_access_group(args):
         logger.error(str(e))
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e)
 
 
 def _register_remove_access_group(subparsers):
@@ -452,5 +452,5 @@ def _execute_remove_access_group(args):
         logger.error(str(e))
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e)
