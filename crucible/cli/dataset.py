@@ -19,7 +19,7 @@ from . import term
 def _build_file_display(af_list, link_map, dsid):
     """Build display entries for a dataset's files.
 
-    Returns list of dicts with keys: name, size, url (None if not ingested),
+    Returns list of dicts with keys: mfid, name, size, url (None if not ingested),
     ingested, backend ('gcs' unless the file is cataloged elsewhere).
     link_map is {mfid: signed_url} from get_download_links.
     """
@@ -38,6 +38,7 @@ def _build_file_display(af_list, link_map, dsid):
             name     = _os.path.basename(staging) or mfid
             ingested = False
         result.append({
+            'mfid':     mfid,
             'name':     name,
             'size':     f.get('size'),
             'url':      link_map.get(mfid) if ingested else None,
@@ -102,49 +103,54 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
         _p("Created",  term.fmt_ts(dataset.get('creation_time')))
         _p("Modified", term.fmt_ts(dataset.get('modification_time')))
 
-        if prefetched is not None:
-            keywords = prefetched.get('keywords', [])
-            af_list  = prefetched.get('af_list', [])
-            link_map = prefetched.get('link_map', {})
-        else:
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=3) as pool:
-                f_kw    = pool.submit(client.datasets.get_keywords, dsid)
-                f_meta  = pool.submit(client.datasets.list_files, dsid)
-                f_links = pool.submit(client.datasets.get_download_links, dsid)
+    if prefetched is not None:
+        keywords = prefetched.get('keywords', [])
+        af_list  = prefetched.get('af_list', [])
+        link_map = prefetched.get('link_map', {})
+    else:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            f_kw    = pool.submit(client.datasets.get_keywords, dsid) if verbose else None
+            f_meta  = pool.submit(client.datasets.list_files, dsid)
+            f_links = pool.submit(client.datasets.get_download_links, dsid)
+            if f_kw is not None:
                 try:
                     keywords = f_kw.result()
                 except Exception:
                     keywords = []
-                try:
-                    af_list = f_meta.result()
-                except Exception:
-                    af_list = []
-                try:
-                    link_map = f_links.result()
-                except Exception:
-                    link_map = {}
+            else:
+                keywords = []
+            try:
+                af_list = f_meta.result()
+            except Exception:
+                af_list = []
+            try:
+                link_map = f_links.result()
+            except Exception:
+                link_map = {}
 
-        if keywords:
-            words = [kw.get('keyword', kw) if isinstance(kw, dict) else kw for kw in keywords]
-            term.subheader("Keywords")
-            print(f"  {', '.join(words)}")
+    if verbose and keywords:
+        words = [kw.get('keyword', kw) if isinstance(kw, dict) else kw for kw in keywords]
+        term.subheader("Keywords")
+        print(f"  {', '.join(words)}")
 
-        file_display = _build_file_display(af_list, link_map, dsid)
+    file_display = _build_file_display(af_list, link_map, dsid)
 
-        if file_display:
-            term.subheader(f"Files ({len(file_display)})")
-            for item in sorted(file_display, key=lambda x: x['name']):
-                name    = item['name']
-                backend = item['backend']
-                sz      = f"  {term.dim(term.fmt_size(item['size']))}" if item['size'] is not None else ''
-                if backend != 'gcs':
-                    label = f"{term.dim(name)} {term.cyan(f'({backend})')}"
-                elif item['ingested']:
-                    label = term.hyperlink(term.cyan(name), item['url']) if item['url'] else term.cyan(name)
-                else:
-                    label = f"{term.dim(name)} {term.yellow('(pending ingestion)')}"
-                print(f"  {label}{sz}")
+    if file_display:
+        term.subheader(f"Files ({len(file_display)})")
+        rows = []
+        for item in sorted(file_display, key=lambda x: x['name']):
+            name    = item['name']
+            backend = item['backend']
+            size    = term.fmt_size(item['size']) if item['size'] is not None else '-'
+            if backend != 'gcs':
+                label = f"{term.dim(name)} {term.cyan(f'({backend})')}"
+            elif item['ingested']:
+                label = term.hyperlink(term.cyan(name), item['url']) if item['url'] else term.cyan(name)
+            else:
+                label = f"{term.dim(name)} {term.yellow('(pending ingestion)')}"
+            rows.append((item['mfid'], label, size))
+        term.table(rows, ['MFID', 'File', 'Size'], max_widths=[26, 60, 10])
 
     if graph:
         links_list = links if links is not None else dataset.get('links')
@@ -1289,9 +1295,9 @@ def _execute_list_files(args):
                 label = term.hyperlink(term.cyan(name), item['url']) if item['url'] else term.cyan(name)
             else:
                 label = f"{term.dim(name)} {term.yellow('(pending)')}"
-            rows.append((label, size))
+            rows.append((item['mfid'], label, size))
 
-        term.table(rows, ['File', 'Size'], max_widths=[60, 10])
+        term.table(rows, ['MFID', 'File', 'Size'], max_widths=[26, 60, 10])
 
         if any(item['ingested'] for item in file_display):
             print(f"\n  {term.dim('Download links are valid for 1 hour.')}")

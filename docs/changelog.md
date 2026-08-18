@@ -15,6 +15,8 @@
 
 ### Changed
 
+- `dataset get`/`dataset list-files` now show each file's MFID alongside its name.
+- `dataset get` shows a dataset's files by default; no longer requires `--verbose`.
 - `datasets.create()`'s `files_to_upload` renamed to `files` (accepts a mix of local paths and `AssociatedFile` objects); old name still works with a deprecation warning.
 - `ag list`/`ag mine` now default to pending requests, matching `deletion list`.
 - `deletion list` and `ag list`/`ag mine` share one `--status` flag.
