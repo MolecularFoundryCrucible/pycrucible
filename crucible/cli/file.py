@@ -49,6 +49,7 @@ def register_subcommand(subparsers):
     _register_get(file_subparsers)
     _register_download(file_subparsers)
     _register_ingestion(file_subparsers)
+    _register_request_ingestion(file_subparsers)
     _register_delete(file_subparsers)
 
 
@@ -283,6 +284,57 @@ def _execute_ingestion(args):
                 term.fmt_ts(r.get('created_at') or r.get('creation_time')) or '-',
             ))
         term.table(rows, ['ID', 'Status', 'Class', 'Created'], max_widths=[8, 12, 25, 20])
+
+    except Exception as e:
+        from .helpers import fail
+        fail("", e, args)
+
+
+def _register_request_ingestion(subparsers):
+    parser = subparsers.add_parser(
+        'request-ingestion',
+        help='(Re)request ingestion for a cataloged file',
+        description="Request ingestion for a file that hasn't been ingested yet, e.g. one "
+                    "cataloged without upload via 'dataset create --no-upload'.",
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible file request-ingestion mf_abc123
+    crucible file request-ingestion mf_abc123 --ingestor lammps
+    crucible file request-ingestion mf_abc123 --wait
+""",
+    )
+    parser.add_argument('file_id', metavar='FILE_ID', help='File MFID')
+    parser.add_argument(
+        '--ingestor',
+        default=None,
+        metavar='CLASS',
+        help='Ingestion class to use (default: auto-detected from file format)'
+    )
+    parser.add_argument(
+        '--wait',
+        action='store_true',
+        help='Wait for ingestion to complete before returning'
+    )
+    parser.set_defaults(func=_execute_request_ingestion)
+
+
+def _execute_request_ingestion(args):
+    """Execute 'crucible file request-ingestion'."""
+    from crucible.client import CrucibleClient
+    try:
+        client = CrucibleClient()
+        req = client.files.request_ingestion(
+            args.file_id,
+            ingestion_class=getattr(args, 'ingestor', None),
+            wait_for_response=getattr(args, 'wait', False),
+        )
+
+        term.header(f"Ingestion Requested · {args.file_id}")
+        _p = term.field_printer(8)
+        _p("ID",     req.get('id'))
+        _p("Status", term.status_label(req.get('status')))
+        _p("Class",  req.get('ingestion_class') or '-')
 
     except Exception as e:
         from .helpers import fail
