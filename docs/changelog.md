@@ -15,6 +15,7 @@
 
 ### Changed
 
+- `dataset create` no longer requires `-i`; omit it to create a dataset with no files.
 - `datasets.create()`'s `files_to_upload` renamed to `files` (accepts a mix of local paths and `AssociatedFile` objects); old name still works with a deprecation warning.
 - `ag list`/`ag mine` now default to pending requests, matching `deletion list`.
 - `deletion list` and `ag list`/`ag mine` share one `--status` flag.

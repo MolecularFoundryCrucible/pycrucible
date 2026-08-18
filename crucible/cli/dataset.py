@@ -431,6 +431,10 @@ Examples:
     # Generic upload (server assigns mfid)
     crucible dataset create -i file1.dat file2.csv -pid my-project
 
+    # Metadata-only dataset (no files)
+    crucible dataset create -n "Sample prep notes" -pid my-project \\
+        --metadata '{"anneal_temp_c": 450}'
+
     # Upload with locally generated mfid
     crucible dataset create -i data.csv -pid my-project --mfid
 
@@ -454,9 +458,11 @@ Examples:
     input_arg = parser.add_argument(
         '-i', '--input',
         nargs='+',
-        required=True,
+        required=False,
+        default=[],
         metavar='FILE',
-        help='Input file(s) to upload (supports wildcards like *.dat)'
+        help='Input file(s) to upload (supports wildcards like *.dat). '
+             'If omitted, creates a dataset record with no files.'
     )
     if ARGCOMPLETE_AVAILABLE:
         input_arg.completer = FilesCompleter()

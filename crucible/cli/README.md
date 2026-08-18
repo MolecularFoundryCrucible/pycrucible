@@ -58,7 +58,7 @@ crucible --debug dataset list   # debug must precede the subcommand
 |---------|-------------|-------------|
 | `dataset list` | `-pid ID` `-m TYPE` `-k WORD` `--session NAME` `--limit N` `-v` | List datasets, with optional filters |
 | `dataset get ID` | `-v` `--include-metadata` `-o json` | Get dataset details; `-v` shows ownership, file info, keywords, and associated files; `-o json` prints the raw record as JSON (always includes scientific metadata) |
-| `dataset create -i FILE` | `-t TYPE` `-pid ID` `-n NAME` `-m TYPE` `--timestamp DATE` `--metadata JSON` `-k WORDS` `--session NAME` `--instrument NAME` `--public` `--mfid [ID]` `--dry-run` | Upload file(s) and create a dataset record |
+| `dataset create` | `-i FILE` `-t TYPE` `-pid ID` `-n NAME` `-m TYPE` `--timestamp DATE` `--metadata JSON` `-k WORDS` `--session NAME` `--instrument NAME` `--public` `--mfid [ID]` `--dry-run` | Create a dataset record, uploading file(s) if `-i` is given |
 | `dataset update ID` | `--set KEY=VALUE` `--metadata JSON` `--overwrite` | Update model fields (`--set`) and/or scientific metadata (`--metadata`) |
 | `dataset list-files ID` | | List associated files with clickable download links (valid 1 hour) and sizes |
 | `dataset add-file ID FILE` | | Upload and attach a file to an existing dataset |
