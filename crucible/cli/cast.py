@@ -137,18 +137,18 @@ def _show_plan(plan, executor):
     # Datasets
     term.header("Datasets")
     for local_id, ds in plan.datasets.items():
-        server_id = executor._server_id(local_id)
-        uploaded  = executor._uploaded_files(local_id)
-        ing_id    = executor._ingestion_id(local_id)
-        n_files   = len(ds.files)
+        server_id  = executor._server_id(local_id)
+        uploaded   = executor._uploaded_files(local_id)
+        n_ingested = executor._ingested_file_count(local_id)
+        n_files    = len(ds.files)
 
         if server_id:
             status = term.green("created")
             detail = f"{server_id}"
             if n_files:
                 detail += f"  files: {len(uploaded)}/{n_files}"
-            if ing_id is not None:
-                detail += f"  ingestion: #{ing_id}"
+            if n_ingested:
+                detail += f"  ingestion requested: {n_ingested}/{len(uploaded)}"
         else:
             status = term.dim("pending")
             detail = f"{n_files} file(s)" if n_files else "no files"

@@ -4,7 +4,6 @@
 Download subcommand — download a sample or dataset record and its files.
 """
 
-import sys
 import logging
 
 logger = logging.getLogger(__name__)
@@ -78,8 +77,5 @@ def execute(args):
         for path in downloaded:
             logger.info(path)
     except Exception as e:
-        logger.error(f"Error downloading {args.resource_id}: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("downloading {args.resource_id}", e, args)

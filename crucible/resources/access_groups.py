@@ -74,6 +74,28 @@ class AccessGroupOperations(BaseResource):
         raw = self._paginate('/join_requests', params, limit, offset)
         return [self._parse(r) for r in raw]
 
+    def get(self, request_id: int) -> Optional[Dict]:
+        """Fetch a single join request by ID. Admin only.
+
+        There is no dedicated single-record endpoint — this scans the admin
+        list view (GET /join_requests, no group_name) and filters by id.
+        A group lead who is not also admin cannot use this; use
+        list_join_requests(group_name=...) instead.
+
+        Args:
+            request_id: Integer id of the JoinRequest.
+
+        Returns:
+            Dict: The JoinRequest record, or None if not found.
+
+        Raises:
+            HTTPError 403: Caller is not admin.
+        """
+        for r in self.list_join_requests(limit=1000):
+            if r.get('id') == request_id:
+                return r
+        return None
+
     def approve_join_request(self, request_id: int, reviewer_notes: Optional[str] = None) -> Dict:
         """Approve a pending join request. Admin or lead of the request's group.
 

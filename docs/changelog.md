@@ -1,5 +1,42 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- New `file request-ingestion` CLI command to (re)request ingestion for a cataloged file.
+- New `client.datasets.add_remote_file()` and `client.files.update()` to catalog files that live outside GCS (Globus, NERSC, a shared filesystem) without uploading them.
+- `dataset create --no-upload`/`--backend`/`--access-note` to catalog files by path instead of uploading them.
+- New `ag get` command and `client.access_groups.get()`.
+- Shell autocomplete for `ag` request IDs.
+- Shell autocomplete extended to more `user`/`project`/`sa`/`ag` commands.
+- Shell autocomplete for `instrument get` and `--project`/`-pid` flags.
+- Shell autocomplete for dataset/sample IDs across most subcommands.
+- Shell autocomplete for `user search` shows live matches while typing.
+
+### Changed
+
+- `dataset get`/`dataset list-files` now show each file's MFID alongside its name.
+- `dataset get` shows a dataset's files by default; no longer requires `--verbose`.
+- `datasets.create()`'s `files_to_upload` renamed to `files` (accepts a mix of local paths and `AssociatedFile` objects); old name still works with a deprecation warning.
+- `ag list`/`ag mine` now default to pending requests, matching `deletion list`.
+- `deletion list` and `ag list`/`ag mine` share one `--status` flag.
+- `ag approve`/`ag reject` accept multiple request IDs.
+- Shell username autocomplete now works for non-admins and completes to username.
+- Broken third-party parsers now log a warning instead of silently disappearing.
+
+### Fixed
+
+- `files.download()` crashed with a raw exception on a non-GCS file instead of a clear error.
+- `AssociatedFile` silently dropped `storage_backend`/`access_note` fields returned by the API.
+- `cast`: uploading files in a recipe always crashed.
+- `cast`: resuming a recipe after a partial failure always crashed.
+- `dataset create`/parser-based uploads forced generic ingestion instead of letting the server auto-detect.
+- Parser-based uploads sent a stale, unused field to the server.
+- Users without a username disappeared from shell autocomplete; they now show by ORCID.
+- Some `edit` commands silently ignored `--debug`.
+- Docs and the tutorial notebook referenced removed/renamed methods and wrong parameter names in several places.
+
 ## 3.1.0
 
 - `projects.get()`/`search()` no longer require membership; `lead`/`scientific_metadata` are membership-gated.

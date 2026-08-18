@@ -264,11 +264,8 @@ def _execute_create(args):
         _show_instrument(result)
 
     except Exception as e:
-        logger.error(f"Error creating instrument: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("creating instrument", e, args)
 
 
 def _execute_list(args):
@@ -296,11 +293,8 @@ def _execute_list(args):
                        max_widths=[20, 26, 15, 25])
 
     except Exception as e:
-        logger.error(f"Error listing instruments: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("listing instruments", e, args)
 
 
 def _show_instrument(instrument, include_metadata=False):
@@ -352,11 +346,8 @@ def _execute_get(args):
             _show_instrument(instrument, include_metadata=include_metadata)
 
     except Exception as e:
-        logger.error(f"Error retrieving instrument: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("retrieving instrument", e, args)
 
 
 def _register_update(subparsers):
@@ -438,11 +429,8 @@ def _execute_update(args):
             logger.info(f"✓ Scientific metadata {action} for instrument {args.unique_id}")
 
     except Exception as e:
-        logger.error(f"Error updating instrument: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("updating instrument", e, args)
 
 
 def _instrument_updatable_fields():
@@ -519,11 +507,8 @@ def _edit_instrument(uid, client, debug=False):
         term.header("Changes")
         term.diff(original, diff_updated)
     except Exception as e:
-        logger.error(f"Error updating instrument: {e}")
-        if debug:
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("updating instrument", e, debug)
 
 
 def _execute_edit(args):
@@ -532,8 +517,8 @@ def _execute_edit(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        logger.error(f"Error connecting: {e}")
-        sys.exit(1)
+        from .helpers import fail
+        fail("connecting", e)
     _edit_instrument(args.unique_id, client, debug=getattr(args, 'debug', False))
 
 
@@ -573,11 +558,8 @@ def _execute_search(args):
         term.table(rows, ['Name', 'Type', 'Manufacturer', 'MFID'],
                    max_widths=[25, 20, 20, 26])
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)
 
 
 def _register_search_metadata(subparsers):
@@ -606,8 +588,5 @@ def _execute_search_metadata(args):
         for r in results:
             print(f"  {term.cyan(r.get('unique_id', '-'))}")
     except Exception as e:
-        logger.error(f"Error: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("", e, args)

@@ -4,7 +4,6 @@
 Whoami subcommand — show current user info based on the active API key.
 """
 
-import sys
 import logging
 
 logger = logging.getLogger(__name__)
@@ -69,8 +68,5 @@ def execute(args):
                     print(f"  {line}")
 
     except Exception as e:
-        logger.error(f"Error retrieving account info: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("retrieving account info", e, args)

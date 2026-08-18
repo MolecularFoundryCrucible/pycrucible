@@ -97,10 +97,12 @@ class AssociatedFile(BaseModel):
     dataset_mfid: Optional[str] = None
     filename: Optional[str] = None
     storage_path: Optional[str] = None
+    storage_backend: Optional[str] = 'gcs'
+    access_note: Optional[str] = None
     size: Optional[int] = None
     sha256_hash: Optional[str] = None
 
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='ignore')
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
 
 
 class DeletionRequest(BaseModel):

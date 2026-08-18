@@ -9,7 +9,7 @@ Pass `scientific_metadata` at dataset creation time:
 ```python
 result = client.datasets.create(
     dataset=Dataset(dataset_name="CVs at 50 mV/s", project_id="my-project"),
-    files_to_upload=["cv_50mVs.txt"],
+    files=["cv_50mVs.txt"],
     scientific_metadata={
         "scan_rate_mV_s": 50,
         "electrolyte": "0.1 M KOH",

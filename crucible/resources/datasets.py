@@ -10,7 +10,9 @@ import os
 import re
 import logging
 import requests
-from typing import Optional, List, Dict
+import warnings
+from pathlib import Path
+from typing import Optional, List, Dict, Union
 
 import mfid
 
@@ -18,6 +20,7 @@ import mfid
 from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
 from ..utils.deprecation import _deprecated
+from ..models import AssociatedFile
 
 # upload/download
 from .gcs.upload import upload_file_gcs
@@ -126,6 +129,8 @@ class DatasetOperations(BaseResource):
 
     def create(self, dataset, scientific_metadata: Optional[Dict] = None,
                keywords: Optional[List[str]] = None,
+               files: Optional[List[Union[str, AssociatedFile]]] = None,
+               upload_files: bool = True,
                files_to_upload: Optional[List[str]] = None,
                ingestor: Optional[str] = None,
                verbose: bool = False,
@@ -136,16 +141,42 @@ class DatasetOperations(BaseResource):
             dataset (Dataset): Dataset object with dataset details
             scientific_metadata (dict, optional): Scientific metadata
             keywords (list, optional): Keywords to associate with dataset
+            files (list, optional): Files to attach. Each item is either a local
+                path (str) or an AssociatedFile describing a file that lives
+                elsewhere (Globus, NERSC, a shared filesystem, etc.).
+                - A str path is uploaded to GCS when upload_files=True (default),
+                  or cataloged by its resolved absolute path (storage_backend='local',
+                  no upload) when upload_files=False.
+                - An AssociatedFile is always cataloged via add_remote_file() -
+                  it must set storage_backend to something other than 'gcs',
+                  since there's no local file to upload from a model description.
+            upload_files (bool): Whether str paths in `files` are uploaded to GCS
+                (default: True) or just cataloged by their local path (False).
+                Only affects str items - AssociatedFile items are routed by
+                their own storage_backend regardless of this flag.
+            files_to_upload (list, optional): Deprecated alias for `files`
+                (str paths only, always uploaded). Use `files` instead.
         Returns:
-            Dict: created_record, scientific_metadata_record, dsid
+            Dict: created_record, scientific_metadata_record, dsid, files
+                (files is the per-item result of adding each entry in `files`,
+                in the same order)
         """
         if scientific_metadata is None:
             scientific_metadata = {}
 
         if keywords is None:
             keywords = []
-        if files_to_upload is None:
-            files_to_upload = []
+
+        if files_to_upload is not None:
+            if files is not None:
+                raise ValueError("Pass either 'files' or the deprecated 'files_to_upload', not both.")
+            warnings.warn(
+                "'files_to_upload' is deprecated, use 'files' instead.",
+                DeprecationWarning, stacklevel=2,
+            )
+            files = files_to_upload
+        if files is None:
+            files = []
 
         dataset_details = dataset.model_dump()
 
@@ -155,7 +186,7 @@ class DatasetOperations(BaseResource):
         logger.debug('Creating new dataset record...')
 
         clean_dataset = {k: v for k, v in dataset_details.items() if v is not None}
-        new_ds_record = self._request('post', '/datasets', json=clean_dataset)
+        new_ds_record = self._parse(self._request('post', '/datasets', json=clean_dataset))
         dsid = new_ds_record['unique_id']
 
         # add scientific metadata
@@ -164,18 +195,33 @@ class DatasetOperations(BaseResource):
             logger.debug(f'Adding scientific metadata record for {dsid}')
             scimd = self.update_scientific_metadata(dsid, scientific_metadata)
 
-            
+
         # add keywords
         if keywords:
             logger.debug(f'Adding keywords to dataset {dsid}: {keywords}')
             for kw in keywords:
                 self.add_keyword(dsid, kw)
 
-        for file in files_to_upload:
+        file_results = []
+        for file in files:
             logger.debug(f'Adding {file} to dataset {dsid}')
-            self.add_file(dsid, file, ingestion_class=ingestor, wait_for_ingestion_response=wait_for_ingestion_response)
+            if isinstance(file, AssociatedFile):
+                file_results.append(self.add_remote_file(dsid, file))
+            elif upload_files:
+                file_results.append(self.add_file(dsid, file, ingestion_class=ingestor,
+                                                  wait_for_ingestion_response=wait_for_ingestion_response))
+            else:
+                resolved = Path(file).resolve()
+                remote = AssociatedFile(
+                    filename=os.path.basename(file),
+                    storage_path=str(resolved),
+                    storage_backend='local',
+                    size=resolved.stat().st_size if resolved.exists() else None,
+                )
+                file_results.append(self.add_remote_file(dsid, remote))
 
-        result = {"created_record": new_ds_record, "scientific_metadata_record": scimd, "dsid": dsid}
+        result = {"created_record": new_ds_record, "scientific_metadata_record": scimd,
+                 "dsid": dsid, "files": file_results}
         return result
 
     def update(self, dsid: str, **updates) -> Dict:
@@ -200,10 +246,12 @@ class DatasetOperations(BaseResource):
             dsid: Dataset unique identifier
 
         Returns:
-            List[Dict]: File records (mfid, filename, storage_path, size, sha256_hash, dataset_mfid).
-                storage_path is null until the file has been ingested.
+            List[Dict]: File records (mfid, filename, storage_path, storage_backend,
+                access_note, size, sha256_hash, dataset_mfid). For a 'gcs' file,
+                storage_path is null until it has been ingested.
         """
-        return self._request('get', f'/datasets/{dsid}/files')
+        raw = self._request('get', f'/datasets/{dsid}/files')
+        return [self._client.files._parse(f) for f in raw]
 
     def search(self, q: str, project_id: Optional[str] = None,
                limit: int = 20) -> List[Dict]:
@@ -419,6 +467,7 @@ class DatasetOperations(BaseResource):
                                                     multipart=multipart,
                                                     chunk_size_mb=chunk_size_mb,
                                                     max_workers=max_workers)
+        file_record = self._client.files._parse(file_record)
 
         stored_filename = file_record.get('filename', filename)
         file_id         = file_record.get('mfid')
@@ -433,6 +482,38 @@ class DatasetOperations(BaseResource):
             wait_for_response=wait_for_ingestion_response,
         )
         return {'associated_file': file_record, 'ingestion_request': ingestion_request}
+
+    def add_remote_file(self, dsid: str, file: AssociatedFile) -> Dict:
+        """Register a file that lives outside GCS (Globus, NERSC, a shared
+        filesystem path, etc.) without uploading it.
+
+        Crucible only catalogs the pointer here — it never verifies the file
+        exists or fetches bytes on your behalf. Internally this is a two-step
+        API call (create, then set storage_path) hidden behind one method.
+
+        Args:
+            dsid: Dataset unique identifier
+            file (AssociatedFile): Must have `storage_backend` set to something
+                other than 'gcs' (e.g. 'globus', 'local'). `storage_path` is
+                optional — omit it to catalog the file now and set its location
+                later via client.files.update(mfid, storage_path=...).
+
+        Returns:
+            Dict: The created (and, if storage_path was given, updated) file record.
+        """
+        if not file.storage_backend or file.storage_backend == 'gcs':
+            raise ValueError(
+                "add_remote_file() requires storage_backend set to something other "
+                "than 'gcs' (e.g. 'globus'). Use add_file() to upload a local file to GCS."
+            )
+
+        storage_path = file.storage_path
+        payload = file.model_dump(exclude={'mfid', 'dataset_mfid', 'storage_path'}, exclude_none=True)
+        created = self._client.files._parse(self._request('post', f'/datasets/{dsid}/files', json=payload))
+
+        if storage_path:
+            return self._client.files.update(created['mfid'], storage_path=storage_path)
+        return created
 
     @_deprecated("client.datasets.add_file")
     def add_file_to_dataset(self, dsid: str, file_path: str,

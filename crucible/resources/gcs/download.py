@@ -68,6 +68,11 @@ def download_dataset_files(client, dsid: str, output_dir: str,
         url = link_map.get(f.get('mfid', ''))
         if url:
             candidates.append((f, name, url))
+        else:
+            backend = f.get('storage_backend') or 'gcs'
+            if backend != 'gcs':
+                logger.info(f"Skipping '{name}': stored on '{backend}', not GCS - "
+                           f"see storage_path/access_note ({f.get('storage_path') or 'not set'})")
 
     if include:
         candidates = [(f, n, u) for f, n, u in candidates

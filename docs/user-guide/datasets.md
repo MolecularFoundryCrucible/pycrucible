@@ -21,7 +21,7 @@
 
 | Relationship | Key(s) | Description |
 |---|---|---|
-| **Files** | `files_to_upload` in `create()`; `add_file_to_dataset(dsid, file_path)` to add later | Zero or more files can be attached to a dataset. Each file is uploaded to cloud storage and triggers an ingestion process to parse metadata and generate thumbnails. |
+| **Files** | `files` in `create()`; `add_file(dsid, file_path)` to add later | Zero or more files can be attached to a dataset. Each file is uploaded to cloud storage and triggers an ingestion process to parse metadata and generate thumbnails. |
 | **Scientific metadata** | `scientific_metadata` in `create()`; `metadata` in `update_scientific_metadata()` / `replace_scientific_metadata()` | A free-form JSON object for experiment-specific parameters. Stored separately from structured fields and searchable across datasets. |
 | **Thumbnails** | `add_thumbnail(dsid, image)` | Small preview images representing the data or results. Generated automatically by ingestors where supported, or uploaded manually. |
 | **Samples** | `sample_id` in `add_sample(dataset_id, sample_id)` | A dataset can be linked to one or more samples, and a sample to one or more datasets — capturing which material was measured. |
@@ -42,7 +42,7 @@ result = client.datasets.create(
         instrument_name="Beamline 12.3.2",
         project_id="my-project",
     ),
-    files_to_upload=["xrd_run5.xy"],
+    files=["xrd_run5.xy"],
     scientific_metadata={"wavelength_angstrom": 0.7749, "temperature_K": 300},
     keywords=["XRD", "powder"],
 )
@@ -55,7 +55,7 @@ You can upload multiple files in one call:
 ```python
 result = client.datasets.create(
     dataset=Dataset(dataset_name="Multi-file dataset", project_id="my-project"),
-    files_to_upload=["file1.dat", "file2.dat", "thumbnail.png"],
+    files=["file1.dat", "file2.dat", "thumbnail.png"],
 )
 ```
 !!! note "What happens when you call create()"
@@ -64,7 +64,7 @@ result = client.datasets.create(
     1. **POST** `/datasets` — creates the dataset record and returns a `dsid`
     2. **POST** `/resources/{dsid}/metadata` — adds scientific metadata (if provided)
     3. **POST** `/datasets/{dsid}/keywords` — adds each keyword individually (if provided)
-    4. Uploads each file via GCS and triggers an ingestion request per file (if `files_to_upload` is provided)
+    4. Uploads each file via GCS and triggers an ingestion request per file (if `files` is provided)
 
 
 ## Retrieving a dataset
@@ -105,7 +105,7 @@ client.datasets.update(
 Add files to an existing dataset:
 
 ```python
-client.datasets.add_file_to_dataset("ds-abc123", "additional_file.dat")
+client.datasets.add_file("ds-abc123", "additional_file.dat")
 ```
 
 ### How the data ingestion process works
@@ -128,6 +128,48 @@ Files are deduplicated by sha256 hash. If you add the same file twice it will no
     If two files with the same name but different contents are added to the same dataset, the upload proceeds but **replaces the original file in cloud storage**. A new file record is created with a new `mfid` and hash; the old record remains but its download link points to the new file. We are actively working on updated logic to address this.
 
 If no ingestion class exists for your data type, reach out on [Discord](https://discord.gg/Wrepphsgbx) or contribute to the [crucible-ingestion](https://github.com/MolecularFoundryCrucible/crucible-ingestion) repository.
+
+## Remote (non-GCS) files
+
+Sometimes a file isn't worth (or isn't possible to) upload to GCS - it lives on Globus, at an HPC center, or on a shared filesystem. Crucible can still catalog it: it records where the file lives, but never verifies it exists, uploads it, or fetches it on your behalf.
+
+```python
+from crucible.models import AssociatedFile
+
+client.datasets.add_remote_file(dsid, AssociatedFile(
+    filename="raw_data.tar",
+    storage_backend="globus",
+    storage_path="https://app.globus.org/file-manager?origin_id=...&origin_path=...",
+    access_note="request access via NERSC allocation X",
+))
+```
+
+`storage_path` is optional - catalog the file now and set its location later with `client.files.update(mfid, storage_path=...)`.
+
+You can also mix remote and uploaded files in one `create()` call:
+
+```python
+result = client.datasets.create(
+    dataset=Dataset(dataset_name="Mixed dataset", project_id="my-project"),
+    files=[
+        "local_results.csv",                                     # uploaded to GCS
+        AssociatedFile(filename="raw.tar", storage_backend="globus",
+                       storage_path="https://app.globus.org/..."),  # cataloged only
+    ],
+)
+```
+
+A plain local path with `upload_files=False` is cataloged too, using its resolved absolute path and `storage_backend="local"`:
+
+```python
+result = client.datasets.create(
+    dataset=Dataset(dataset_name="Cataloged only", project_id="my-project"),
+    files=["/mnt/lustre/big_simulation_output.h5"],
+    upload_files=False,
+)
+```
+
+Downloading and ingestion are GCS-only: `client.files.download()`/`client.datasets.download()` skip non-GCS files (logging why), and the server rejects ingestion requests for them. Check `storage_backend` before assuming a file is fetchable - `crucible file get MFID` and `crucible dataset list-files` both show the backend name for non-GCS files instead of an "ingested" status.
 
 ## Scientific metadata
 
@@ -187,7 +229,7 @@ Link datasets to represent a processing pipeline:
 
 ```python
 # raw → processed
-client.datasets.link_parent_child(parent_id=raw_dsid, child_id=processed_dsid)
+client.datasets.link_parent_child(parent_dataset_id=raw_dsid, child_dataset_id=processed_dsid)
 
 # List relationships
 parents = client.datasets.list_parents("ds-processed")

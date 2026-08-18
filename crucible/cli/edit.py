@@ -62,8 +62,5 @@ def execute(args):
             sys.exit(1)
 
     except Exception as e:
-        logger.error(f"Error editing {args.resource_id}: {e}")
-        if getattr(args, 'debug', False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+        from .helpers import fail
+        fail("editing {args.resource_id}", e, args)
