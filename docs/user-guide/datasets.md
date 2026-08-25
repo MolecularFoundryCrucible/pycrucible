@@ -122,7 +122,7 @@ Ingestors will not overwrite the dataset attributes provided at dataset creation
 
 For updates to the scientific metadata, the ingestion process uses the `client.datasets.update_scientific_metadata(overwrite = False)` method. As a result, new key-value pairs parsed during the ingestion process will be appended to the existing `scientific_metadata` and newly parsed values for existing keys will be updated. If you would like to replace the entire scientific_metadata dictionary, it can be done manally with `update_scientific_metadata(overwrite=True)`.
 
-Files are deduplicated by sha256 hash. If you add the same file twice it will not be reuploaded, but ingestion will be re-requested — this operation is **idempotent**.
+Files are deduplicated by sha256 hash. If you add the same file twice it will not be reuploaded, but ingestion will be re-requested. This operation is **idempotent**.
 
 !!! warning
     If two files with the same name but different contents are added to the same dataset, the upload proceeds but **replaces the original file in cloud storage**. A new file record is created with a new `mfid` and hash; the old record remains but its download link points to the new file. We are actively working on updated logic to address this.
@@ -217,9 +217,9 @@ thumbnails = client.datasets.get_thumbnails("ds-abc123")
 client.datasets.download("ds-abc123", output_dir="./downloads")
 
 # Download only matching files
-client.datasets.download("ds-abc123", output_dir="./downloads", include="*.dat")
+client.datasets.download("ds-abc123", output_dir="./downloads", include=["*.dat"])
 
-# Get pre-signed download URLs (valid ~1 hour)
+# Get temporary signed download URLs, keyed by file MFID
 links = client.datasets.get_download_links("ds-abc123")
 ```
 
@@ -244,5 +244,3 @@ client.datasets.delete("ds-abc123")
 
 !!! note
     Calling `delete()` submits a deletion request — it does not immediately remove the resource. An admin must approve the request before the dataset is deleted.
-
-

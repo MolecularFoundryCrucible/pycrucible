@@ -2,11 +2,11 @@
 
 ## Download a dataset
 
-`client.download()` saves the API record as `record.json` and, for datasets, downloads all associated files:
+`client.datasets.download()` saves the API record as `record.json` and downloads the dataset's associated files:
 
 ```python
 # Download everything into a local directory
-client.download("ds-abc123", output_dir="./downloads")
+client.datasets.download("ds-abc123", output_dir="./downloads")
 ```
 
 This creates `./downloads/ds-abc123/record.json` plus all files.
@@ -15,37 +15,43 @@ This creates `./downloads/ds-abc123/record.json` plus all files.
 
 ```python
 # Download only .dat files
-client.datasets.download("ds-abc123", output_dir="./downloads", include="*.dat")
+client.datasets.download("ds-abc123", output_dir="./downloads", include=["*.dat"])
 
 # Download everything except thumbnails
-client.datasets.download("ds-abc123", output_dir="./downloads", exclude="*.png")
+client.datasets.download("ds-abc123", output_dir="./downloads", exclude=["*.png"])
 ```
 
 ### Overwriting existing files
 
-By default, files that already exist locally are skipped. Pass `overwrite=True` to replace them:
+By default, files that already exist locally are replaced. Set `overwrite_existing=False` to keep them:
 
 ```python
-client.datasets.download("ds-abc123", output_dir="./downloads", overwrite=True)
+client.datasets.download(
+    "ds-abc123",
+    output_dir="./downloads",
+    overwrite_existing=False,
+)
 ```
 
 ## Download a sample record
 
-For samples, `client.download()` saves the API record and a list of linked datasets:
+For samples, `client.samples.download()` saves the API record as `record.json`:
 
 ```python
-client.download("sm-abc123", output_dir="./downloads")
+client.samples.download("sm-abc123", output_dir="./downloads")
 ```
 
 ## Get pre-signed download URLs
 
-If you need direct download links (e.g., to share with collaborators or use in a script), get pre-signed URLs valid for approximately one hour:
+If you need temporary signed download URLs for a script, request the mapping of file MFIDs to URLs:
 
 ```python
 links = client.datasets.get_download_links("ds-abc123")
-for link in links:
-    print(link["filename"], link["url"])
+for file_mfid, url in links.items():
+    print(file_mfid, url)
 ```
+
+Signed URLs grant temporary access. Avoid logging or sharing them beyond their intended recipient.
 
 ## CLI
 
@@ -62,8 +68,8 @@ crucible download DATASET_ID --include "*.dm4"
 # Skip downloading files (record.json only)
 crucible download DATASET_ID --no-files
 
-# Overwrite existing files
-crucible download DATASET_ID --overwrite
+# Keep existing files instead of replacing them
+crucible download DATASET_ID --no-overwrite
 
 # List files without downloading
 crucible dataset list-files DATASET_ID

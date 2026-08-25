@@ -1,163 +1,279 @@
-# CLI Command Reference
+# CLI command reference
 
-Use `crucible <resource> <action> --help` for full option details on any command.
+This page is the canonical command inventory for the Crucible CLI. Use `crucible <command> --help` or `crucible <resource> <action> --help` for the exact arguments, aliases, defaults, and examples supported by the installed version.
 
----
+## Global options
 
-## dataset
+| Option | Description |
+|---|---|
+| `--version` | Print the installed client version and exit |
+| `--debug` | Enable Crucible debug logging; place it before the command |
 
-| Command | Key options | Description |
-|---|---|---|
-| `dataset list` | `-pid ID` `-m TYPE` `-k WORD` `--session NAME` `--limit N` `-v` | List datasets with optional filters |
-| `dataset get ID` | `-v` `--include-metadata` `-o json` | Get dataset details; `-v` shows ownership, file info, keywords; `-o json` prints raw record |
-| `dataset create -i FILE` | `-t TYPE` `-pid ID` `-n NAME` `-m TYPE` `--timestamp DATE` `--metadata JSON` `-k WORDS` `--session NAME` `--instrument NAME` `--public` `--mfid [ID]` `--dry-run` `--no-upload` `--backend NAME` `--access-note TEXT` | Upload file(s) and create a dataset record; `--no-upload` catalogs files by path instead (generic uploads only) |
-| `dataset update ID` | `--set KEY=VALUE` `--metadata JSON` `--overwrite` | Update model fields (`--set`) and/or scientific metadata (`--metadata`) |
-| `dataset list-files ID` | | List associated files with download links and sizes |
-| `dataset add-file ID FILE` | | Upload and attach a file to an existing dataset |
-| `dataset download ID` | `--output-dir DIR` `--include PATTERN` `--exclude PATTERN` `-f FILE` `--overwrite` | Download dataset files |
-| `dataset delete ID` | `-y` | Permanently delete a dataset (prompts for confirmation) |
-| `dataset search QUERY` | `--limit N` `-v` | Search datasets by scientific metadata |
-| `dataset link` | `-p PARENT_ID -c CHILD_ID` | Create a parent-child link between two datasets |
-| `dataset add-sample ID` | `-s SAMPLE_ID` | Link a sample to a dataset |
-| `dataset remove-sample ID` | `-s SAMPLE_ID` | Unlink a sample from a dataset |
-| `dataset list-parents ID` | `--limit N` | List parent datasets |
-| `dataset list-children ID` | `--limit N` | List child datasets |
-| `dataset list-samples ID` | `--limit N` `-v` | List samples linked to a dataset |
-| `dataset add-keyword ID WORD` | | Add a keyword tag |
-| `dataset list-keywords ID` | `-v` | List keywords (with usage counts with `-v`) |
-| `dataset parsers` | | List available client-side parsers |
-| `dataset ingestors` | | List available server-side ingestors |
+Running `crucible` without a command starts the interactive shell. See the [CLI overview](index.md) for setup, shell completion, and interactive usage.
 
-**Updatable fields** (via `--set`): `dataset_name`, `measurement`, `data_type`, `session_name`, `instrument_name`, `project_id`, `timestamp`, `description`, `public`
-
-```bash
-# Upload a file
-crucible dataset create -i data.csv -pid my-project
-
-# Upload with metadata and keywords
-crucible dataset create -i run.lmp -t lammps -pid my-project \
-    --metadata '{"temperature": 300}' --keywords "NVT,water"
-
-# Update a field and scientific metadata
-crucible dataset update DSID --set measurement=XRD --metadata '{"pressure": 1.5}'
-
-# Search scientific metadata
-crucible dataset search "temperature" --limit 10
-```
-
----
-
-## sample
-
-| Command | Key options | Description |
-|---|---|---|
-| `sample list` | `-pid ID` `--limit N` `-v` | List samples |
-| `sample get ID` | `-v` `-o json` | Get sample details; `-v` shows linked datasets |
-| `sample create` | `-n NAME` `-pid ID` `--type TYPE` `--description TEXT` `--timestamp DATE` | Create a new sample |
-| `sample update ID` | `--set KEY=VALUE` | Update sample fields |
-| `sample link` | `-p PARENT_ID -c CHILD_ID` | Create a parent-child relationship |
-| `sample add-dataset ID` | `-d DATASET_ID` | Link a dataset to a sample |
-| `sample remove-dataset ID` | `-d DATASET_ID` | Unlink a dataset from a sample |
-| `sample list-parents ID` | `--limit N` | List parent samples |
-| `sample list-children ID` | `--limit N` | List child samples |
-| `sample list-datasets ID` | `--limit N` `-v` | List datasets linked to a sample |
-
-**Updatable fields** (via `--set`): `sample_name`, `sample_type`, `public`, `project_id`, `timestamp`, `description`
-
-```bash
-crucible sample create -n "Silicon Wafer A" -pid my-project --type substrate
-crucible sample update SAMPLE_ID --set description="Annealed at 900C"
-crucible sample add-dataset SAMPLE_ID -d DATASET_ID
-```
-
----
-
-## project
-
-| Command | Key options | Description |
-|---|---|---|
-| `project list` | `--limit N` | List all accessible projects |
-| `project get ID` | `-v` | Get project details |
-| `project create` | `--project-id ID` `-o ORG` `-e EMAIL` `--title TEXT` `--lead-name NAME` `--status STATUS` | Create a project (interactive if args omitted) |
-| `project list-users ID` | `--limit N` | List users in a project |
-| `project add-user ID` | `--user USER` | Add a user to a project (USER: ORCID, username, or email) |
-| `project remove-user ID` | `--user USER` | Remove a user from a project |
-
-```bash
-crucible project create --project-id my-project -o "LBNL" -e "lead@lbl.gov"
-crucible project list-users my-project
-```
-
----
-
-## instrument
-
-| Command | Key options | Description |
-|---|---|---|
-| `instrument list` | `--limit N` | List all instruments |
-| `instrument get NAME` | `--by-id` | Get instrument by name (or by ID with `--by-id`) |
-| `instrument create` | `-n NAME` `--owner OWNER` `--location LOC` `--manufacturer MFR` `--model MODEL` `--type TYPE` `--description TEXT` | Create an instrument (interactive if args omitted) |
-
----
-
-## user *(admin)*
-
-| Command | Key options | Description |
-|---|---|---|
-| `user list` | `--limit N` | List all users |
-| `user get USER` | `--json` | Get a user (USER: ORCID, username, or email) |
-| `user create` | `--orcid` `--first-name` `--last-name` `--email` `--projects` | Create a user (interactive if args omitted) |
-| `user update USER` | `--first-name` `--last-name` `--email` `--username` | Update a user record |
-| `user edit USER` | | Edit a user record in your editor |
-| `user list-datasets USER` | | List dataset IDs accessible to a user |
-| `user check-access USER DATASET_ID` | | Check read/write permissions for a user |
-| `user list-access-groups USER` | | List access groups a user belongs to |
-| `user add-access-group USER GROUP` | | Add a user to an access group |
-| `user remove-access-group USER GROUP` | | Remove a user from an access group |
-| `user list-projects USER` | `-v` | List projects associated with a user |
-
----
-
-## Utility commands
-
-| Command | Key options | Description |
-|---|---|---|
-| `download ID` | `--output-dir DIR` `--include PATTERN` `--exclude PATTERN` `--no-files` `--overwrite` | Download a dataset or sample by ID |
-| `link PARENT_ID CHILD_ID` | | Link two resources (type auto-detected) |
-| `unlink ID_A ID_B` | | Unlink two resources |
-| `open ID` | | Open a resource in the Crucible web explorer |
-| `get ID` | `-v` `-o json` | Get any resource by ID |
-| `whoami` | | Show account info for the current API key |
-| `status` | | Check API health |
-| `tree ID` | | Display the relationship graph for a resource |
-
----
-
-## config
+## Dataset commands
 
 | Command | Description |
 |---|---|
-| `config init` | Interactive setup wizard |
-| `config show` | Print current configuration |
-| `config get KEY` | Print a single config value |
-| `config set KEY VALUE` | Set a config value |
-| `config path` | Show config file path |
-| `config edit` | Open config file in editor |
+| `dataset list` | List datasets with project, measurement, keyword, session, format, type, instrument, and name-pattern filters |
+| `dataset get ID` | Show a dataset, its files, and linked resources |
+| `dataset create -i FILE` | Create a dataset and upload or catalog files |
+| `dataset update ID` | Update model fields or scientific metadata |
+| `dataset edit ID` | Edit dataset fields interactively |
+| `dataset reassign-project ID PROJECT` | Move a dataset to another project |
+| `dataset transfer-ownership ID USER` | Transfer dataset ownership |
+| `dataset delete ID` | Permanently delete a dataset after confirmation |
+| `dataset search QUERY` | Search dataset names |
+| `dataset search-metadata QUERY` | Search scientific metadata; `search-md` is an alias |
+| `dataset link` | Link parent and child datasets |
+| `dataset remove-child` | Remove a dataset parent-child link |
+| `dataset list-parents ID` | List parent datasets |
+| `dataset list-children ID` | List child datasets |
+| `dataset add-sample ID` | Link a sample to a dataset |
+| `dataset remove-sample ID` | Unlink a sample from a dataset |
+| `dataset list-samples ID` | List samples linked to a dataset |
+| `dataset add-file ID FILE` | Upload files to an existing dataset |
+| `dataset list-files ID` | List associated files and available download links |
+| `dataset download ID` | Download dataset files with optional include and exclude patterns |
+| `dataset ingestion ID` | Show ingestion requests for a dataset |
+| `dataset add-keyword ID WORD` | Add a keyword |
+| `dataset list-keywords [ID]` | List dataset keywords and usage counts |
+| `dataset list-access-groups ID` | List access groups associated with a dataset |
+| `dataset add-access-group ID GROUP` | Grant an access group access to a dataset |
+| `dataset access ...` | List, grant, or revoke direct access entries |
+| `dataset publish ID` | Make a dataset publicly viewable |
+| `dataset unpublish ID` | Remove public access from a dataset |
+| `dataset parsers` | List installed client-side parsers |
+| `dataset ingestors` | List server-advertised ingestion classes |
 
-**Config keys:** `api_key`, `api_url`, `cache_dir`, `graph_explorer_url`, `current_project`
-
----
-
-## cache
-
-| Command | Key options | Description |
-|---|---|---|
-| `cache show` | `--top N` | Show cache path, size, and top-N largest datasets |
-| `cache clear` | `-y` `--older-than DAYS` `--dataset ID` | Delete cached files |
+Common creation example:
 
 ```bash
-crucible cache show --top 20
-crucible cache clear --older-than 30
-crucible cache clear --dataset DATASET_ID
-crucible cache clear -y    # wipe everything
+crucible dataset create -i data.csv -pid my-project \
+    -n "XRD measurement" -m "X-ray diffraction" \
+    --metadata '{"temperature_K": 300}' --keywords "XRD,powder"
 ```
+
+Fields normally updated through `dataset update --set` include `dataset_name`, `measurement`, `data_type`, `session_name`, `instrument_name`, `timestamp`, `description`, and `public`. Use `reassign-project` and `transfer-ownership` for project and owner changes.
+
+## Sample commands
+
+| Command | Description |
+|---|---|
+| `sample list` | List samples with project, name, type, and name-pattern filters |
+| `sample get ID` | Show a sample and its linked resources |
+| `sample create` | Create a sample |
+| `sample update ID` | Update sample fields or scientific metadata |
+| `sample edit ID` | Edit sample fields interactively |
+| `sample reassign-project ID PROJECT` | Move a sample to another project |
+| `sample transfer-ownership ID USER` | Transfer sample ownership |
+| `sample search QUERY` | Search sample names |
+| `sample search-metadata QUERY` | Search scientific metadata; `search-md` is an alias |
+| `sample link` | Link parent and child samples |
+| `sample remove-child` | Remove a sample parent-child link |
+| `sample list-parents ID` | List parent samples |
+| `sample list-children ID` | List child samples |
+| `sample add-dataset ID` | Link a dataset to a sample |
+| `sample remove-dataset ID` | Unlink a dataset from a sample |
+| `sample list-datasets ID` | List datasets linked to a sample |
+| `sample access ...` | List, grant, or revoke direct access entries |
+| `sample publish ID` | Make a sample publicly viewable |
+| `sample unpublish ID` | Remove public access from a sample |
+
+Fields normally updated through `sample update` include `sample_name`, `sample_type`, `description`, `timestamp`, and `public`. Use `reassign-project` and `transfer-ownership` for project and owner changes.
+
+## Project commands
+
+| Command | Description |
+|---|---|
+| `project list` | List accessible projects |
+| `project get ID` | Show a project and optionally its members |
+| `project create` | Create a project |
+| `project update ID` | Update a project record or scientific metadata |
+| `project edit ID` | Edit project fields interactively |
+| `project search QUERY` | Search project names and IDs |
+| `project search-metadata QUERY` | Search scientific metadata; `search-md` is an alias |
+| `project list-users ID` | List project members and roles |
+| `project add-user ID` | Add a user to a project |
+| `project remove-user ID` | Remove a user from a project |
+| `project update-user-role ID` | Change a project member's role |
+| `project transfer-ownership ID USER` | Transfer project ownership |
+| `project request-join ID` | Request membership in a project |
+| `project list-join-requests ID` | List project join requests |
+| `project access ...` | List, grant, or revoke direct access entries |
+| `project publish ID` | Make a project publicly viewable |
+| `project unpublish ID` | Remove public access from a project |
+
+## Instrument commands
+
+| Command | Description |
+|---|---|
+| `instrument list` | List instruments |
+| `instrument get NAME` | Show an instrument by name or ID |
+| `instrument create` | Register an instrument |
+| `instrument update ID` | Update an instrument record or scientific metadata |
+| `instrument edit ID` | Edit instrument fields interactively |
+| `instrument search QUERY` | Search names, types, and manufacturers |
+| `instrument search-metadata QUERY` | Search scientific metadata; `search-md` is an alias |
+| `instrument bind-sa ID SERVICE_ACCOUNT` | Bind a service account as an instrument operator |
+| `instrument unbind-sa ID SERVICE_ACCOUNT` | Remove an instrument operator binding |
+| `instrument access ...` | List, grant, or revoke direct access entries |
+| `instrument publish ID` | Make an instrument publicly viewable |
+| `instrument unpublish ID` | Remove public access from an instrument |
+
+## User commands
+
+Most user-management commands require administrator permissions.
+
+| Command | Description |
+|---|---|
+| `user get USER` | Show a user by ORCID, username, or email |
+| `user search QUERY` | Search names and usernames |
+| `user list` | List users |
+| `user create` | Create a user |
+| `user update USER` | Update a user record |
+| `user edit USER` | Edit a user record interactively |
+| `user list-datasets USER` | List datasets accessible to a user |
+| `user check-access USER DATASET` | Check a user's dataset access |
+| `user list-access-groups USER` | List a user's access groups |
+| `user add-access-group USER GROUP` | Add a user to an access group |
+| `user remove-access-group USER GROUP` | Remove a user from an access group |
+| `user list-projects USER` | List a user's projects |
+
+## File commands
+
+File commands operate on individual file MFIDs. Dataset-scoped file operations remain available under `dataset`.
+
+| Command | Description |
+|---|---|
+| `file list` | List files globally or within a dataset |
+| `file get ID` | Show file metadata and a download link when available |
+| `file download ID` | Download one file |
+| `file ingestion ID` | Show ingestion requests for a file |
+| `file request-ingestion ID` | Request or repeat ingestion for a cataloged file |
+| `file delete ID` | Delete a file |
+
+## Ingestion commands
+
+| Command | Description |
+|---|---|
+| `ingestion list` | List ingestion requests |
+| `ingestion get ID` | Show an ingestion request |
+| `ingestion wait ID` | Wait for an ingestion request to finish |
+| `ingestion list-ingestors` | List available ingestion classes |
+
+## Service-account commands
+
+`sa` is an alias for `service-account`. These commands require administrator permissions.
+
+| Command | Description |
+|---|---|
+| `sa create` | Create a service account |
+| `sa rotate-key USER` | Generate a new key and invalidate the previous key |
+| `sa get USER` | Show a service account |
+| `sa list` | List service accounts |
+| `sa update USER` | Update a service account |
+| `sa edit USER` | Edit a service account interactively |
+| `sa list-access-groups USER` | List access groups for a service account |
+| `sa add-access-group USER GROUP` | Add a service account to an access group |
+| `sa remove-access-group USER GROUP` | Remove a service account from an access group |
+
+## Access-group commands
+
+`ag` is an alias for `access-group`.
+
+| Command | Description |
+|---|---|
+| `ag request GROUP` | Request to join an access group or project |
+| `ag mine` | List the current user's join requests |
+| `ag list` | List join requests for review |
+| `ag get ID` | Show a join request |
+| `ag approve ID...` | Approve pending join requests |
+| `ag reject ID...` | Reject pending join requests |
+
+## Account commands
+
+These commands operate on the currently authenticated account and do not require administrator permissions.
+
+| Command | Description |
+|---|---|
+| `account show` | Show the current profile |
+| `account update` | Update profile fields |
+| `account edit` | Edit the current profile interactively |
+| `account api-key` | Show the current API key |
+| `account verify` | Check API-key validity and expiry |
+
+Treat output from `account api-key` as a secret. Do not include it in logs, issue reports, or agent prompts.
+
+## Deletion commands
+
+The deletion-request workflow is separate from direct permanent deletion. Review and audit commands require administrator permissions.
+
+| Command | Description |
+|---|---|
+| `deletion request RESOURCE` | Request deletion of a dataset or sample |
+| `deletion list` | List deletion requests |
+| `deletion get ID` | Show a deletion request |
+| `deletion approve ID...` | Approve pending requests |
+| `deletion reject ID...` | Reject pending requests |
+| `deletion delete RESOURCE` | Permanently delete a resource |
+| `deletion list-deleted` | List permanent-deletion audit records |
+| `deletion get-deleted ID` | Show a permanent-deletion audit record |
+
+## Cast command
+
+`cast` loads a declarative `.crux` recipe containing datasets, samples, files, and links.
+
+| Command | Description |
+|---|---|
+| `cast FILE` | Execute a recipe |
+| `cast FILE --validate` | Validate references and cycles without executing |
+| `cast FILE --dry-run` | Preview execution without API mutations |
+| `cast FILE --show` | Show the plan and lock status |
+| `cast FILE --force` | Clear the lock and recreate entities |
+| `cast FILE --reupload` | Re-upload files without recreating records |
+
+## Configuration and cache
+
+| Command | Description |
+|---|---|
+| `config init` | Run interactive configuration setup |
+| `config show` | Show the current configuration |
+| `config get KEY` | Print one configuration value |
+| `config set KEY VALUE` | Set one configuration value |
+| `config path` | Show the configuration-file path |
+| `config edit` | Edit the configuration file |
+| `cache show` | Show cache location and disk usage |
+| `cache clear` | Remove cached files by dataset, age, or all entries |
+
+Configuration values can come from environment variables, the platform-specific config file, or defaults. Avoid displaying `api_key` in shared terminals or logs.
+
+## General utility commands
+
+| Command | Description |
+|---|---|
+| `status` | Check API reachability, database health, and authentication |
+| `whoami` | Show the identity associated with the configured key |
+| `get ID` | Show a dataset or sample after detecting its resource type |
+| `edit ID` | Edit a dataset, sample, or instrument after detecting its type |
+| `download ID` | Save a record and, for datasets, associated files |
+| `link` | Link parent-child resources or associate a dataset and sample |
+| `unlink ID1 ID2` | Remove a resource relationship |
+| `tree ID` | Display connected ancestors and descendants |
+| `open [ID]` | Open the Graph Explorer or print its URL |
+| `qr ID` | Print a terminal QR code for an MFID |
+| `completion [SHELL]` | Generate and install completion for bash, zsh, fish, or tcsh |
+| `upload ...` | Deprecated upload command; use `dataset create` |
+
+## Deprecated aliases
+
+| Old form | Current form |
+|---|---|
+| `dataset update-metadata` | `dataset update --metadata` |
+| `dataset get-keywords` | `dataset list-keywords` |
+| `sample link-dataset` | `sample add-dataset` |
+| `user get-access-groups` | `user list-access-groups` |
+| `user get-projects` | `user list-projects` |
+| `project get-users` | `project list-users` |
+
+Deprecated forms remain available for compatibility but emit a warning. New documentation and scripts should use the current forms.

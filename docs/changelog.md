@@ -4,6 +4,8 @@
 
 ### Added
 
+- Development skills for API, CLI, parser, and cast changes.
+- Agent-agnostic contributor guidance and a skill for safe client workflows.
 - New `file request-ingestion` CLI command to (re)request ingestion for a cataloged file.
 - New `client.datasets.add_remote_file()` and `client.files.update()` to catalog files that live outside GCS (Globus, NERSC, a shared filesystem) without uploading them.
 - `dataset create --no-upload`/`--backend`/`--access-note` to catalog files by path instead of uploading them.
@@ -24,6 +26,8 @@
 
 ### Changed
 
+- README now focuses on installation, navigation, and project essentials.
+- CLI reference now documents all command families from one canonical location.
 - `dataset get`/`dataset list-files` now show each file's MFID alongside its name.
 - `dataset get` shows a dataset's files by default; no longer requires `--verbose`.
 - `datasets.create()`'s `files_to_upload` renamed to `files` (accepts a mix of local paths and `AssociatedFile` objects); old name still works with a deprecation warning.
@@ -39,6 +43,8 @@
 
 ### Fixed
 
+- Quick-start examples now use current dataset creation return values.
+- Download guides now use current namespaced methods and overwrite options.
 - `files.download()` crashed with a raw exception on a non-GCS file instead of a clear error.
 - `AssociatedFile` silently dropped `storage_backend`/`access_note` fields returned by the API.
 - `cast`: uploading files in a recipe always crashed.
