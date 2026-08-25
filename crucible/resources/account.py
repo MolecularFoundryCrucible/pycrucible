@@ -76,6 +76,16 @@ class AccountOperations(BaseResource):
         """
         return self._request('get', '/account/verify')
 
+    def sync_projects(self) -> Dict:
+        """Refresh the caller's project memberships from the MF proposal database.
+
+        Additive — projects are only ever added, never removed.
+
+        Returns:
+            Dict: {orcid, projects_added, projects_already_member, projects_not_found}
+        """
+        return self._request('post', '/account/sync-projects')
+
     def join_requests(self, status: Optional[str] = None,
                       limit: int = DEFAULT_LIMIT, offset: int = 0) -> List[Dict]:
         """Return the caller's own join-request history, across all groups.
