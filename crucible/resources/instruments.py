@@ -41,9 +41,13 @@ class InstrumentOperations(BaseResource):
             include_metadata: bool = False) -> Dict:
         """Get instrument information by name or ID.
 
+        Note: despite the name, the `instrument_id` parameter here is the
+        instrument's MFID (unique_id) - not the `instrument_id` slug field on
+        the Instrument model/API (a separate, user-chosen identifier).
+
         Args:
             instrument_name (str, optional): Name of the instrument
-            instrument_id (str, optional): Unique ID of the instrument
+            instrument_id (str, optional): MFID of the instrument
             include_metadata (bool): Whether to include scientific metadata
 
         Returns:
@@ -74,11 +78,14 @@ class InstrumentOperations(BaseResource):
 
         Args:
             instrument: Instrument model or dict with instrument details.
-                        Required fields: instrument_name, owner, location.
+                        Required fields: instrument_id, instrument_name, owner, location.
             scientific_metadata (Dict, optional): Scientific metadata to attach after creation.
 
         Returns:
             Dict: Created (or existing) instrument object
+
+        Raises:
+            ValueError: If instrument_id is missing
         """
         import warnings
         from ..models import Instrument
@@ -86,6 +93,12 @@ class InstrumentOperations(BaseResource):
             payload = instrument.model_dump(exclude_none=True, exclude={'id', 'unique_id'})
         else:
             payload = dict(instrument)
+
+        if not payload.get('instrument_id'):
+            raise ValueError(
+                "instrument_id is required (a unique slug identifying the instrument, "
+                "distinct from its auto-assigned MFID)."
+            )
 
         instrument_name = payload.get('instrument_name')
         if instrument_name:
@@ -109,13 +122,46 @@ class InstrumentOperations(BaseResource):
 
         Args:
             unique_id (str): Instrument unique identifier (MFID)
-            **kwargs: Fields to update. Accepted: instrument_name, owner, location,
-                      manufacturer, model, instrument_type, description.
+            **kwargs: Fields to update. Accepted: instrument_id, instrument_name, owner,
+                      location, manufacturer, model, instrument_type, description,
+                      other_id, other_id_source.
 
         Returns:
             Dict: Updated instrument object
         """
         return self._request('patch', f'/instruments/{unique_id}', json=kwargs)
+
+    def bind_service_account(self, instrument_mfid: str, sa_unique_id: str) -> List['ProjectMember']:
+        """Bind a service account as an operator of an instrument.
+
+        **Requires admin permissions.**
+
+        Args:
+            instrument_mfid (str): Instrument unique identifier (MFID)
+            sa_unique_id (str): Service account unique identifier (MFID)
+
+        Returns:
+            List[ProjectMember]: The instrument's operator group members
+        """
+        from ..models import ProjectMember
+        raw = self._request('post', f'/instruments/{instrument_mfid}/service_accounts/{sa_unique_id}')
+        return [ProjectMember.model_validate(m) for m in raw]
+
+    def unbind_service_account(self, instrument_mfid: str, sa_unique_id: str) -> List['ProjectMember']:
+        """Remove a service account as an operator of an instrument.
+
+        **Requires admin permissions.**
+
+        Args:
+            instrument_mfid (str): Instrument unique identifier (MFID)
+            sa_unique_id (str): Service account unique identifier (MFID)
+
+        Returns:
+            List[ProjectMember]: The instrument's operator group members
+        """
+        from ..models import ProjectMember
+        raw = self._request('delete', f'/instruments/{instrument_mfid}/service_accounts/{sa_unique_id}')
+        return [ProjectMember.model_validate(m) for m in raw]
 
     def search(self, q: str, limit: int = 20) -> List[Dict]:
         """Fuzzy search across instruments. Available to all authenticated users.

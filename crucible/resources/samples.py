@@ -144,7 +144,11 @@ class SampleOperations(BaseResource):
         """Create a new sample record.
 
         Args:
-            sample (Sample): Sample model instance with the desired fields.
+            sample (Sample): Sample model instance with the desired fields. In
+                addition to owner_orcid, the API also accepts a flexible `owner`
+                field (ORCID, username, email, or service account MFID) - set it
+                as an extra field on the Sample object, e.g. Sample(..., owner='jdoe').
+                Providing both owner and owner_orcid is a 400.
             scientific_metadata (dict, optional): Scientific metadata to attach after creation.
             parents (list, optional): Parent samples to link ({unique_id: ...}).
             children (list, optional): Child samples to link ({unique_id: ...}).
@@ -208,9 +212,11 @@ class SampleOperations(BaseResource):
             sample_type (str, optional): Category of sample (for filtering)
             description (str, optional): Sample description
             timestamp (str, optional): User-defined timestamp
-            owner_orcid (str, optional): Owner's ORCID
+            owner_orcid (str, optional): Deprecated - the API no longer accepts this
+                field here; use client.samples.transfer_ownership() instead.
             public (bool, optional): Whether the sample is publicly visible
-            project_id (str, optional): Project ID
+            project_id (str, optional): Deprecated - the API no longer accepts this
+                field here; use client.samples.reassign_project() instead.
             parents (List[Dict], optional): Parent samples to link
             children (List[Dict], optional): Child samples to link
 
@@ -236,14 +242,24 @@ class SampleOperations(BaseResource):
                 "use 'owner_orcid' instead.",
                 DeprecationWarning, stacklevel=2
             )
+        if owner_orcid is not None:
+            warnings.warn(
+                "Parameter 'owner_orcid' is no longer accepted by PATCH /samples/{id} "
+                "and is ignored; use client.samples.transfer_ownership() instead.",
+                DeprecationWarning, stacklevel=2
+            )
+        if project_id is not None:
+            warnings.warn(
+                "Parameter 'project_id' is no longer accepted by PATCH /samples/{id} "
+                "and is ignored; use client.samples.reassign_project() instead.",
+                DeprecationWarning, stacklevel=2
+            )
 
         sample_info = {
             "sample_name": sample_name,
-            "owner_orcid": owner_orcid,
             "sample_type": sample_type,
             "public": public,
             "description": description,
-            "project_id": project_id,
             "timestamp": timestamp,
         }
 

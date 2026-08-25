@@ -51,6 +51,8 @@ def register_subcommand(subparsers):
     _register_create(sample_subparsers)
     _register_update(sample_subparsers)
     _register_edit(sample_subparsers)
+    _register_reassign_project(sample_subparsers)
+    _register_transfer_ownership(sample_subparsers)
     _register_link(sample_subparsers)
     _register_list_parents(sample_subparsers)
     _register_list_children(sample_subparsers)
@@ -58,6 +60,8 @@ def register_subcommand(subparsers):
     _register_add_dataset(sample_subparsers)
     _register_remove_dataset(sample_subparsers)
     _register_remove_child(sample_subparsers)
+    from ._access import register_access_commands
+    register_access_commands(sample_subparsers, 'samples', id_metavar='SAMPLE_ID')
 
 
 def _register_list(subparsers):
@@ -289,10 +293,12 @@ def _register_update(subparsers):
 Examples:
     crucible sample update SAMPLE_ID --name "Silicon Wafer B"
     crucible sample update SAMPLE_ID --description "Annealed at 900C" --type substrate
-    crucible sample update SAMPLE_ID --project my-project --public
+    crucible sample update SAMPLE_ID --public
     crucible sample update SAMPLE_ID --metadata '{"thickness_nm": 50}'
     crucible sample update SAMPLE_ID --metadata metadata.json --overwrite
     crucible sample update SAMPLE_ID --set session_name=run42
+
+Use `sample reassign-project`/`sample transfer-ownership` to change project or owner.
 """
     )
 
@@ -307,9 +313,7 @@ Examples:
     parser.add_argument('-n', '--name',        dest='sample_name',  metavar='NAME',    default=None, help='Sample name')
     parser.add_argument('-t', '--type',        dest='sample_type',  metavar='TYPE',    default=None, help='Sample type')
     parser.add_argument('--description',       dest='description',  metavar='TEXT',    default=None, help='Sample description')
-    parser.add_argument('--project',           dest='project_id',   metavar='PROJECT', default=None, help='Project ID')
     parser.add_argument('--timestamp',         dest='timestamp',    metavar='DATE',    default=None, help='User-defined timestamp')
-    parser.add_argument('--owner',             dest='owner_orcid',  metavar='ORCID',   default=None, help='Owner ORCID')
 
     parser.add_argument(
         '--set', '-s',
@@ -349,7 +353,7 @@ def _execute_update(args):
     has_public   = getattr(args, 'public', None) is not None
 
     named = {k: getattr(args, k) for k in
-             ('sample_name', 'sample_type', 'description', 'project_id', 'timestamp', 'owner_orcid')
+             ('sample_name', 'sample_type', 'description', 'timestamp')
              if getattr(args, k, None) is not None}
 
     if not has_set and not has_metadata and not has_public and not named:
@@ -402,6 +406,70 @@ def _execute_update(args):
     except Exception as e:
         from .helpers import fail
         fail("updating sample", e, args)
+
+
+def _register_reassign_project(subparsers):
+    """Register the 'sample reassign-project' subcommand."""
+    parser = subparsers.add_parser(
+        'reassign-project',
+        help='Move a sample to a different project',
+        description='Preview or execute a project reassignment (requires --confirm to execute)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible sample reassign-project SAMPLE_ID new-project
+    crucible sample reassign-project SAMPLE_ID new-project --confirm
+"""
+    )
+    parser.add_argument('sample_id', metavar='SAMPLE_ID', help='Sample unique identifier')
+    parser.add_argument('project_id', metavar='PROJECT_ID', help='Target project ID')
+    parser.add_argument('--confirm', action='store_true', help='Execute the move (default: preview only)')
+    parser.set_defaults(func=_execute_reassign_project)
+
+
+def _execute_reassign_project(args):
+    """Execute the 'sample reassign-project' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, show_reassign_project
+
+    try:
+        client = CrucibleClient()
+        result = client.samples.reassign_project(args.sample_id, args.project_id, confirm=args.confirm)
+        show_reassign_project(result, args.confirm)
+    except Exception as e:
+        fail("reassigning sample project", e, args)
+
+
+def _register_transfer_ownership(subparsers):
+    """Register the 'sample transfer-ownership' subcommand."""
+    parser = subparsers.add_parser(
+        'transfer-ownership',
+        help='Transfer ownership of a sample',
+        description='Preview or execute an ownership transfer (requires --confirm to execute)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible sample transfer-ownership SAMPLE_ID newowner@example.com
+    crucible sample transfer-ownership SAMPLE_ID newowner@example.com --confirm
+"""
+    )
+    parser.add_argument('sample_id', metavar='SAMPLE_ID', help='Sample unique identifier')
+    parser.add_argument('new_owner', metavar='NEW_OWNER', help='ORCID, username, or email of the new owner')
+    parser.add_argument('--confirm', action='store_true', help='Execute the transfer (default: preview only)')
+    parser.set_defaults(func=_execute_transfer_ownership)
+
+
+def _execute_transfer_ownership(args):
+    """Execute the 'sample transfer-ownership' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, show_transfer_ownership
+
+    try:
+        client = CrucibleClient()
+        result = client.samples.transfer_ownership(args.sample_id, args.new_owner, confirm=args.confirm)
+        show_transfer_ownership(result, args.confirm)
+    except Exception as e:
+        fail("transferring sample ownership", e, args)
 
 
 def _register_edit(subparsers):

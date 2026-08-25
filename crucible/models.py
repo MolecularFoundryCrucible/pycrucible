@@ -52,6 +52,7 @@ class Dataset(CrucibleResource):
 
 
 class Instrument(CrucibleResource):
+    instrument_id: Optional[str] = None
     instrument_name: Optional[str] = None
     manufacturer: Optional[str] = None
     model: Optional[str] = None
@@ -75,6 +76,7 @@ class Project(BaseModel):
     scientific_metadata: Optional[Dict] = None
     creation_time: Optional[str] = None
     modification_time: Optional[str] = None
+    members: Optional[List['ProjectMember']] = None
 
     model_config = ConfigDict(from_attributes=True, extra='allow')
 
@@ -88,6 +90,45 @@ class User(BaseModel):
     is_service_account: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ProjectMember(User):
+    '''A project member's profile plus their standing role in the project.'''
+
+    role: str
+
+
+class AccessGrant(BaseModel):
+    '''One principal's access to a resource (GET/PUT /resources/{mfid}/access/...).'''
+
+    principal: str
+    kind: str            # user | service_account | project | instrument | public | unknown
+    effective_permission: str
+    display_name: Optional[str] = None
+    group_name: Optional[str] = None
+    group_id: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OwnershipTransfer(BaseModel):
+    '''Result of POST /resources/{mfid}/transfer_ownership.'''
+
+    resource_id: str
+    previous_owner: Optional[User] = None
+    new_owner: User
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectReassignment(BaseModel):
+    '''Result of POST /resources/{mfid}/project.'''
+
+    resource_id: str
+    previous_project_id: Optional[str] = None
+    new_project_id: str
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AssociatedFile(BaseModel):

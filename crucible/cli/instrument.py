@@ -49,6 +49,10 @@ def register_subcommand(subparsers):
     _register_create(instrument_subparsers)
     _register_update(instrument_subparsers)
     _register_edit(instrument_subparsers)
+    _register_bind_sa(instrument_subparsers)
+    _register_unbind_sa(instrument_subparsers)
+    from ._access import register_access_commands
+    register_access_commands(instrument_subparsers, 'instruments', id_metavar='INSTRUMENT_MFID')
 
 
 def _register_list(subparsers):
@@ -130,8 +134,8 @@ Examples:
     crucible instrument create
 
     # Command-line mode
-    crucible instrument create -n "titan" --owner "mf" --location "Building 67"
-    crucible instrument create -n "titan" --owner "mf" --location "Building 67" \\
+    crucible instrument create -n "titan" --instrument-id titan --owner "mf" --location "Building 67"
+    crucible instrument create -n "titan" --instrument-id titan --owner "mf" --location "Building 67" \\
         --manufacturer "FEI" --model "Titan 80-300" --type "TEM"
 """
     )
@@ -141,6 +145,12 @@ Examples:
         dest='instrument_name',
         metavar='NAME',
         help='Instrument name. If not provided, will prompt interactively.'
+    )
+    parser.add_argument(
+        '--instrument-id',
+        dest='instrument_id',
+        metavar='ID',
+        help='Unique instrument slug (required). If not provided, will prompt interactively.'
     )
     parser.add_argument(
         '--owner',
@@ -187,10 +197,11 @@ def _execute_create(args):
     from crucible.client import CrucibleClient
 
     instrument_name = args.instrument_name
+    instrument_id = args.instrument_id
     owner = args.owner
     location = args.location
 
-    interactive = instrument_name is None or owner is None or location is None
+    interactive = instrument_name is None or instrument_id is None or owner is None or location is None
     if interactive:
         term.header("Create Instrument")
         print("")
@@ -201,6 +212,13 @@ def _execute_create(args):
             if instrument_name:
                 break
             logger.error("Instrument name is required.")
+
+    if instrument_id is None:
+        while True:
+            instrument_id = input("Instrument ID (unique slug): ").strip()
+            if instrument_id:
+                break
+            logger.error("Instrument ID is required.")
 
     if owner is None:
         while True:
@@ -250,6 +268,7 @@ def _execute_create(args):
 
         instrument = Instrument(
             instrument_name=instrument_name,
+            instrument_id=instrument_id,
             owner=owner,
             location=location,
             manufacturer=manufacturer,
@@ -431,6 +450,80 @@ def _execute_update(args):
     except Exception as e:
         from .helpers import fail
         fail("updating instrument", e, args)
+
+
+def _register_bind_sa(subparsers):
+    """Register the 'instrument bind-sa' subcommand."""
+    parser = subparsers.add_parser(
+        'bind-sa',
+        help='Bind a service account as an instrument operator',
+        description='Grant a service account operator standing on an instrument',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible instrument bind-sa MFID001 sa-unique-id
+"""
+    )
+    uid_arg = parser.add_argument(
+        'instrument_mfid', metavar='MFID', help='Instrument unique ID (MFID)'
+    )
+    if ARGCOMPLETE_AVAILABLE:
+        uid_arg.completer = argcomplete.completers.SuppressCompleter()
+    parser.add_argument('sa_id', metavar='SA_ID', help='Service account unique ID')
+    parser.set_defaults(func=_execute_bind_sa)
+
+
+def _execute_bind_sa(args):
+    """Execute the 'instrument bind-sa' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, sort_members
+
+    try:
+        client = CrucibleClient()
+        members = sort_members(client.instruments.bind_service_account(args.instrument_mfid, args.sa_id))
+        logger.info(f"✓ Service account {args.sa_id} bound to instrument {args.instrument_mfid}")
+        rows = [(m.username or '-', term.fmt_name(m.model_dump(), default='-', fallback_username=False),
+                 m.unique_id or '-', m.role or '-') for m in members]
+        term.table(rows, ['Username', 'Name', 'ID', 'Role'], max_widths=[20, 25, 30, 12])
+    except Exception as e:
+        fail("binding service account", e, args)
+
+
+def _register_unbind_sa(subparsers):
+    """Register the 'instrument unbind-sa' subcommand."""
+    parser = subparsers.add_parser(
+        'unbind-sa',
+        help='Remove a service account as an instrument operator',
+        description='Revoke a service account operator standing on an instrument',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible instrument unbind-sa MFID001 sa-unique-id
+"""
+    )
+    uid_arg = parser.add_argument(
+        'instrument_mfid', metavar='MFID', help='Instrument unique ID (MFID)'
+    )
+    if ARGCOMPLETE_AVAILABLE:
+        uid_arg.completer = argcomplete.completers.SuppressCompleter()
+    parser.add_argument('sa_id', metavar='SA_ID', help='Service account unique ID')
+    parser.set_defaults(func=_execute_unbind_sa)
+
+
+def _execute_unbind_sa(args):
+    """Execute the 'instrument unbind-sa' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, sort_members
+
+    try:
+        client = CrucibleClient()
+        members = sort_members(client.instruments.unbind_service_account(args.instrument_mfid, args.sa_id))
+        logger.info(f"✓ Service account {args.sa_id} unbound from instrument {args.instrument_mfid}")
+        rows = [(m.username or '-', term.fmt_name(m.model_dump(), default='-', fallback_username=False),
+                 m.unique_id or '-', m.role or '-') for m in members]
+        term.table(rows, ['Username', 'Name', 'ID', 'Role'], max_widths=[20, 25, 30, 12])
+    except Exception as e:
+        fail("unbinding service account", e, args)
 
 
 def _instrument_updatable_fields():

@@ -331,3 +331,45 @@ def cache_resource(shell_state, client, data, rtype, resource_id, **flags):
     shell_state['last_resource'] = {
         'data': data, 'type': rtype, **futures, **flags
     }
+
+
+def show_transfer_ownership(result, confirm: bool) -> None:
+    """Print the preview or outcome of a BaseResource.transfer_ownership() call."""
+    from . import term
+    prev = result.previous_owner
+    prev_name = term.fmt_name(prev.model_dump(), default=prev.unique_id) if prev else '-'
+    new_name = term.fmt_name(result.new_owner.model_dump(), default=result.new_owner.unique_id)
+    if confirm:
+        logger.info(f"✓ Ownership of {result.resource_id} transferred: {prev_name} -> {new_name}")
+    else:
+        logger.info(f"Preview: ownership of {result.resource_id} would transfer from {prev_name} to {new_name}")
+        logger.info("Re-run with --confirm to execute.")
+
+
+_ROLE_RANK = {'owner': 5, 'admin': 4, 'editor': 3, 'contributor': 2, 'viewer': 1}
+
+
+def sort_members(members) -> list:
+    """Sort a list of ProjectMember objects (or user/role dicts) by role rank
+    (owner first, per the VIEWER < CONTRIBUTOR < EDITOR < ADMIN < OWNER
+    hierarchy), then alphabetically by name/username. Unrecognized roles sort last.
+    """
+    from . import term
+
+    def key(m):
+        d = m.model_dump() if hasattr(m, 'model_dump') else m
+        rank = _ROLE_RANK.get((d.get('role') or '').lower(), 0)
+        name = term.fmt_name(d, default='') or ''
+        return (-rank, name.lower())
+
+    return sorted(members, key=key)
+
+
+def show_reassign_project(result, confirm: bool) -> None:
+    """Print the preview or outcome of a BaseResource.reassign_project() call."""
+    prev = result.previous_project_id or '-'
+    if confirm:
+        logger.info(f"✓ {result.resource_id} moved from project '{prev}' to '{result.new_project_id}'")
+    else:
+        logger.info(f"Preview: {result.resource_id} would move from project '{prev}' to '{result.new_project_id}'")
+        logger.info("Re-run with --confirm to execute.")

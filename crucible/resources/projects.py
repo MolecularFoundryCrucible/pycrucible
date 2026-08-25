@@ -10,7 +10,7 @@ import logging
 from typing import Optional, List, Dict, Union
 from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
-from ..models import Project
+from ..models import Project, ProjectMember
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,8 @@ class ProjectOperations(BaseResource):
     Access via: client.projects.get(), client.projects.list(), etc.
     """
 
-    def get(self, project_id: str, include_metadata: bool = False) -> Dict:
+    def get(self, project_id: str, include_metadata: bool = False,
+            include_members: bool = False) -> Dict:
         """Get details of a specific project. Readable by any authenticated user.
 
         The response always includes project_id, organization, status, title.
@@ -40,17 +41,26 @@ class ProjectOperations(BaseResource):
         record (unique_id, username, first_name, last_name — no email).
 
         ``scientific_metadata`` is only ever populated for members/admins —
-        include_metadata is silently ignored for non-members.
+        include_metadata is silently ignored for non-members. Same gating
+        applies to ``members`` (list of {unique_id, username, first_name,
+        last_name, role}) with include_members - non-members always get
+        ``members: None`` regardless of the flag.
 
         Args:
             project_id (str): Unique project identifier
             include_metadata (bool): Whether to include scientific metadata
                                       (members/admins only)
+            include_members (bool): Whether to include the member list
+                                     (members/admins only)
 
         Returns:
             Dict: Project information, with membership-gated fields as described above
         """
-        params = {'include_metadata': True} if include_metadata else {}
+        params = {}
+        if include_metadata:
+            params['include_metadata'] = True
+        if include_members:
+            params['include_members'] = True
         return self._request('get', f'/projects/{project_id}', params=params or None)
 
     def list(self, orcid: Optional[str] = None, include_metadata: bool = False,
@@ -81,7 +91,12 @@ class ProjectOperations(BaseResource):
 
         Args:
             project: A Project model instance or a dict with project_id,
-                     organization, and project_lead_email.
+                     organization, and project_lead_email. Alternatively, pass
+                     a flexible `project_lead` field (ORCID, username, or
+                     email - resolved server-side) instead of the three
+                     explicit `project_lead_orcid`/`project_lead_email`/
+                     `project_lead_username` fields; providing both is a 400,
+                     as is providing neither.
             scientific_metadata (Dict, optional): Scientific metadata to attach after creation.
 
         Returns:
@@ -107,7 +122,7 @@ class ProjectOperations(BaseResource):
         return result
 
     def get_users(self, project_id: str, limit: int = DEFAULT_LIMIT,
-                  offset: int = 0) -> List[Dict]:
+                  offset: int = 0) -> List[ProjectMember]:
         """Get users associated with a project.
 
         **Requires admin permissions.**
@@ -118,24 +133,33 @@ class ProjectOperations(BaseResource):
             offset (int): Starting position in the full result set (default: 0)
 
         Returns:
-            List[Dict]: Project team members (excludes project lead)
+            List[ProjectMember]: Project team members (excludes project lead)
         """
-        return self._paginate(f'/projects/{project_id}/users', {}, limit, offset)
+        raw = self._paginate(f'/projects/{project_id}/users', {}, limit, offset)
+        return [ProjectMember.model_validate(m) for m in raw]
 
-    def update(self, project_id: str, **kwargs) -> Dict:
+    def update(self, proj_id: str, **kwargs) -> Dict:
         """Partially update a project record.
 
         **Requires admin permissions.**
 
+        Leadership changes are not accepted here (422) - use
+        transfer_ownership() instead, which moves owner standing and the
+        denormalized lead pointer atomically.
+
+        Note the identifying parameter is named `proj_id`, not `project_id` -
+        `project_id` is itself now a valid field in `**kwargs` (it renames the
+        project), and the two would collide if both were named the same.
+
         Args:
-            project_id (str): Unique project identifier
-            **kwargs: Fields to update. Accepted: organization, status, title,
-                      project_lead_email, project_lead_orcid.
+            proj_id (str): Unique project identifier
+            **kwargs: Fields to update. Accepted: project_id (renames the
+                      project), organization, status, title.
 
         Returns:
             Dict: Updated project object
         """
-        return self._request('patch', f'/projects/{project_id}', json=kwargs)
+        return self._request('patch', f'/projects/{proj_id}', json=kwargs)
 
     def remove_user(self, project_id: str, orcid: Optional[str] = None,
                     email: Optional[str] = None, username: Optional[str] = None) -> Dict:
@@ -166,10 +190,13 @@ class ProjectOperations(BaseResource):
         return self._request('delete', f'/projects/{project_id}/users/{orcid}')
 
     def add_user(self, orcid: Optional[str] = None, project_id: str = None,
-                email: Optional[str] = None, username: Optional[str] = None) -> List[Dict]:
+                email: Optional[str] = None, username: Optional[str] = None,
+                role: Optional[str] = None) -> List[ProjectMember]:
         """Add a user to a project.
 
-        **Requires admin permissions.**
+        **Requires editor or above in the project.** You may only grant a role
+        at or below your own - an editor can seat a contributor but never an
+        admin. Cannot seat someone as owner (use transfer_ownership() instead).
 
         Provide one of ``orcid``, ``email``, or ``username`` to identify the user.
 
@@ -178,9 +205,10 @@ class ProjectOperations(BaseResource):
             project_id (str): Unique project identifier
             email (str, optional): User's email address
             username (str, optional): User's username
+            role (str, optional): Role to grant (default: contributor)
 
         Returns:
-            List[Dict]: Updated list of project users
+            List[ProjectMember]: Updated list of project users
         """
         if not orcid and not email and not username:
             raise ValueError("provide orcid, email, or username")
@@ -190,8 +218,31 @@ class ProjectOperations(BaseResource):
                 params['email'] = email
             if username:
                 params['username'] = username
+            if role:
+                params['role'] = role
             return self._request('post', f'/projects/{project_id}/users/me', params=params)
-        return self._request('post', f'/projects/{project_id}/users/{orcid}')
+        params = {'role': role} if role else {}
+        raw = self._request('post', f'/projects/{project_id}/users/{orcid}', params=params)
+        return [ProjectMember.model_validate(m) for m in raw]
+
+    def update_user_role(self, project_id: str, orcid: str, role: str) -> List[ProjectMember]:
+        """Change a member's role in a project.
+
+        **Requires editor or above in the project.** The cap binds on both
+        ends: you may not grant a role above your own, nor change a member who
+        already holds one above your own. Cannot touch owner standing at all
+        (use transfer_ownership() instead).
+
+        Args:
+            project_id (str): Unique project identifier
+            orcid (str): User's ORCID identifier
+            role (str): New role to grant
+
+        Returns:
+            List[ProjectMember]: Updated list of project users
+        """
+        raw = self._request('patch', f'/projects/{project_id}/users/{orcid}', params={'role': role})
+        return [ProjectMember.model_validate(m) for m in raw]
 
     def search(self, q: str, limit: int = 20) -> List[Dict]:
         """Fuzzy search across all projects (not just the caller's). Available

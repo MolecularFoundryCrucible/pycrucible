@@ -53,8 +53,12 @@ def register_subcommand(subparsers):
     _register_list_users(project_subparsers)
     _register_add_user(project_subparsers)
     _register_remove_user(project_subparsers)
+    _register_update_user_role(project_subparsers)
+    _register_transfer_ownership(project_subparsers)
     _register_request_join(project_subparsers)
     _register_list_join_requests(project_subparsers)
+    from ._access import register_access_commands
+    register_access_commands(project_subparsers, 'projects', id_metavar='PROJECT_ID')
 
 
 def _register_list(subparsers):
@@ -105,6 +109,13 @@ def _register_get(subparsers):
         action='store_true',
         dest='include_metadata',
         help='Include scientific metadata in output'
+    )
+
+    parser.add_argument(
+        '--members',
+        action='store_true',
+        dest='include_members',
+        help='Include the project member list (members/admins only)'
     )
 
     parser.add_argument(
@@ -226,6 +237,7 @@ Examples:
     crucible project add-user my-project --user 0000-0002-1825-0097
     crucible project add-user my-project --user fabrice
     crucible project add-user my-project --user user@lbl.gov
+    crucible project add-user my-project --user fabrice --role editor
 """
     )
 
@@ -239,6 +251,8 @@ Examples:
 
     parser.add_argument('--user', '-u', metavar='USER', default=None,
                         help='ORCID, username, or email of the user')
+    parser.add_argument('--role', metavar='ROLE', default=None,
+                        help='Role to grant (default: contributor)')
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--orcid',    metavar='ORCID',    help='(deprecated, use --user)')
@@ -259,15 +273,16 @@ def _register_update(subparsers):
 Examples:
     crucible project update my-project --title "New Title"
     crucible project update my-project --status active --organization "Molecular Foundry"
-    crucible project update my-project --lead-orcid 0000-0002-1825-0097
+    crucible project update my-project --project-id new-project-slug
+    crucible project transfer-ownership my-project newlead@example.com --confirm
 """
     )
     parser.add_argument('project_id', metavar='PROJECT_ID', help='Project ID')
     parser.add_argument('--title',        dest='title',               metavar='TITLE',  help='Project title')
     parser.add_argument('--organization', dest='organization',        metavar='ORG',    help='Organization name')
     parser.add_argument('--status',       dest='status',              metavar='STATUS', help='Project status')
-    parser.add_argument('--lead-email',   dest='project_lead_email',  metavar='EMAIL',  help='Project lead email')
-    parser.add_argument('--lead-orcid',   dest='project_lead_orcid',  metavar='ORCID',  help='Project lead ORCID')
+    parser.add_argument('--project-id', '-i', dest='new_project_id',  metavar='ID',
+                        help='Rename the project to a new project ID')
     parser.add_argument('--metadata',     dest='metadata',            metavar='JSON',
                         help='Scientific metadata as JSON string or path to JSON file')
     parser.add_argument('--overwrite',    action='store_true',
@@ -372,15 +387,26 @@ def _show_project(project, include_metadata=False):
         from .helpers import show_scientific_metadata
         show_scientific_metadata(project.get('scientific_metadata'))
 
+    members = project.get('members')
+    if members:
+        from .helpers import sort_members
+        members = sort_members(members)
+        term.header(f"Members ({len(members)})")
+        rows = [(m.get('username') or '-', term.fmt_name(m, default='-', fallback_username=False),
+                 m.get('role') or '-') for m in members]
+        term.table(rows, ['Username', 'Name', 'Role'], max_widths=[20, 25, 12])
+
 
 def _execute_get(args):
     """Execute the 'project get' subcommand."""
     from crucible.client import CrucibleClient
     include_metadata = getattr(args, 'json', False) or getattr(args, 'include_metadata', False) or _config.include_metadata
+    include_members = getattr(args, 'include_members', False)
     try:
         client = CrucibleClient()
         project = client.projects.get(args.project_id,
-                                      include_metadata=include_metadata)
+                                      include_metadata=include_metadata,
+                                      include_members=include_members)
 
         if project is None:
             logger.error(f"Project not found: {args.project_id}")
@@ -489,9 +515,10 @@ def _execute_create(args):
 def _execute_list_users(args):
     """Execute the 'project get-users' subcommand."""
     from crucible.client import CrucibleClient
+    from .helpers import sort_members
     try:
         client = CrucibleClient()
-        users = client.projects.get_users(args.project_id, limit=args.limit)
+        users = sort_members(client.projects.get_users(args.project_id, limit=args.limit))
 
         term.header(f"Users · {args.project_id} ({len(users)})")
         if not users:
@@ -499,12 +526,12 @@ def _execute_list_users(args):
         else:
             rows = []
             for u in users:
-                name     = term.fmt_name(u, default='-', fallback_username=False)
-                username = u.get('username') or '-'
-                orcid    = u.get('unique_id') or '-'
-                email    = u.get('email') or '-'
-                rows.append((username, name, orcid, email))
-            term.table(rows, ['Username', 'Name', 'ORCID', 'Email'], max_widths=[20, 25, 19, 35])
+                name     = term.fmt_name(u.model_dump(), default='-', fallback_username=False)
+                username = u.username or '-'
+                email    = u.email or '-'
+                role     = u.role or '-'
+                rows.append((username, name, email, role))
+            term.table(rows, ['Username', 'Name', 'Email', 'Role'], max_widths=[20, 25, 35, 12])
 
     except Exception as e:
         from .helpers import fail
@@ -544,19 +571,18 @@ def _execute_add_user(args):
     try:
         import requests as _req
         client = CrucibleClient()
+        role = getattr(args, 'role', None)
         users = client.projects.add_user(orcid=orcid, project_id=args.project_id,
-                                         email=email, username=username)
+                                         email=email, username=username, role=role)
 
         name = orcid or username or email
         if isinstance(users, list):
             match = next((u for u in users if
-                          (orcid and (u.get('unique_id')) == orcid) or
-                          (username and u.get('username') == username) or
-                          (email and u.get('email') == email)), None)
+                          (orcid and u.unique_id == orcid) or
+                          (username and u.username == username) or
+                          (email and u.email == email)), None)
             if match:
-                first = match.get('first_name') or ''
-                last  = match.get('last_name') or ''
-                name  = ' '.join(p for p in (first, last) if p) or name
+                name = ' '.join(p for p in (match.first_name or '', match.last_name or '') if p) or name
 
         logger.info(f"\n✓ {name} added to project {args.project_id} successfully!")
 
@@ -584,14 +610,13 @@ def _execute_update(args):
         'title':               args.title,
         'organization':        args.organization,
         'status':              args.status,
-        'project_lead_email':  args.project_lead_email,
-        'project_lead_orcid':  args.project_lead_orcid,
+        'project_id':          args.new_project_id,
     }.items() if v is not None}
 
     has_metadata = bool(getattr(args, 'metadata', None))
 
     if not fields and not has_metadata:
-        logger.error("No fields to update. Provide at least one of: --title, --organization, --status, --lead-email, --lead-orcid, --metadata")
+        logger.error("No fields to update. Provide at least one of: --title, --organization, --status, --project-id, --metadata")
         sys.exit(1)
 
     metadata_dict = None
@@ -605,17 +630,19 @@ def _execute_update(args):
 
     try:
         client = CrucibleClient()
+        current_project_id = args.project_id
 
         if fields:
-            result = client.projects.update(args.project_id, **fields)
+            result = client.projects.update(current_project_id, **fields)
             logger.info("✓ Project updated")
             _show_project(result)
+            current_project_id = result.get('project_id', current_project_id)
 
         if metadata_dict is not None:
             overwrite = getattr(args, 'overwrite', False)
-            client.projects.update_scientific_metadata(args.project_id, metadata_dict, overwrite=overwrite)
+            client.projects.update_scientific_metadata(current_project_id, metadata_dict, overwrite=overwrite)
             action = "replaced" if overwrite else "updated"
-            logger.info(f"✓ Scientific metadata {action} for project {args.project_id}")
+            logger.info(f"✓ Scientific metadata {action} for project {current_project_id}")
 
     except Exception as e:
         from .helpers import fail
@@ -674,6 +701,80 @@ def _execute_remove_user(args):
     except Exception as e:
         from .helpers import fail
         fail("removing user from project", e, args)
+
+
+def _register_update_user_role(subparsers):
+    """Register the 'project update-user-role' subcommand."""
+    parser = subparsers.add_parser(
+        'update-user-role',
+        help="Change a member's role in a project",
+        description='Change a project member\'s role (requires editor or above; cannot grant/change owner)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible project update-user-role my-project 0000-0002-1825-0097 editor
+"""
+    )
+    project_id_arg = parser.add_argument(
+        'project_id', metavar='PROJECT_ID', help='Project ID'
+    )
+    if ARGCOMPLETE_AVAILABLE:
+        project_id_arg.completer = argcomplete.completers.SuppressCompleter()
+    parser.add_argument('orcid', metavar='ORCID', help="Member's ORCID identifier")
+    parser.add_argument('role', metavar='ROLE', help='New role to grant')
+    parser.set_defaults(func=_execute_update_user_role)
+
+
+def _execute_update_user_role(args):
+    """Execute the 'project update-user-role' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, sort_members
+
+    try:
+        client = CrucibleClient()
+        users = sort_members(client.projects.update_user_role(args.project_id, args.orcid, args.role))
+        logger.info(f"✓ {args.orcid} is now '{args.role}' in project '{args.project_id}'")
+        rows = [(u.username or '-', term.fmt_name(u.model_dump(), default='-', fallback_username=False),
+                 u.role or '-') for u in users]
+        term.table(rows, ['Username', 'Name', 'Role'], max_widths=[20, 25, 12])
+    except Exception as e:
+        fail("updating user role", e, args)
+
+
+def _register_transfer_ownership(subparsers):
+    """Register the 'project transfer-ownership' subcommand."""
+    parser = subparsers.add_parser(
+        'transfer-ownership',
+        help='Transfer ownership of a project',
+        description='Preview or execute an ownership transfer (requires --confirm to execute)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible project transfer-ownership my-project newlead@example.com
+    crucible project transfer-ownership my-project newlead@example.com --confirm
+"""
+    )
+    project_id_arg = parser.add_argument(
+        'project_id', metavar='PROJECT_ID', help='Project ID'
+    )
+    if ARGCOMPLETE_AVAILABLE:
+        project_id_arg.completer = argcomplete.completers.SuppressCompleter()
+    parser.add_argument('new_owner', metavar='NEW_OWNER', help='ORCID, username, or email of the new owner')
+    parser.add_argument('--confirm', action='store_true', help='Execute the transfer (default: preview only)')
+    parser.set_defaults(func=_execute_transfer_ownership)
+
+
+def _execute_transfer_ownership(args):
+    """Execute the 'project transfer-ownership' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, show_transfer_ownership
+
+    try:
+        client = CrucibleClient()
+        result = client.projects.transfer_ownership(args.project_id, args.new_owner, confirm=args.confirm)
+        show_transfer_ownership(result, args.confirm)
+    except Exception as e:
+        fail("transferring project ownership", e, args)
 
 
 def _register_request_join(subparsers):

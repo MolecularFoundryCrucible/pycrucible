@@ -176,3 +176,116 @@ class BaseResource:
         """
         params = {"group_name": group_name, "read": read, "write": write}
         return self._request('post', f'/resources/{mfid}/access_groups', params=params)
+
+
+#%% permission (ACL) methods
+
+    def list_access(self, mfid: str) -> List['AccessGrant']:
+        """List every principal with access to a resource.
+
+        **Requires admin permissions.**
+
+        Args:
+            mfid (str): Resource unique identifier
+
+        Returns:
+            List[AccessGrant]: One entry per principal (user, service account,
+                project, instrument, or public) holding a grant on the resource.
+        """
+        from ..models import AccessGrant
+        raw = self._request('get', f'/resources/{mfid}/access')
+        return [AccessGrant.model_validate(g) for g in raw]
+
+    def set_access(self, mfid: str, kind: str, principal: str, permission: str) -> 'AccessGrant':
+        """Grant (or change) a principal's access to a resource.
+
+        **Requires admin permissions.**
+
+        Args:
+            mfid (str): Resource unique identifier
+            kind (str): 'users' or 'projects'
+            principal (str): ORCID (kind='users') or project_id (kind='projects')
+            permission (str): Role to grant (e.g. 'viewer', 'contributor', 'editor', 'admin')
+
+        Returns:
+            AccessGrant: The resulting grant
+        """
+        from ..models import AccessGrant
+        raw = self._request('put', f'/resources/{mfid}/access/{kind}/{principal}',
+                            json={'effective_permission': permission})
+        return AccessGrant.model_validate(raw)
+
+    def revoke_access(self, mfid: str, kind: str, principal: str) -> None:
+        """Revoke a principal's access to a resource.
+
+        **Requires admin permissions.**
+
+        Args:
+            mfid (str): Resource unique identifier
+            kind (str): 'users' or 'projects'
+            principal (str): ORCID (kind='users') or project_id (kind='projects')
+        """
+        self._request('delete', f'/resources/{mfid}/access/{kind}/{principal}')
+
+    def set_public(self, mfid: str) -> Dict:
+        """Make a resource publicly readable.
+
+        Standing in the public group is always viewer - there is no
+        permission level to choose.
+
+        **Requires admin permissions.**
+
+        Args:
+            mfid (str): Resource unique identifier
+        """
+        return self._request('put', f'/resources/{mfid}/access/public')
+
+    def unset_public(self, mfid: str) -> None:
+        """Withdraw a resource's public access.
+
+        **Requires admin permissions.**
+
+        Args:
+            mfid (str): Resource unique identifier
+        """
+        self._request('delete', f'/resources/{mfid}/access/public')
+
+    def transfer_ownership(self, mfid: str, new_owner: str, confirm: bool = False) -> 'OwnershipTransfer':
+        """Transfer ownership of a resource to another user.
+
+        Without confirm=True, previews the transfer without applying it.
+
+        **Requires admin permissions.**
+
+        Args:
+            mfid (str): Resource unique identifier
+            new_owner (str): ORCID, username, email, or (for a service account) MFID
+            confirm (bool): If True, apply the transfer; if False, preview only
+
+        Returns:
+            OwnershipTransfer: Previous and new owner
+        """
+        from ..models import OwnershipTransfer
+        raw = self._request('post', f'/resources/{mfid}/transfer_ownership',
+                            params={'confirm': confirm}, json={'new_owner': new_owner})
+        return OwnershipTransfer.model_validate(raw)
+
+    def reassign_project(self, mfid: str, project_id: str, confirm: bool = False) -> 'ProjectReassignment':
+        """Move a resource to a different project.
+
+        Without confirm=True, previews the reassignment without applying it.
+
+        **Requires admin permissions.**
+
+        Args:
+            mfid (str): Resource unique identifier
+            project_id (str): Destination project ID
+            confirm (bool): If True, apply the reassignment; if False, preview only
+
+        Returns:
+            ProjectReassignment: Previous and new project ID
+        """
+        from ..models import ProjectReassignment
+        raw = self._request('post', f'/resources/{mfid}/project',
+                            params={'confirm': confirm}, json={'project_id': project_id})
+        return ProjectReassignment.model_validate(raw)

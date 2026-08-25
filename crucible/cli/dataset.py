@@ -236,6 +236,8 @@ def register_subcommand(subparsers):
     _register_get(dataset_subparsers)
     _register_create(dataset_subparsers)
     _register_update(dataset_subparsers)
+    _register_reassign_project(dataset_subparsers)
+    _register_transfer_ownership(dataset_subparsers)
     _register_delete(dataset_subparsers)
     _register_edit(dataset_subparsers)
     _register_link(dataset_subparsers)
@@ -255,6 +257,8 @@ def register_subcommand(subparsers):
     _register_list_keywords(dataset_subparsers)
     _register_list_access_groups(dataset_subparsers)
     _register_add_access_group(dataset_subparsers)
+    from ._access import register_access_commands
+    register_access_commands(dataset_subparsers, 'datasets', id_metavar='DATASET_ID')
     _register_parsers(dataset_subparsers)
     _register_ingestors(dataset_subparsers)
 
@@ -743,6 +747,70 @@ def _execute_update(args):
     except Exception as e:
         from .helpers import fail
         fail("updating dataset", e, args)
+
+
+def _register_reassign_project(subparsers):
+    """Register the 'dataset reassign-project' subcommand."""
+    parser = subparsers.add_parser(
+        'reassign-project',
+        help='Move a dataset to a different project',
+        description='Preview or execute a project reassignment (requires --confirm to execute)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible dataset reassign-project DATASET_ID new-project
+    crucible dataset reassign-project DATASET_ID new-project --confirm
+"""
+    )
+    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('project_id', metavar='PROJECT_ID', help='Target project ID')
+    parser.add_argument('--confirm', action='store_true', help='Execute the move (default: preview only)')
+    parser.set_defaults(func=_execute_reassign_project)
+
+
+def _execute_reassign_project(args):
+    """Execute the 'dataset reassign-project' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, show_reassign_project
+
+    try:
+        client = CrucibleClient()
+        result = client.datasets.reassign_project(args.dataset_id, args.project_id, confirm=args.confirm)
+        show_reassign_project(result, args.confirm)
+    except Exception as e:
+        fail("reassigning dataset project", e, args)
+
+
+def _register_transfer_ownership(subparsers):
+    """Register the 'dataset transfer-ownership' subcommand."""
+    parser = subparsers.add_parser(
+        'transfer-ownership',
+        help='Transfer ownership of a dataset',
+        description='Preview or execute an ownership transfer (requires --confirm to execute)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible dataset transfer-ownership DATASET_ID newowner@example.com
+    crucible dataset transfer-ownership DATASET_ID newowner@example.com --confirm
+"""
+    )
+    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('new_owner', metavar='NEW_OWNER', help='ORCID, username, or email of the new owner')
+    parser.add_argument('--confirm', action='store_true', help='Execute the transfer (default: preview only)')
+    parser.set_defaults(func=_execute_transfer_ownership)
+
+
+def _execute_transfer_ownership(args):
+    """Execute the 'dataset transfer-ownership' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, show_transfer_ownership
+
+    try:
+        client = CrucibleClient()
+        result = client.datasets.transfer_ownership(args.dataset_id, args.new_owner, confirm=args.confirm)
+        show_transfer_ownership(result, args.confirm)
+    except Exception as e:
+        fail("transferring dataset ownership", e, args)
 
 
 def _register_delete(subparsers):

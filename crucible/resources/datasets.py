@@ -138,7 +138,11 @@ class DatasetOperations(BaseResource):
         """Create a new dataset record with scientific metadata and keywords.
 
         Args:
-            dataset (Dataset): Dataset object with dataset details
+            dataset (Dataset): Dataset object with dataset details. In addition to
+                owner_orcid, the API also accepts a flexible `owner` field (ORCID,
+                username, email, or service account MFID) - set it as an extra
+                field on the Dataset object, e.g. Dataset(..., owner='jdoe').
+                Providing both owner and owner_orcid is a 400.
             scientific_metadata (dict, optional): Scientific metadata
             keywords (list, optional): Keywords to associate with dataset
             files (list, optional): Files to attach. Each item is either a local
@@ -226,6 +230,9 @@ class DatasetOperations(BaseResource):
 
     def update(self, dsid: str, **updates) -> Dict:
         """Update an existing dataset with new field values.
+
+        'owner_orcid' and 'project_id' are no longer accepted here (422) -
+        use transfer_ownership() / reassign_project() instead.
 
         Args:
             dsid (str): Dataset unique identifier

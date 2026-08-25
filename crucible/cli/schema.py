@@ -30,7 +30,7 @@ DATASET_FIELDS: List[FieldDef] = [
     FieldDef('data_type',                  'Data Type',     editable=True,  verbose=False),
     FieldDef('session_name',               'Session',       editable=True,  verbose=False),
     FieldDef('instrument_name',            'Instrument',    editable=True,  verbose=False),
-    FieldDef('project_id',                 'Project',       editable=True,  verbose=False),
+    FieldDef('project_id',                 'Project',       editable=False, verbose=False),
     FieldDef('timestamp',                  'Timestamp',     editable=True,  verbose=False),
     FieldDef('description',                'Description',   editable=True,  verbose=False),
     FieldDef('public',                     'Public',        editable=True,  verbose=True),
@@ -46,7 +46,7 @@ SAMPLE_FIELDS: List[FieldDef] = [
     FieldDef('unique_id',                  'MFID',          editable=False, verbose=False),
     FieldDef('sample_type',                'Type',          editable=True,  verbose=False),
     FieldDef('public',                     'Public',        editable=True,  verbose=False),
-    FieldDef('project_id',                 'Project',       editable=True,  verbose=False),
+    FieldDef('project_id',                 'Project',       editable=False, verbose=False),
     FieldDef('timestamp',                  'Timestamp',     editable=True,  verbose=False),
     FieldDef('description',                'Description',   editable=True,  verbose=False),
     FieldDef('owner_orcid',                'Owner ORCID',   editable=False, verbose=True),
@@ -57,6 +57,7 @@ SAMPLE_FIELDS: List[FieldDef] = [
 INSTRUMENT_FIELDS: List[FieldDef] = [
     FieldDef('instrument_name',            'Name',          editable=True,  verbose=False),
     FieldDef('unique_id',                  'MFID',          editable=False, verbose=False),
+    FieldDef('instrument_id',              'Instrument ID', editable=True,  verbose=False),
     FieldDef('instrument_type',            'Type',          editable=True,  verbose=False),
     FieldDef('manufacturer',               'Manufacturer',  editable=True,  verbose=False),
     FieldDef('model',                      'Model',         editable=True,  verbose=False),
@@ -70,12 +71,12 @@ INSTRUMENT_FIELDS: List[FieldDef] = [
 ]
 
 PROJECT_FIELDS: List[FieldDef] = [
-    FieldDef('project_id',                 'ID',            editable=False, verbose=False),
+    FieldDef('project_id',                 'ID',            editable=True,  verbose=False),
     FieldDef('title',                      'Title',         editable=True,  verbose=False),
     FieldDef('organization',               'Organization',  editable=True,  verbose=False),
     FieldDef('status',                     'Status',        editable=True,  verbose=False),
-    FieldDef('project_lead_email',         'Lead Email',    editable=True,  verbose=False),
-    FieldDef('project_lead_orcid',         'Lead ORCID',    editable=True,  verbose=True),
+    FieldDef('project_lead_email',         'Lead Email',    editable=False, verbose=False),
+    FieldDef('project_lead_orcid',         'Lead ORCID',    editable=False, verbose=True),
     FieldDef('creation_time',              'Created',       editable=False, verbose=True),
     FieldDef('modification_time',          'Modified',      editable=False, verbose=True),
 ]

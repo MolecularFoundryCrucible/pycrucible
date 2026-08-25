@@ -13,6 +13,14 @@
 - Shell autocomplete for `instrument get` and `--project`/`-pid` flags.
 - Shell autocomplete for dataset/sample IDs across most subcommands.
 - Shell autocomplete for `user search` shows live matches while typing.
+- New `dataset`/`sample`/`project reassign-project` and `transfer-ownership` commands.
+- New `dataset`/`sample`/`instrument`/`project access list`/`grant`/`revoke` and `publish`/`unpublish` commands.
+- New `instrument bind-sa`/`unbind-sa` commands to grant/revoke a service account operator standing.
+- New `project update-user-role` command and `add-user --role` flag.
+- `project list-users` now shows each member's role.
+- `instrument create` requires a new `--instrument-id` flag (a unique slug, separate from its ID and name).
+- `project get --members` shows the project's member list and roles.
+- `project create`/`client.projects.create()` accept a flexible `project_lead` field as an alternative to the explicit ORCID/email/username fields.
 
 ### Changed
 
@@ -24,6 +32,10 @@
 - `ag approve`/`ag reject` accept multiple request IDs.
 - Shell username autocomplete now works for non-admins and completes to username.
 - Broken third-party parsers now log a warning instead of silently disappearing.
+- `project update` no longer accepts `--lead-email`/`--lead-orcid`; use `project transfer-ownership` instead.
+- `project update --project-id` now renames the project.
+- `sample update` no longer accepts `--project`/`--owner`; use `sample reassign-project`/`transfer-ownership` instead.
+- `dataset update`/`sample update --set` no longer accept `project_id`/`owner_orcid`; use the new reassign/transfer commands instead.
 
 ### Fixed
 
