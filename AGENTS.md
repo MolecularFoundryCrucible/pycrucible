@@ -87,4 +87,4 @@ When changing a public signature, consider deprecation compatibility and update 
 
 ## Git safety
 
-The shared development branch is `dev`; the release branch is `main`. Do not switch branches, commit, push, publish, or modify companion repositories unless the user explicitly asks. Preserve unrelated working-tree changes, including local agent settings and installed skills.
+The shared development branch is `dev`; the release branch is `main`. Prefer creating a focused commit after finishing and verifying each coherent subtask so the working history records stable checkpoints. Before committing, review the diff, exclude unrelated working-tree changes, and use a concise message describing that subtask. Do not switch branches, push, publish, or modify companion repositories unless the user explicitly asks. If the user asks to leave changes uncommitted, follow that instruction. Preserve unrelated working-tree changes, including local agent settings and installed skills.
