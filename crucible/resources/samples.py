@@ -9,12 +9,13 @@ Provides organized access to sample-related API endpoints.
 import logging
 from typing import Optional, List, Dict
 from .base import BaseResource
+from .capabilities import AccessControlMixin, OwnershipMixin, ProjectAssignmentMixin
 from ..constants import DEFAULT_LIMIT, API_PAGE_MAX
 
 logger = logging.getLogger(__name__)
 
 
-class SampleOperations(BaseResource):
+class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixin, BaseResource):
     """Sample-related API operations.
 
     Access via: client.samples.get(), client.samples.list(), etc.
@@ -180,6 +181,9 @@ class SampleOperations(BaseResource):
                 raise ValueError("Pass a Sample model: samples.create(Sample(...))")
 
         sample_info = {k: v for k, v in sample.model_dump().items() if v is not None}
+
+        if sample_info.get('owner') is not None and sample_info.get('owner_orcid') is not None:
+            raise ValueError("Pass either 'owner' or 'owner_orcid', not both.")
 
         new_samp = self._request('post', "/samples", json=sample_info)
         sid = new_samp['unique_id']

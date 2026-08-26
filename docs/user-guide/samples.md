@@ -4,11 +4,12 @@
 |---|---|---|
 | `sample_name` | Human-readable name for the sample | create, update |
 | `sample_type` | Category or type of sample (used for filtering) | create, update |
-| `project_id` | Project this sample belongs to | create, update |
+| `project_id` | Project this sample belongs to | create; later changes use `reassign_project()` |
 | `description` | Free-text description of the sample | create, update |
 | `timestamp` | Date associated with the sample (ISO 8601 format) | create, update |
 | `public` | Whether the sample is publicly accessible (default: `False`) | create, update |
-| `owner_orcid` | Sample owner — defaults to the authenticated user | create, update |
+| `owner_orcid` | Sample owner ORCID; defaults to the authenticated user | create only; later changes use `transfer_ownership()` |
+| `owner` | Flexible owner identifier or resolved owner record | create only as an ORCID, username, email, or service-account MFID |
 | `unique_id` | System-assigned MFID identifier | server-assigned |
 | `creation_time` | When the record was created | server-assigned |
 | `modification_time` | When the record was last modified | server-assigned |
@@ -25,15 +26,19 @@
 
 ## Creating a sample
 ```python
+from crucible.models import Sample
+
 sample = client.samples.create(
-    sample_name="Au nanoparticles batch 7",
-    sample_type="nanoparticle suspension",
-    project_id="my-project",
-    description="5 nm Au NPs in citrate buffer, synthesized by Turkevich method",
-    timestamp="2024-03-10",
+    Sample(
+        sample_name="Au nanoparticles batch 7",
+        sample_type="nanoparticle suspension",
+        project_id="my-project",
+        description="5 nm Au NPs in citrate buffer, synthesized by Turkevich method",
+        timestamp="2024-03-10",
+    )
 )
 
-smid = sample["smid"]
+smid = sample["unique_id"]
 ```
 
 ## Retrieving a sample
@@ -58,9 +63,28 @@ samples = client.samples.list(dataset_id="ds-xyz789")
 ```python
 client.samples.update(
     "sm-abc123",
-    description="5 nm Au NPs — annealed at 200°C for 2h after synthesis",
+    description="5 nm Au NPs, annealed at 200 C for 2h after synthesis",
 )
 ```
+
+Project and ownership changes use preview-first workflows:
+
+```python
+project_preview = client.samples.reassign_project("sm-abc123", "new-project")
+client.samples.reassign_project("sm-abc123", "new-project", confirm=True)
+owner_preview = client.samples.transfer_ownership("sm-abc123", "new-owner@example.org")
+client.samples.transfer_ownership("sm-abc123", "new-owner@example.org", confirm=True)
+```
+
+## Managing access
+
+```python
+grants = client.samples.list_access("sm-abc123")
+client.samples.set_access("sm-abc123", "users", "0000-0002-1825-0097", "viewer")
+client.samples.set_public("sm-abc123")
+```
+
+Normal access grants accept `viewer`, `contributor`, `editor`, or `admin`. Use `transfer_ownership()` for ownership.
 
 ## Sample hierarchies
 
@@ -71,14 +95,16 @@ Samples can form parent-child trees to represent provenance. Use `link()` to con
 client.samples.link(parent_id=boule_smid, child_id=wafer_smid)
 ```
 
-You can also pass `parent_id` or `child_id` at creation time:
+You can also pass `parents` or `children` lists at creation time:
 
 ```python
 thin_film = client.samples.create(
-    sample_name="TiO2 thin film on Si",
-    sample_type="thin film",
-    project_id="my-project",
-    parent_id=wafer_smid,  # automatically links to wafer on creation
+    Sample(
+        sample_name="TiO2 thin film on Si",
+        sample_type="thin film",
+        project_id="my-project",
+    ),
+    parents=[{"unique_id": wafer_smid}],
 )
 ```
 

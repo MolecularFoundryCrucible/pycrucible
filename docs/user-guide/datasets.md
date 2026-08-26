@@ -3,15 +3,17 @@
 | Field | Description | Settable |
 |---|---|---|
 | `dataset_name` | Human-readable name for the dataset | create, update |
-| `project_id` | Project this dataset belongs to | create, update |
+| `project_id` | Project this dataset belongs to | create; later changes use `reassign_project()` |
 | `measurement` | Industry-standard experiment type (e.g. `"Raman Spectroscopy"`) | create, update |
 | `data_type` | Institution-specific data organization descriptor (e.g. `"ScopeFoundry H5 file"`) | create, update |
 | `instrument_name` | Name of the instrument as registered in Crucible | create, update |
+| `instrument_id` | Instrument identifier | create, update |
 | `data_format` | File type or extension (e.g. `"h5"`, `"dat"`) | create, update |
 | `session_name` | Optional tag grouping datasets collected in the same session | create, update |
 | `timestamp` | When the data was collected (ISO 8601 format) | create, update |
 | `public` | Whether the dataset is publicly accessible (default: `False`) | create, update |
-| `owner_orcid` | Dataset owner — defaults to the authenticated user | create, update |
+| `owner_orcid` | Dataset owner ORCID; defaults to the authenticated user | create only; later changes use `transfer_ownership()` |
+| `owner` | Flexible owner identifier or resolved owner record | create only as an ORCID, username, email, or service-account MFID |
 | `unique_id` | System-assigned MFID identifier | server-assigned |
 | `size` | Total file size in bytes | server-assigned |
 | `creation_time` | When the record was created | server-assigned |
@@ -84,7 +86,7 @@ datasets = client.datasets.list(project_id="my-project", limit=50)
 datasets = client.datasets.list(project_id="my-project", measurement="SEM imaging")
 
 # Filter by keyword
-datasets = client.datasets.list(project_id="my-project", keywords=["gold"])
+datasets = client.datasets.list(project_id="my-project", keyword="gold")
 
 # Datasets linked to a specific sample
 datasets = client.datasets.list(sample_id="sm-xyz789")
@@ -99,6 +101,28 @@ client.datasets.update(
     measurement="Powder X-ray diffraction",
 )
 ```
+
+Project and ownership changes use preview-first workflows. Pass `confirm=True` only after reviewing the preview:
+
+```python
+project_preview = client.datasets.reassign_project("ds-abc123", "new-project")
+client.datasets.reassign_project("ds-abc123", "new-project", confirm=True)
+
+owner_preview = client.datasets.transfer_ownership("ds-abc123", "new-owner@example.org")
+client.datasets.transfer_ownership("ds-abc123", "new-owner@example.org", confirm=True)
+```
+
+## Managing access
+
+```python
+grants = client.datasets.list_access("ds-abc123")
+client.datasets.set_access("ds-abc123", "users", "0000-0002-1825-0097", "editor")
+client.datasets.revoke_access("ds-abc123", "users", "0000-0002-1825-0097")
+client.datasets.set_public("ds-abc123")
+client.datasets.unset_public("ds-abc123")
+```
+
+Normal access grants accept `viewer`, `contributor`, `editor`, or `admin`. Use `transfer_ownership()` for ownership.
 
 ## Adding files to a dataset
 
@@ -236,11 +260,11 @@ parents = client.datasets.list_parents("ds-processed")
 children = client.datasets.list_children("ds-raw")
 ```
 
-## Deleting a dataset
+## Requesting dataset deletion
 
 ```python
-client.datasets.delete("ds-abc123")
+client.deletions.request("ds-abc123", reason="Superseded dataset")
 ```
 
 !!! note
-    Calling `delete()` submits a deletion request — it does not immediately remove the resource. An admin must approve the request before the dataset is deleted.
+    A deletion request does not immediately remove the resource. An admin must approve it before permanent deletion.

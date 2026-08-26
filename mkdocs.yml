@@ -90,4 +90,6 @@ nav:
     - Ingestion: api-reference/ingestion.md
     - Graphs: api-reference/graphs.md
     - Models: api-reference/models.md
+  - Development:
+    - Permission Alignment: development/permission-alignment.md
   - Changelog: changelog.md

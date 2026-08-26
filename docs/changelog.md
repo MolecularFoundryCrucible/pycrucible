@@ -16,8 +16,7 @@
 - Shell autocomplete for dataset/sample IDs across most subcommands.
 - Shell autocomplete for `user search` shows live matches while typing.
 - New `dataset`/`sample`/`project reassign-project` and `transfer-ownership` commands.
-- New `dataset`/`sample`/`instrument`/`project access list`/`grant`/`revoke` and `publish`/`unpublish` commands.
-- New `instrument bind-sa`/`unbind-sa` commands to grant/revoke a service account operator standing.
+- New `dataset`/`sample`/`project access list`/`grant`/`revoke` and `publish`/`unpublish` commands.
 - New `project update-user-role` command and `add-user --role` flag.
 - `project list-users` now shows each member's role.
 - `instrument create` requires a new `--instrument-id` flag (a unique slug, separate from its ID and name).
@@ -40,6 +39,10 @@
 - `project update --project-id` now renames the project.
 - `sample update` no longer accepts `--project`/`--owner`; use `sample reassign-project`/`transfer-ownership` instead.
 - `dataset update`/`sample update --set` no longer accept `project_id`/`owner_orcid`; use the new reassign/transfer commands instead.
+- Generic access grants accept roles up to `admin`; ownership changes use `transfer-ownership`.
+- Dataset update fields now match the API schema: `instrument_id` and `data_format` are editable, while the unsupported `description` field is removed.
+- Dataset, sample, and project operations expose only the access-control, ownership, and project-assignment capabilities supported by their API contracts.
+- Project member add, role-update, and removal methods consistently return `list[ProjectMember]`.
 
 ### Fixed
 

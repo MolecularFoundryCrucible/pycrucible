@@ -5,7 +5,7 @@ Pydantic models for Crucible API request and response objects.
 """
 
 from pydantic import BaseModel, ConfigDict
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 #%% Base model
 
@@ -28,6 +28,7 @@ class Sample(CrucibleResource):
     sample_name: Optional[str] = None
     sample_type: Optional[str] = None
     owner_orcid: Optional[str] = None
+    owner: Optional[Union[str, Dict]] = None
     project_id: Optional[str] = None
     description: Optional[str] = None
     timestamp: Optional[str] = None
@@ -39,8 +40,10 @@ class Sample(CrucibleResource):
 class Dataset(CrucibleResource):
     dataset_name: Optional[str] = None
     owner_orcid: Optional[str] = None
+    owner: Optional[Union[str, Dict]] = None
     project_id: Optional[str] = None
     instrument_name: Optional[str] = None
+    instrument_id: Optional[str] = None
     measurement: Optional[str] = None
     data_type: Optional[str] = None
     session_name: Optional[str] = None
@@ -62,12 +65,15 @@ class Instrument(CrucibleResource):
     instrument_type: Optional[str] = None
     other_id: Optional[str] = None
     other_id_source: Optional[str] = None
+    status: Optional[str] = None
 
 
 class Project(BaseModel):
     project_id: str
     organization: str
+    unique_id: Optional[str] = None
     lead: Optional[Dict] = None
+    project_lead: Optional[str] = None
     project_lead_orcid: Optional[str] = None
     project_lead_email: Optional[str] = None
     project_lead_username: Optional[str] = None
@@ -217,4 +223,3 @@ class DeletionAuditLog(BaseModel):
     deleted_at: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
-

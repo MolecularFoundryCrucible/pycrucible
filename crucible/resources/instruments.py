@@ -9,12 +9,13 @@ Provides organized access to instrument-related API endpoints.
 import logging
 from typing import Optional, List, Dict
 from .base import BaseResource
+from .capabilities import AccessControlMixin
 from ..constants import DEFAULT_LIMIT
 
 logger = logging.getLogger(__name__)
 
 
-class InstrumentOperations(BaseResource):
+class InstrumentOperations(AccessControlMixin, BaseResource):
     """Instrument-related API operations.
 
     Access via: client.instruments.get(), client.instruments.list(), etc.

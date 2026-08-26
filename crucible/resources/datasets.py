@@ -18,6 +18,7 @@ import mfid
 
 # internal modules
 from .base import BaseResource
+from .capabilities import AccessControlMixin, OwnershipMixin, ProjectAssignmentMixin
 from ..constants import DEFAULT_LIMIT
 from ..utils.deprecation import _deprecated
 from ..models import AssociatedFile
@@ -29,7 +30,7 @@ from .gcs.upload import upload_file_gcs
 logger = logging.getLogger(__name__)
 
 
-class DatasetOperations(BaseResource):
+class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixin, BaseResource):
     """Dataset-related API operations.
 
     Access via: client.datasets.get(), client.datasets.list(), etc.
@@ -183,6 +184,9 @@ class DatasetOperations(BaseResource):
             files = []
 
         dataset_details = dataset.model_dump()
+
+        if dataset_details.get('owner') is not None and dataset_details.get('owner_orcid') is not None:
+            raise ValueError("Pass either 'owner' or 'owner_orcid', not both.")
 
         if not dataset_details.get('unique_id'):
             dataset_details['unique_id'] = mfid.mfid()[0]

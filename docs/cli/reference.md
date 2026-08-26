@@ -54,7 +54,7 @@ crucible dataset create -i data.csv -pid my-project \
     --metadata '{"temperature_K": 300}' --keywords "XRD,powder"
 ```
 
-Fields normally updated through `dataset update --set` include `dataset_name`, `measurement`, `data_type`, `session_name`, `instrument_name`, `timestamp`, `description`, and `public`. Use `reassign-project` and `transfer-ownership` for project and owner changes.
+Fields normally updated through `dataset update --set` include `dataset_name`, `measurement`, `data_type`, `session_name`, `instrument_name`, `instrument_id`, `data_format`, `timestamp`, and `public`. Use `reassign-project` and `transfer-ownership` for project and owner changes.
 
 ## Sample commands
 
@@ -104,6 +104,8 @@ Fields normally updated through `sample update` include `sample_name`, `sample_t
 | `project publish ID` | Make a project publicly viewable |
 | `project unpublish ID` | Remove public access from a project |
 
+The `access grant` commands accept `viewer`, `contributor`, `editor`, or `admin`. Use the resource's `transfer-ownership` command to change ownership.
+
 ## Instrument commands
 
 | Command | Description |
@@ -115,11 +117,6 @@ Fields normally updated through `sample update` include `sample_name`, `sample_t
 | `instrument edit ID` | Edit instrument fields interactively |
 | `instrument search QUERY` | Search names, types, and manufacturers |
 | `instrument search-metadata QUERY` | Search scientific metadata; `search-md` is an alias |
-| `instrument bind-sa ID SERVICE_ACCOUNT` | Bind a service account as an instrument operator |
-| `instrument unbind-sa ID SERVICE_ACCOUNT` | Remove an instrument operator binding |
-| `instrument access ...` | List, grant, or revoke direct access entries |
-| `instrument publish ID` | Make an instrument publicly viewable |
-| `instrument unpublish ID` | Remove public access from an instrument |
 
 ## User commands
 

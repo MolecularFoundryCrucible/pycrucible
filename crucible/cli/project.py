@@ -142,7 +142,7 @@ Examples:
 
     # Command-line mode
     crucible project create --project-id my-project -o "LBNL" -e "lead@lbl.gov"
-    crucible project create --project-id my-project -o "LBNL" -e "0000-0002-1825-0097"
+    crucible project create --project-id my-project -o "LBNL" -e "lead-username"
     crucible project create --project-id my-project -o "LBNL" -e "lead@lbl.gov" \\
         --title "Silicon Wafer Study"
 """
@@ -168,9 +168,9 @@ Examples:
         '-e', '--lead',
         required=False,
         default=None,
-        metavar='EMAIL_OR_ORCID',
-        dest='project_lead_email',
-        help='Project lead email or ORCID. If not provided, will prompt interactively.'
+        metavar='USER',
+        dest='project_lead',
+        help='Project lead ORCID, username, or email. If not provided, will prompt interactively.'
     )
 
     parser.add_argument(
@@ -430,11 +430,11 @@ def _execute_create(args):
     # Interactive mode if any required arguments are missing
     project_id = args.project_id
     organization = args.organization
-    project_lead_email = args.project_lead_email
+    project_lead = args.project_lead
     title = args.title
     status = args.status
 
-    interactive = project_id is None or organization is None or project_lead_email is None
+    interactive = project_id is None or organization is None or project_lead is None
     if interactive:
         term.header("Create Project")
         print("")
@@ -460,11 +460,11 @@ def _execute_create(args):
             else:
                 logger.error("Organization is required.")
 
-    # Prompt for project lead (email or ORCID)
-    if project_lead_email is None:
+    # Prompt for project lead
+    if project_lead is None:
         while True:
-            project_lead_email = input("Project lead email or ORCID: ").strip()
-            if project_lead_email:
+            project_lead = input("Project lead ORCID, username, or email: ").strip()
+            if project_lead:
                 break
             else:
                 logger.error("Project lead is required.")
@@ -492,13 +492,10 @@ def _execute_create(args):
         from crucible.models import Project
         client = CrucibleClient()
 
-        # Route to the right field based on format.
-        is_orcid = bool(re.match(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$', project_lead_email))
         project = Project(
             project_id=project_id,
             organization=organization,
-            project_lead_orcid=project_lead_email if is_orcid else None,
-            project_lead_email=None if is_orcid else project_lead_email,
+            project_lead=project_lead,
             title=title,
             status=status,
         )

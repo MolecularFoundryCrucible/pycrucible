@@ -9,6 +9,7 @@ Provides organized access to project-related API endpoints.
 import logging
 from typing import Optional, List, Dict, Union
 from .base import BaseResource
+from .capabilities import AccessControlMixin, OwnershipMixin
 from ..constants import DEFAULT_LIMIT
 from ..models import Project, ProjectMember
 
@@ -24,7 +25,7 @@ def _build_project_from_args(project_id, organization, project_lead_orcid):
     }
 
 
-class ProjectOperations(BaseResource):
+class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
     """Project-related API operations.
 
     Access via: client.projects.get(), client.projects.list(), etc.
@@ -116,6 +117,21 @@ class ProjectOperations(BaseResource):
         else:
             project_details = dict(project)
 
+        flexible_lead = project_details.get('project_lead')
+        explicit_leads = [
+            project_details.get('project_lead_orcid'),
+            project_details.get('project_lead_email'),
+            project_details.get('project_lead_username'),
+        ]
+        if flexible_lead and any(explicit_leads):
+            raise ValueError(
+                "Pass 'project_lead' or one explicit project lead field, not both."
+            )
+        if sum(lead is not None for lead in explicit_leads) > 1:
+            raise ValueError("Pass only one explicit project lead field.")
+        if not flexible_lead and not any(explicit_leads):
+            raise ValueError("A project lead is required.")
+
         result = self._request('post', "/projects", json=project_details)
         if scientific_metadata:
             self.update_scientific_metadata(result['project_id'], scientific_metadata)
@@ -161,8 +177,14 @@ class ProjectOperations(BaseResource):
         """
         return self._request('patch', f'/projects/{proj_id}', json=kwargs)
 
+    @staticmethod
+    def _parse_members(raw) -> List[ProjectMember]:
+        """Validate a project member list returned by a mutation endpoint."""
+        return [ProjectMember.model_validate(member) for member in raw]
+
     def remove_user(self, project_id: str, orcid: Optional[str] = None,
-                    email: Optional[str] = None, username: Optional[str] = None) -> Dict:
+                    email: Optional[str] = None,
+                    username: Optional[str] = None) -> List[ProjectMember]:
         """Remove a user from a project.
 
         **Requires admin permissions.**
@@ -176,7 +198,7 @@ class ProjectOperations(BaseResource):
             username (str, optional): User's username
 
         Returns:
-            Dict: Response message
+            List[ProjectMember]: Updated list of project users
         """
         if not orcid and not email and not username:
             raise ValueError("provide orcid, email, or username")
@@ -186,8 +208,10 @@ class ProjectOperations(BaseResource):
                 params['email'] = email
             if username:
                 params['username'] = username
-            return self._request('delete', f'/projects/{project_id}/users/me', params=params)
-        return self._request('delete', f'/projects/{project_id}/users/{orcid}')
+            raw = self._request('delete', f'/projects/{project_id}/users/me', params=params)
+        else:
+            raw = self._request('delete', f'/projects/{project_id}/users/{orcid}')
+        return self._parse_members(raw)
 
     def add_user(self, orcid: Optional[str] = None, project_id: str = None,
                 email: Optional[str] = None, username: Optional[str] = None,
@@ -220,10 +244,11 @@ class ProjectOperations(BaseResource):
                 params['username'] = username
             if role:
                 params['role'] = role
-            return self._request('post', f'/projects/{project_id}/users/me', params=params)
-        params = {'role': role} if role else {}
-        raw = self._request('post', f'/projects/{project_id}/users/{orcid}', params=params)
-        return [ProjectMember.model_validate(m) for m in raw]
+            raw = self._request('post', f'/projects/{project_id}/users/me', params=params)
+        else:
+            params = {'role': role} if role else {}
+            raw = self._request('post', f'/projects/{project_id}/users/{orcid}', params=params)
+        return self._parse_members(raw)
 
     def update_user_role(self, project_id: str, orcid: str, role: str) -> List[ProjectMember]:
         """Change a member's role in a project.
@@ -242,7 +267,7 @@ class ProjectOperations(BaseResource):
             List[ProjectMember]: Updated list of project users
         """
         raw = self._request('patch', f'/projects/{project_id}/users/{orcid}', params={'role': role})
-        return [ProjectMember.model_validate(m) for m in raw]
+        return self._parse_members(raw)
 
     def search(self, q: str, limit: int = 20) -> List[Dict]:
         """Fuzzy search across all projects (not just the caller's). Available
