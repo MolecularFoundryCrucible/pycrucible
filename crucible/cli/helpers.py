@@ -12,11 +12,11 @@ import re
 import sys
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from ..utils.identifiers import MFID_PATTERN, classify_user_reference
 
 logger = logging.getLogger(__name__)
 
-_ORCID_RE = re.compile(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$')
-_MFID_RE  = re.compile(r'^[0-9a-hjkmnp-tv-z]{26}$')  # Crockford base32, no i/l/o/u
+_MFID_RE = MFID_PATTERN
 
 
 def fail(action: str, error: Exception, args=None) -> None:
@@ -43,13 +43,13 @@ def fail(action: str, error: Exception, args=None) -> None:
 def parse_user_ref(value: str) -> dict:
     """Sniff a user identifier's format and return a kwargs dict for users.get()/users.resolve().
 
-    Contains '@' -> email. Matches the ORCID pattern -> orcid. Otherwise -> username.
+    Uses the shared API-contract classifier. Canonical person and service-account
+    identifiers are returned under the legacy ``orcid`` keyword for compatibility.
     """
-    if '@' in value:
-        return {'email': value}
-    if _ORCID_RE.match(value):
-        return {'orcid': value}
-    return {'username': value}
+    reference_kind, normalized = classify_user_reference(value)
+    if reference_kind == 'unique_id':
+        return {'orcid': normalized}
+    return {reference_kind: normalized}
 
 
 def parse_sa_ref(value: str) -> dict:
@@ -68,12 +68,10 @@ def resolve_orcid(client, value: str) -> str:
     Returns the value unchanged if it's already an ORCID (no API call).
     Raises ValueError if the identifier doesn't resolve to a user.
     """
-    ref = parse_user_ref(value)
-    if 'orcid' in ref:
-        return value
-    user = client.users.get(**ref)
-    if user is None:
-        raise ValueError(f"User not found: {value}")
+    reference_kind, normalized = classify_user_reference(value)
+    if reference_kind == 'unique_id':
+        return normalized
+    user = client.users.get(normalized)
     return user.get('unique_id')
 
 
@@ -128,14 +126,21 @@ def fetch_service_accounts(client):
 
 
 def fetch_instruments(client):
-    """Return [(instrument_name, unique_id), ...] for all instruments.
+    """Return [(instrument_id, instrument_name, unique_id), ...] for instruments.
 
     Instruments are a small, globally-readable set (not admin-gated),
     so fetch-all-once is appropriate here rather than live search.
     """
     try:
-        return [(i.get('instrument_name') or '', i.get('unique_id') or '')
-                for i in client.instruments.list() if i.get('instrument_name')]
+        return [
+            (
+                i.get('instrument_id') or '',
+                i.get('instrument_name') or '',
+                i.get('unique_id') or '',
+            )
+            for i in client.instruments.list()
+            if i.get('instrument_id') and i.get('unique_id')
+        ]
     except Exception:
         return []
 

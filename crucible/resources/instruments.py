@@ -11,6 +11,14 @@ from typing import Optional, List, Dict
 from .base import BaseResource
 from .capabilities import AccessControlMixin
 from ..constants import DEFAULT_LIMIT
+from ..utils.identifiers import (
+    IdentifierNotFoundError,
+    classify_slug_reference,
+    collapse_exact_lookup,
+    is_mfid,
+    require_canonical_identifier,
+    validate_slug,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,39 +46,93 @@ class InstrumentOperations(AccessControlMixin, BaseResource):
             params['include_metadata'] = True
         return self._paginate('/instruments', params, limit, offset)
 
-    def get(self, instrument_name: Optional[str] = None, instrument_id: Optional[str] = None,
-            include_metadata: bool = False) -> Dict:
-        """Get instrument information by name or ID.
+    def get(self, instrument_ref: Optional[str] = None,
+            instrument_id: Optional[str] = None,
+            include_metadata: bool = False,
+            *, instrument_mfid: Optional[str] = None,
+            instrument_name: Optional[str] = None) -> Dict:
+        """Get an instrument by canonical MFID or human-readable slug.
 
-        Note: despite the name, the `instrument_id` parameter here is the
-        instrument's MFID (unique_id) - not the `instrument_id` slug field on
-        the Instrument model/API (a separate, user-chosen identifier).
+        ``instrument_id`` explicitly selects the human-readable API identifier.
+        An MFID-shaped value remains temporarily compatible with its former
+        meaning and emits a deprecation warning.
 
         Args:
-            instrument_name (str, optional): Name of the instrument
-            instrument_id (str, optional): MFID of the instrument
+            instrument_ref (str, optional): Instrument MFID or slug
+            instrument_id (str, optional): Explicit instrument slug
             include_metadata (bool): Whether to include scientific metadata
+            instrument_mfid (str, optional): Explicit instrument MFID
+            instrument_name (str, optional): Deprecated display-name lookup
 
         Returns:
             Dict or None: Instrument information if found, None otherwise
 
         Raises:
-            ValueError: If neither parameter is provided
+            ValueError: If no reference or multiple references are provided
         """
-        if not instrument_name and not instrument_id:
-            raise ValueError("Either instrument_name or instrument_id must be provided")
+        provided = [
+            value for value in
+            (instrument_ref, instrument_id, instrument_mfid, instrument_name)
+            if value is not None
+        ]
+        if len(provided) != 1:
+            raise ValueError("Provide exactly one instrument reference.")
 
-        if instrument_id:
-            params = {}
-            if include_metadata:
-                params['include_metadata'] = True
-            return self._request('get', f'/instruments/{instrument_id}', params=params or None)
+        if instrument_name is not None:
+            import warnings
+            warnings.warn(
+                "instrument_name lookup is deprecated because display names are not unique; "
+                "pass an instrument MFID or instrument_id slug instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return self._get_by_name(instrument_name, include_metadata=include_metadata)
+        if instrument_id is not None:
+            if is_mfid(instrument_id):
+                import warnings
+                warnings.warn(
+                    "Passing an MFID as instrument_id is deprecated; use instrument_mfid instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                return self._get_by_mfid(instrument_id, include_metadata=include_metadata)
+            return self._get_by_instrument_id(instrument_id, include_metadata=include_metadata)
+        if instrument_mfid is not None:
+            return self._get_by_mfid(instrument_mfid, include_metadata=include_metadata)
 
-        params = {"instrument_name": instrument_name}
+        reference_kind = classify_slug_reference(instrument_ref, 'instrument')
+        if reference_kind == 'mfid':
+            return self._get_by_mfid(instrument_ref, include_metadata=include_metadata)
+        return self._get_by_instrument_id(instrument_ref, include_metadata=include_metadata)
+
+    def _get_by_mfid(self, instrument_mfid: str,
+                     include_metadata: bool = False) -> Dict:
+        """Get an instrument through its canonical single-resource route."""
+        if not is_mfid(instrument_mfid):
+            raise ValueError("instrument_mfid must be an exact 26-character MFID.")
+        params = {'include_metadata': True} if include_metadata else None
+        raw = self._request('get', f'/instruments/{instrument_mfid}', params=params)
+        return require_canonical_identifier(raw, 'instrument')
+
+    def _get_by_instrument_id(self, instrument_id: str,
+                              include_metadata: bool = False) -> Dict:
+        """Resolve an exact instrument slug through the collection route."""
+        if not isinstance(instrument_id, str) or not instrument_id:
+            raise ValueError("instrument_id must be a non-empty string.")
+        params = {'instrument_id': instrument_id, 'limit': 2}
         if include_metadata:
             params['include_metadata'] = True
-        results = self._paginate('/instruments', params, limit=1)
-        return results[0] if results else None
+        raw = self._request('get', '/instruments', params=params)
+        return collapse_exact_lookup(raw, 'instrument', instrument_id)
+
+    def _get_by_name(self, instrument_name: str,
+                     include_metadata: bool = False) -> Dict:
+        """Compatibility lookup for a non-unique instrument display name."""
+        params = {'instrument_name': instrument_name, 'limit': 2}
+        if include_metadata:
+            params['include_metadata'] = True
+        raw = self._request('get', '/instruments', params=params)
+        return collapse_exact_lookup(raw, 'instrument', instrument_name)
 
     def create(self, instrument, scientific_metadata: Optional[Dict] = None) -> Dict:
         """Create a new instrument, returning the existing one if it already exists.
@@ -100,16 +162,18 @@ class InstrumentOperations(AccessControlMixin, BaseResource):
                 "instrument_id is required (a unique slug identifying the instrument, "
                 "distinct from its auto-assigned MFID)."
             )
+        validate_slug(payload['instrument_id'], 'instrument')
 
-        instrument_name = payload.get('instrument_name')
-        if instrument_name:
-            existing = self.get(instrument_name=instrument_name)
-            if existing:
-                warnings.warn(
-                    f"Instrument '{instrument_name}' already exists; returning existing record.",
-                    UserWarning, stacklevel=2,
-                )
-                return existing
+        try:
+            existing = self._get_by_instrument_id(payload['instrument_id'])
+        except IdentifierNotFoundError:
+            existing = None
+        if existing:
+            warnings.warn(
+                f"Instrument '{payload['instrument_id']}' already exists; returning existing record.",
+                UserWarning, stacklevel=2,
+            )
+            return existing
 
         result = self._request('post', '/instruments', json=payload)
         if scientific_metadata:
@@ -130,6 +194,8 @@ class InstrumentOperations(AccessControlMixin, BaseResource):
         Returns:
             Dict: Updated instrument object
         """
+        if kwargs.get('instrument_id') is not None:
+            validate_slug(kwargs['instrument_id'], 'instrument')
         return self._request('patch', f'/instruments/{unique_id}', json=kwargs)
 
     def bind_service_account(self, instrument_mfid: str, sa_unique_id: str) -> List['ProjectMember']:

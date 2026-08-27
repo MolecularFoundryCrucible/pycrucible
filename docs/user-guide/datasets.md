@@ -72,9 +72,11 @@ result = client.datasets.create(
 ## Retrieving a dataset
 
 ```python
-ds = client.datasets.get("ds-abc123")
-ds_with_metadata = client.datasets.get("ds-abc123", include_metadata=True, include_links=True)
+ds = client.datasets.get("0tkn2knjast3h0008nyq9zps2c")
+ds_with_metadata = client.datasets.get("0tkn2knjast3h0008nyq9zps2c", include_metadata=True, include_links=True)
 ```
+
+Datasets are retrieved only by their canonical 26-character MFID. Dataset names are display values, not identifiers.
 
 ## Listing datasets
 

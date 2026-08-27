@@ -85,14 +85,14 @@ def _register_get(subparsers):
     """Register the 'instrument get' subcommand."""
     parser = subparsers.add_parser(
         'get',
-        help='Get instrument by name or ID',
-        description='Retrieve instrument information'
+        help='Get instrument by MFID or instrument slug',
+        description='Retrieve an instrument by canonical MFID or exact instrument_id slug'
     )
 
     instrument_arg = parser.add_argument(
         'instrument',
-        metavar='NAME_OR_ID',
-        help='Instrument name or unique ID'
+        metavar='INSTRUMENT',
+        help='Instrument MFID or instrument_id slug'
     )
     # Disable file completion for instrument name/ID
     if ARGCOMPLETE_AVAILABLE:
@@ -101,7 +101,7 @@ def _register_get(subparsers):
     parser.add_argument(
         '--by-id',
         action='store_true',
-        help='Treat argument as instrument ID instead of name'
+        help='Deprecated: treat the argument explicitly as an MFID'
     )
 
     parser.add_argument(
@@ -348,11 +348,21 @@ def _execute_get(args):
         client = CrucibleClient()
 
         if args.by_id:
-            instrument = client.instruments.get(instrument_id=args.instrument,
-                                                include_metadata=include_metadata)
+            import warnings
+            warnings.warn(
+                "--by-id is deprecated because MFID/slug dispatch is automatic.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            instrument = client.instruments.get(
+                instrument_mfid=args.instrument,
+                include_metadata=include_metadata,
+            )
         else:
-            instrument = client.instruments.get(instrument_name=args.instrument,
-                                                include_metadata=include_metadata)
+            instrument = client.instruments.get(
+                args.instrument,
+                include_metadata=include_metadata,
+            )
 
         if instrument is None:
             logger.error(f"Instrument not found: {args.instrument}")
@@ -557,7 +567,7 @@ Examples:
 
 def _edit_instrument(uid, client, debug=False):
     """Core edit logic for an instrument - shared with top-level 'crucible edit' command."""
-    instrument = client.instruments.get(instrument_id=uid, include_metadata=True)
+    instrument = client.instruments.get(instrument_mfid=uid, include_metadata=True)
     if instrument is None:
         logger.error(f"Instrument not found: {uid}")
         sys.exit(1)

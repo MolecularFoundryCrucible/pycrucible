@@ -12,6 +12,13 @@ from .base import BaseResource
 from .capabilities import AccessControlMixin, OwnershipMixin
 from ..constants import DEFAULT_LIMIT
 from ..models import Project, ProjectMember
+from ..utils.identifiers import (
+    classify_slug_reference,
+    collapse_exact_lookup,
+    is_mfid,
+    require_canonical_identifier,
+    validate_slug,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +38,12 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
     Access via: client.projects.get(), client.projects.list(), etc.
     """
 
-    def get(self, project_id: str, include_metadata: bool = False,
-            include_members: bool = False) -> Dict:
-        """Get details of a specific project. Readable by any authenticated user.
+    def get(self, project_ref: Optional[str] = None,
+            include_metadata: bool = False,
+            include_members: bool = False,
+            project_id: Optional[str] = None,
+            project_mfid: Optional[str] = None) -> Dict:
+        """Get a project by canonical MFID or human-readable project slug.
 
         The response always includes project_id, organization, status, title.
 
@@ -48,7 +58,9 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
         ``members: None`` regardless of the flag.
 
         Args:
-            project_id (str): Unique project identifier
+            project_ref (str, optional): Project MFID or 3-to-25-character project slug
+            project_id (str, optional): Explicit project slug
+            project_mfid (str, optional): Explicit project MFID
             include_metadata (bool): Whether to include scientific metadata
                                       (members/admins only)
             include_members (bool): Whether to include the member list
@@ -57,12 +69,59 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
         Returns:
             Dict: Project information, with membership-gated fields as described above
         """
+        provided = [value for value in (project_ref, project_id, project_mfid) if value is not None]
+        if len(provided) != 1:
+            raise ValueError("Provide exactly one project reference.")
+        if project_mfid is not None:
+            return self._get_by_mfid(
+                project_mfid,
+                include_metadata=include_metadata,
+                include_members=include_members,
+            )
+        if project_id is not None:
+            return self._get_by_project_id(
+                project_id,
+                include_metadata=include_metadata,
+                include_members=include_members,
+            )
+        reference_kind = classify_slug_reference(project_ref, 'project')
+        if reference_kind == 'mfid':
+            return self._get_by_mfid(
+                project_ref,
+                include_metadata=include_metadata,
+                include_members=include_members,
+            )
+        return self._get_by_project_id(
+            project_ref,
+            include_metadata=include_metadata,
+            include_members=include_members,
+        )
+
+    def _get_by_mfid(self, project_mfid: str, include_metadata: bool = False,
+                     include_members: bool = False) -> Dict:
+        """Get a project through its canonical single-resource route."""
+        if not is_mfid(project_mfid):
+            raise ValueError("project_mfid must be an exact 26-character MFID.")
         params = {}
         if include_metadata:
             params['include_metadata'] = True
         if include_members:
             params['include_members'] = True
-        return self._request('get', f'/projects/{project_id}', params=params or None)
+        raw = self._request('get', f'/projects/{project_mfid}', params=params or None)
+        return require_canonical_identifier(raw, 'project')
+
+    def _get_by_project_id(self, project_id: str, include_metadata: bool = False,
+                           include_members: bool = False) -> Dict:
+        """Resolve an exact project slug through the collection route."""
+        if not isinstance(project_id, str) or not project_id:
+            raise ValueError("project_id must be a non-empty string.")
+        params = {'project_id': project_id, 'limit': 2}
+        if include_metadata:
+            params['include_metadata'] = True
+        if include_members:
+            params['include_members'] = True
+        raw = self._request('get', '/projects', params=params)
+        return collapse_exact_lookup(raw, 'project', project_id)
 
     def list(self, orcid: Optional[str] = None, include_metadata: bool = False,
              limit: int = DEFAULT_LIMIT, offset: int = 0) -> List[Dict]:
@@ -116,6 +175,8 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
             project_details = project.model_dump(exclude_none=True)
         else:
             project_details = dict(project)
+
+        validate_slug(project_details.get('project_id'), 'project')
 
         flexible_lead = project_details.get('project_lead')
         explicit_leads = [
@@ -175,6 +236,8 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
         Returns:
             Dict: Updated project object
         """
+        if kwargs.get('project_id') is not None:
+            validate_slug(kwargs['project_id'], 'project')
         return self._request('patch', f'/projects/{proj_id}', json=kwargs)
 
     @staticmethod

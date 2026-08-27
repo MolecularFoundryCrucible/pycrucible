@@ -11,6 +11,7 @@ from typing import Optional, List, Dict
 from .base import BaseResource
 from .capabilities import AccessControlMixin, OwnershipMixin, ProjectAssignmentMixin
 from ..constants import DEFAULT_LIMIT, API_PAGE_MAX
+from ..utils.identifiers import is_mfid, require_canonical_identifier
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +32,14 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         from ..models import Sample
         return Sample.model_validate(raw).model_dump()
 
-    def get(self, sample_id: str, include_links: bool = False,
-            include_metadata: bool = False, include_owner: bool = False) -> Dict:
-        """Get sample information by ID.
+    def get(self, sample_mfid: Optional[str] = None, include_links: bool = False,
+            include_metadata: bool = False, include_owner: bool = False,
+            *, sample_id: Optional[str] = None) -> Dict:
+        """Get a sample by its canonical MFID.
 
         Args:
-            sample_id (str): Sample unique identifier
+            sample_mfid (str): Sample MFID
+            sample_id (str, optional): Deprecated alias for ``sample_mfid``
             include_links (bool): Whether to include immediate parent/child/associated links
             include_metadata (bool): Whether to include scientific metadata
             include_owner (bool): Whether to resolve owner_orcid into a full user object
@@ -44,6 +47,29 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         Returns:
             Dict: Sample information with optional links and metadata
         """
+        if (sample_mfid is None) == (sample_id is None):
+            raise ValueError("Provide exactly one sample MFID.")
+        if sample_id is not None:
+            import warnings
+            warnings.warn(
+                "The sample_id keyword is deprecated; use sample_mfid instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            sample_mfid = sample_id
+        return self._get_by_mfid(
+            sample_mfid,
+            include_links=include_links,
+            include_metadata=include_metadata,
+            include_owner=include_owner,
+        )
+
+    def _get_by_mfid(self, sample_mfid: str, include_links: bool = False,
+                     include_metadata: bool = False,
+                     include_owner: bool = False) -> Dict:
+        """Get a sample through its canonical single-resource route."""
+        if not is_mfid(sample_mfid):
+            raise ValueError("sample_mfid must be an exact 26-character MFID.")
         params = {}
         if include_links:
             params['include_links'] = True
@@ -51,8 +77,10 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             params['include_metadata'] = True
         if include_owner:
             params['include_owner'] = True
-        raw = self._request('get', f"/samples/{sample_id}", params=params or None)
-        return self._parse(raw) if raw is not None else None
+        raw = self._request('get', f"/samples/{sample_mfid}", params=params or None)
+        if raw is None:
+            return None
+        return self._parse(require_canonical_identifier(raw, 'sample'))
 
     def list(self, dataset_id: Optional[str] = None, parent_id: Optional[str] = None,
              include_metadata: bool = False, include_links: bool = False,

@@ -81,7 +81,11 @@ class TestRevokeAccess:
 
 class TestPublicAccess:
     def test_set_public_no_permission_param(self, dataset_ops):
-        dataset_ops._request = MagicMock(return_value={})
+        dataset_ops._request = MagicMock(return_value={
+            'principal': 'public',
+            'kind': 'public',
+            'effective_permission': 'viewer',
+        })
 
         dataset_ops.set_public('ds-1')
 
@@ -145,13 +149,15 @@ class TestInstrumentCreateRequiresInstrumentId:
             instrument_ops.create(instrument)
 
     def test_passes_through_when_present(self, instrument_ops):
-        instrument_ops._request = MagicMock(return_value={'unique_id': 'mf-1', 'instrument_id': 'titan'})
-        instrument_ops.get = MagicMock(return_value=None)
+        instrument_ops._request = MagicMock(side_effect=[
+            {'total': 0, 'items': []},
+            {'unique_id': 'mf-1', 'instrument_id': 'titan'},
+        ])
         instrument = Instrument(instrument_name='titan', instrument_id='titan', owner='mf', location='B67')
 
         result = instrument_ops.create(instrument)
 
-        instrument_ops._request.assert_called_once()
+        assert instrument_ops._request.call_count == 2
         _, endpoint = instrument_ops._request.call_args.args
         assert endpoint == '/instruments'
         assert instrument_ops._request.call_args.kwargs['json']['instrument_id'] == 'titan'
@@ -217,28 +223,43 @@ class TestProjectUpdateUserRole:
 
 class TestProjectGetIncludeMembers:
     def test_include_members_sets_param(self, project_ops):
-        project_ops._request = MagicMock(return_value={'project_id': 'proj-1', 'members': []})
+        project_ops._request = MagicMock(return_value={
+            'total': 1,
+            'items': [{'unique_id': '0tkn2knjast3h0008nyq9zps2c', 'project_id': 'proj-1', 'members': []}],
+        })
 
         project_ops.get('proj-1', include_members=True)
 
         project_ops._request.assert_called_once_with(
-            'get', '/projects/proj-1', params={'include_members': True})
+            'get', '/projects',
+            params={'project_id': 'proj-1', 'limit': 2, 'include_members': True})
 
     def test_no_flags_sends_no_params(self, project_ops):
-        project_ops._request = MagicMock(return_value={'project_id': 'proj-1'})
+        project_ops._request = MagicMock(return_value={
+            'total': 1,
+            'items': [{'unique_id': '0tkn2knjast3h0008nyq9zps2c', 'project_id': 'proj-1'}],
+        })
 
         project_ops.get('proj-1')
 
         project_ops._request.assert_called_once_with(
-            'get', '/projects/proj-1', params=None)
+            'get', '/projects', params={'project_id': 'proj-1', 'limit': 2})
 
     def test_both_flags_combine(self, project_ops):
-        project_ops._request = MagicMock(return_value={'project_id': 'proj-1'})
+        project_ops._request = MagicMock(return_value={
+            'total': 1,
+            'items': [{'unique_id': '0tkn2knjast3h0008nyq9zps2c', 'project_id': 'proj-1'}],
+        })
 
         project_ops.get('proj-1', include_metadata=True, include_members=True)
 
         project_ops._request.assert_called_once_with(
-            'get', '/projects/proj-1', params={'include_metadata': True, 'include_members': True})
+            'get', '/projects', params={
+                'project_id': 'proj-1',
+                'limit': 2,
+                'include_metadata': True,
+                'include_members': True,
+            })
 
 
 class TestProjectUpdateNoIdentifierCollision:

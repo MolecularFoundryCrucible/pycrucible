@@ -25,6 +25,7 @@
 
 ### Changed
 
+- Resource lookups now dispatch canonical MFIDs to single-resource routes and resolve project slugs, instrument slugs, usernames, and emails through exact collection filters without a second request. Returned records retain `unique_id` as their canonical identifier.
 - README now focuses on installation, navigation, and project essentials.
 - CLI reference now documents all command families from one canonical location.
 - `dataset get`/`dataset list-files` now show each file's MFID alongside its name.

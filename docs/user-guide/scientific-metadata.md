@@ -48,7 +48,7 @@ print(meta)
 For a full dataset record including metadata:
 
 ```python
-ds = client.datasets.get("ds-abc123", include_metadata=True)
+ds = client.datasets.get("0tkn2knjast3h0008nyq9zps2c", include_metadata=True)
 ```
 
 ## Searching by scientific metadata

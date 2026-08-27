@@ -27,6 +27,8 @@ for p in projects:
 project = client.projects.get("MFP12345")
 ```
 
+`get()` accepts either the 3-to-25-character project ID or its canonical 26-character MFID. It dispatches MFIDs to the single-project route and resolves project IDs with one exact collection request. Every returned project keeps `unique_id` as its canonical identifier. Use `project_id=` or `project_mfid=` when the intended identifier type must be explicit.
+
 Use `include_members=True` to request the member list. Members and administrators can see membership-gated metadata and members; other authenticated users receive the public project view.
 
 ```python

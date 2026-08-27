@@ -87,7 +87,7 @@ Fields normally updated through `sample update` include `sample_name`, `sample_t
 | Command | Description |
 |---|---|
 | `project list` | List accessible projects |
-| `project get ID` | Show a project and optionally its members |
+| `project get PROJECT` | Show a project by MFID or project slug, optionally with its members |
 | `project create` | Create a project |
 | `project update ID` | Update a project record or scientific metadata |
 | `project edit ID` | Edit project fields interactively |
@@ -111,7 +111,7 @@ The `access grant` commands accept `viewer`, `contributor`, `editor`, or `admin`
 | Command | Description |
 |---|---|
 | `instrument list` | List instruments |
-| `instrument get NAME` | Show an instrument by name or ID |
+| `instrument get INSTRUMENT` | Show an instrument by MFID or instrument slug |
 | `instrument create` | Register an instrument |
 | `instrument update ID` | Update an instrument record or scientific metadata |
 | `instrument edit ID` | Edit instrument fields interactively |

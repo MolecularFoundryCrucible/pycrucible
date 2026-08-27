@@ -22,6 +22,16 @@ When adding a new resource namespace, export the operations class from `crucible
 - Preserve intentional compatibility with `_deprecated` or `_removed` helpers when changing a public method or parameter. Do not retain an alias silently.
 - Keep endpoint-specific handling narrow. Do not hide authorization, schema, or server errors behind broad exception handling.
 
+## Name identifiers precisely
+
+- Preserve `unique_id` as the canonical identifier field serialized by the API.
+- Name a parameter `dataset_mfid`, `sample_mfid`, `project_mfid`, `instrument_mfid`, or `resource_mfid` when it accepts only an MFID.
+- Reserve `project_id` and `instrument_id` for their unique, human-readable API identifiers. Dataset and sample names are display values, not identifiers.
+- Use `project_ref`, `instrument_ref`, or `user_ref` only when the client deliberately accepts multiple identifier formats and dispatches them.
+- Use `user_unique_id` for an ORCID-or-service-account-MFID parameter because not every canonical user identifier is an MFID.
+- When replacing an ambiguous public keyword such as `dsid`, preserve it temporarily as an explicit deprecated alias. Positional compatibility should remain intact where practical.
+- Keep canonical and exact-filter request methods private. Extract shared request behavior only when validation, request shape, response handling, and error semantics are genuinely identical across resources.
+
 If the change also adds or alters a command, load [`nano-crucible-cli-development`](../nano-crucible-cli-development/SKILL.md).
 
 ## Verify without live side effects

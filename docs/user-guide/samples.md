@@ -44,9 +44,11 @@ smid = sample["unique_id"]
 ## Retrieving a sample
 
 ```python
-sample = client.samples.get("sm-abc123")
-sample_with_links = client.samples.get("sm-abc123", include_links=True)
+sample = client.samples.get("0td7evvtg5wb90005k1j97ak94")
+sample_with_links = client.samples.get("0td7evvtg5wb90005k1j97ak94", include_links=True)
 ```
+
+Samples are retrieved only by their canonical 26-character MFID. Sample names are display values, not identifiers.
 
 ## Listing samples
 

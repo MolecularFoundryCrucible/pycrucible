@@ -11,6 +11,13 @@ from typing import Optional, Dict, List
 from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
 from ..utils.deprecation import _deprecated
+from ..utils.identifiers import (
+    classify_user_reference,
+    collapse_exact_lookup,
+    is_mfid,
+    is_orcid,
+    require_canonical_identifier,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,44 +28,81 @@ class UserOperations(BaseResource):
     Access via: client.users.get(), client.users.create(), etc.
     """
 
-    def get(self, orcid: Optional[str] = None, email: Optional[str] = None,
-            username: Optional[str] = None) -> Dict:
-        """Get user details by ORCID, email, or username.
+    def get(self, user_ref: Optional[str] = None,
+            email: Optional[str] = None, username: Optional[str] = None,
+            *, orcid: Optional[str] = None,
+            user_unique_id: Optional[str] = None) -> Dict:
+        """Get a user by canonical unique ID, username, or email.
 
-        ORCID and email lookups require admin. Username lookup returns a
-        public profile (no email) and is open to all authenticated users.
+        Username and email references use exact collection filters and return
+        the matching public-safe representation without a second request.
+        ``orcid``, ``email``, and ``username`` remain supported keyword forms.
 
         Args:
-            orcid (str, optional): User ORCID identifier
+            user_ref (str, optional): ORCID, service-account MFID, username, or email
             email (str, optional): User's email address
             username (str, optional): User's username
+            orcid (str, optional): Explicit person ORCID
+            user_unique_id (str, optional): Explicit ORCID or service-account MFID
 
         Returns:
-            Dict: UserRead (ORCID/email) or UserPublicRead (username)
+            Dict: UserRead for a canonical lookup or the exact collection item
 
         Raises:
-            ValueError: If no identifier provided, no user found,
-                or email matches multiple accounts.
-
-        Note:
-            ORCID is the canonical identifier. If multiple are provided,
-            orcid > username > email in precedence.
+            ValueError: If no identifier or multiple identifiers are provided
         """
-        if orcid:
-            return self._request('get', f'/users/{orcid}')
-        elif username:
-            return self._request('get', f'/users/by-username/{username}')
-        elif email:
-            matches = self._paginate('/users', {'email': email, 'permissive': False})
-            if not matches:
-                raise ValueError(f"You do not have access to any users found with email: {email}")
-            if len(matches) > 1:
-                raise ValueError(
-                    f"Multiple users match email '{email}' - use ORCID to identify unambiguously"
-                )
-            return matches[0]
-        else:
-            raise ValueError('provide orcid, username, or email')
+        provided = [
+            value for value in (user_ref, email, username, orcid, user_unique_id)
+            if value is not None
+        ]
+        if len(provided) != 1:
+            raise ValueError("Provide exactly one user reference.")
+        if user_unique_id is not None:
+            return self._get_by_unique_id(user_unique_id)
+        if orcid is not None:
+            return self._get_by_unique_id(orcid)
+        if username is not None:
+            return self._get_by_username(username)
+        if email is not None:
+            return self._get_by_email(email)
+
+        reference_kind, normalized = classify_user_reference(user_ref)
+        if reference_kind == 'unique_id':
+            return self._get_by_unique_id(normalized)
+        if reference_kind == 'username':
+            return self._get_by_username(normalized)
+        return self._get_by_email(normalized)
+
+    def _get_by_unique_id(self, unique_id: str) -> Dict:
+        """Get a person by ORCID or a service account by MFID."""
+        if not is_orcid(unique_id) and not is_mfid(unique_id):
+            raise ValueError("unique_id must be an ORCID or service-account MFID.")
+        raw = self._request('get', f'/users/{unique_id}')
+        return require_canonical_identifier(raw, 'user')
+
+    def _get_by_username(self, username: str) -> Dict:
+        """Resolve an exact username through the user collection route."""
+        reference_kind, normalized = classify_user_reference(username)
+        if reference_kind != 'username':
+            raise ValueError("username must be a valid 3-to-24-character username.")
+        raw = self._request(
+            'get',
+            '/users',
+            params={'username': normalized, 'limit': 2},
+        )
+        return collapse_exact_lookup(raw, 'user', username)
+
+    def _get_by_email(self, email: str) -> Dict:
+        """Resolve an exact email through the user collection route."""
+        reference_kind, normalized = classify_user_reference(email)
+        if reference_kind != 'email':
+            raise ValueError("email must contain '@'.")
+        raw = self._request(
+            'get',
+            '/users',
+            params={'email': normalized, 'limit': 2},
+        )
+        return collapse_exact_lookup(raw, 'user', email)
 
     def search(self, q: str, limit: int = 20) -> List[Dict]:
         """Search for users by name or username. Available to all authenticated users.

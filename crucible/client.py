@@ -16,6 +16,7 @@ from typing import Optional, List, Dict, Any, Union
 from .models import Dataset, Project
 from .constants import DEFAULT_LIMIT
 from .utils.deprecation import _deprecated, _removed
+from .utils.identifiers import is_mfid, require_canonical_identifier
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +190,8 @@ class CrucibleClient:
         Returns:
             str: resource_type
         """
+        if not is_mfid(resource_id):
+            raise ValueError("resource_id must be an exact 26-character MFID.")
         response = self._request('get', f"/resources/{resource_id}")
         return response['resource_type']
 
@@ -212,6 +215,8 @@ class CrucibleClient:
         Raises:
             ValueError: If resource type is unknown or not supported
         """
+        if not is_mfid(resource_id):
+            raise ValueError("resource_id must be an exact 26-character MFID.")
         if resource_type is None:
             params = {}
             if include_links:
@@ -220,7 +225,8 @@ class CrucibleClient:
                 params['include_metadata'] = True
             if include_owner:
                 params['include_owner'] = True
-            return self._request('get', f"/resources/{resource_id}", params=params or None)
+            raw = self._request('get', f"/resources/{resource_id}", params=params or None)
+            return require_canonical_identifier(raw, 'resource')
 
         if resource_type == "sample":
             return self.samples.get(resource_id, include_links=include_links,
@@ -231,8 +237,10 @@ class CrucibleClient:
                                      include_links=include_links,
                                      include_owner=include_owner)
         elif resource_type == "instrument":
-            return self.instruments.get(instrument_id=resource_id,
-                                        include_metadata=include_metadata)
+            return self.instruments.get(
+                instrument_mfid=resource_id,
+                include_metadata=include_metadata,
+            )
         else:
             raise ValueError(f"Unknown or unsupported resource type: {resource_type}")
 

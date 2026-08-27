@@ -2,7 +2,8 @@
 
 | Field | Description | Settable |
 |---|---|---|
-| `instrument_name` | Unique name for the instrument as it will be referenced in datasets | create, update |
+| `instrument_id` | Unique 3-to-25-character slug used to reference the instrument | create, update |
+| `instrument_name` | Human-readable display name | create, update |
 | `owner` | Person or group responsible for the instrument | create, update |
 | `location` | Physical location (e.g. room number or building) | create, update |
 | `manufacturer` | Instrument manufacturer (e.g. `"FEI"`, `"Bruker"`) | create, update |
@@ -19,12 +20,13 @@
 
 ## Creating an instrument
 
-Instruments are shared across all projects. If an instrument with the same name already exists, `create()` returns the existing record rather than creating a duplicate.
+Instruments are shared across all projects. If an instrument with the same `instrument_id` slug already exists, `create()` returns the existing record rather than creating a duplicate.
 
 ```python
 from crucible.models import Instrument
 
 instrument = client.instruments.create(Instrument(
+    instrument_id="team-i",
     instrument_name="TEAM I",
     manufacturer="FEI",
     model="Titan 80-300",
@@ -48,20 +50,22 @@ for i in instruments:
 ## Getting an instrument
 
 ```python
-instrument = client.instruments.get(instrument_name="TEAM I")
-# or by unique_id
-instrument = client.instruments.get(instrument_id="if-abc123")
+instrument = client.instruments.get("team-i")
+# or by canonical MFID
+instrument = client.instruments.get("0tkn2knjast3h0008nyq9zps2c")
 ```
+
+Use `instrument_id=` or `instrument_mfid=` when the intended identifier type must be explicit. Display names are not identifiers and are not accepted by the general lookup. For compatibility, an MFID-shaped value supplied as `instrument_id=` is temporarily treated as an MFID and emits a deprecation warning.
 
 ## Updating an instrument
 
 ```python
-client.instruments.update("if-abc123", description="Updated description", location="72-200")
+client.instruments.update("0tkn2knjast3h0008nyq9zps2c", description="Updated description", location="72-200")
 ```
 
 ## Referencing instruments in datasets
 
-Once registered, reference an instrument in datasets by name:
+Once registered, reference an instrument in datasets by its slug:
 
 ```python
 from crucible.models import Dataset
@@ -69,7 +73,7 @@ from crucible.models import Dataset
 dataset = client.datasets.create(dataset=Dataset(
     dataset_name="HAADF-STEM image of Au NPs",
     measurement="STEM imaging",
-    instrument_name="TEAM I",
+    instrument_id="team-i",
     project_id="MFP12345",
 ))
 ```

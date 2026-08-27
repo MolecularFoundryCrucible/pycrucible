@@ -21,6 +21,7 @@ from .base import BaseResource
 from .capabilities import AccessControlMixin, OwnershipMixin, ProjectAssignmentMixin
 from ..constants import DEFAULT_LIMIT
 from ..utils.deprecation import _deprecated
+from ..utils.identifiers import is_mfid, require_canonical_identifier
 from ..models import AssociatedFile
 
 # upload/download
@@ -46,12 +47,14 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         from ..models import Dataset
         return Dataset.model_validate(raw).model_dump()
 
-    def get(self, dsid: str, include_metadata: bool = False,
-            include_links: bool = False, include_owner: bool = False) -> Dict:
-        """Get dataset details, optionally including scientific metadata and links.
+    def get(self, dataset_mfid: Optional[str] = None, include_metadata: bool = False,
+            include_links: bool = False, include_owner: bool = False,
+            *, dsid: Optional[str] = None) -> Dict:
+        """Get a dataset by its canonical MFID.
 
         Args:
-            dsid (str): Dataset unique identifier
+            dataset_mfid (str): Dataset MFID
+            dsid (str, optional): Deprecated alias for ``dataset_mfid``
             include_metadata (bool): Whether to include scientific metadata
             include_links (bool): Whether to include immediate parent/child/associated links
             include_owner (bool): Whether to resolve owner_orcid into a full user object
@@ -59,6 +62,29 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         Returns:
             Dict: Dataset object with optional metadata and links
         """
+        if (dataset_mfid is None) == (dsid is None):
+            raise ValueError("Provide exactly one dataset MFID.")
+        if dsid is not None:
+            import warnings
+            warnings.warn(
+                "The dsid keyword is deprecated; use dataset_mfid instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            dataset_mfid = dsid
+        return self._get_by_mfid(
+            dataset_mfid,
+            include_metadata=include_metadata,
+            include_links=include_links,
+            include_owner=include_owner,
+        )
+
+    def _get_by_mfid(self, dataset_mfid: str, include_metadata: bool = False,
+                     include_links: bool = False,
+                     include_owner: bool = False) -> Dict:
+        """Get a dataset through its canonical single-resource route."""
+        if not is_mfid(dataset_mfid):
+            raise ValueError("dataset_mfid must be an exact 26-character MFID.")
         params = {}
         if include_links:
             params['include_links'] = True
@@ -67,11 +93,10 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         if include_owner:
             params['include_owner'] = True
 
-        raw = self._request('get', f'/datasets/{dsid}', params=params or None)
+        raw = self._request('get', f'/datasets/{dataset_mfid}', params=params or None)
         if raw is None:
             return None
-
-        return self._parse(raw)
+        return self._parse(require_canonical_identifier(raw, 'dataset'))
 
 
     def list(self, sample_id: Optional[str] = None, include_metadata: bool = False,

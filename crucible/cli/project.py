@@ -91,14 +91,14 @@ def _register_get(subparsers):
     """Register the 'project get' subcommand."""
     parser = subparsers.add_parser(
         'get',
-        help='Get project by ID',
-        description='Retrieve project information'
+        help='Get project by MFID or project slug',
+        description='Retrieve a project by canonical MFID or exact project_id slug'
     )
 
     project_id_arg = parser.add_argument(
         'project_id',
-        metavar='PROJECT_ID',
-        help='Project ID'
+        metavar='PROJECT',
+        help='Project MFID or project_id slug'
     )
     # Disable file completion for project_id
     if ARGCOMPLETE_AVAILABLE:
