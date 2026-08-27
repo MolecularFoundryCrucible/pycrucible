@@ -49,10 +49,18 @@ crucible --help
 crucible dataset --help
 ```
 
+## Keep documentation authorities synchronized
+
+Nano's `README.md`, published documentation, public docstrings, and CLI help describe supported package behavior for users. `CONTRIBUTING.md` defines the human contribution workflow. `AGENTS.md` and repository-local development skills add agent-specific routing, implementation invariants, and safety rules without replacing the user documentation.
+
+The generated OpenAPI document from `crucible-api` is authoritative for the HTTP contract. Ecosystem ownership, compatibility policy, lifecycle decisions, and cross-repository workstreams belong in [`crucible-ecosystem`](https://github.com/MolecularFoundryCrucible/crucible-ecosystem). Link to those authorities instead of copying complete endpoint, schema, command, or policy inventories into Nano.
+
+When a change spans repositories, identify the authoritative producer and link the coordinated issues, pull requests, or commits. Update Nano-owned behavior and documentation together, and record temporary compatibility behavior when producer and consumer changes cannot land simultaneously.
+
 ## Add a parser
 
 Parser-specific architecture and registration instructions are in [`crucible/parsers/README.md`](crucible/parsers/README.md). Add focused unit tests for parsing logic and use mocked clients for upload behavior; parser development should not require writing records to the live service.
 
 ## Coding-agent guidance
 
-Repository-aware coding agents should read [`AGENTS.md`](AGENTS.md), which routes API, CLI, parser, and cast changes to the relevant development skill under [`skills/`](skills/). The separate [`nano-crucible`](skills/nano-crucible/) skill remains an operational template for assistants helping users with CLI and Python-client workflows.
+Repository-aware coding agents should read [`AGENTS.md`](AGENTS.md), which routes API, CLI, parser, and cast changes to the relevant development skill under [`skills/`](skills/). The separate [`nano-crucible`](skills/nano-crucible/) skill is a temporary operational template; the shared copy in [`crucible-ecosystem`](https://github.com/MolecularFoundryCrucible/crucible-ecosystem) will become authoritative after migration.

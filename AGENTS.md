@@ -28,7 +28,7 @@ The companion server and ingestion repositories are useful references when they 
 - `tests/unit/`: mocked, local tests.
 - `tests/integration/`: live-API tests that create real records.
 - `docs/`: published user and API documentation.
-- `skills/nano-crucible/`: operational guidance for agents helping users use the client.
+- `skills/nano-crucible/`: temporary local copy of operational guidance for agents helping users use the client.
 - `skills/nano-crucible-*-development/`: subsystem-specific guidance for agents developing the package.
 
 ## Skill routing
@@ -39,9 +39,28 @@ Use the smallest relevant development skill and combine skills only when a chang
 - CLI commands, help, display, or completion: `skills/nano-crucible-cli-development/SKILL.md`
 - Client-side dataset parsers or parser discovery: `skills/nano-crucible-parser-development/SKILL.md`
 - `.crux` recipes, builders, lock files, execution, or resume behavior: `skills/nano-crucible-cast-development/SKILL.md`
-- Configuring or operating Crucible on a user's behalf: `skills/nano-crucible/SKILL.md`
+- Configuring or operating Crucible on a user's behalf: `skills/nano-crucible/SKILL.md` until the shared ecosystem copy becomes authoritative
 
 This file remains authoritative for shared repository rules. Skills add conditional subsystem guidance and do not expand permission to mutate the live API.
+
+## Documentation authority and synchronization
+
+Assign each fact one authority and update its consumers by reference instead of copying detailed inventories between repositories.
+
+| Scope | Authority |
+|---|---|
+| Supported Nano behavior and user workflows | `README.md`, `docs/`, public docstrings, and installed CLI help |
+| Human contribution workflow | `CONTRIBUTING.md` |
+| Repository rules and agent routing | `AGENTS.md` and the repository-local development skills |
+| HTTP paths, schemas, and compatibility classification | Deterministic OpenAPI produced by `crucible-api` |
+| Ecosystem ownership, lifecycle, compatibility policy, and cross-repository coordination | [`crucible-ecosystem`](https://github.com/MolecularFoundryCrucible/crucible-ecosystem) decisions, standards, and workstreams |
+| Shared operational agent guidance | [`crucible-ecosystem`](https://github.com/MolecularFoundryCrucible/crucible-ecosystem) after migration; `skills/nano-crucible/` is the temporary local template |
+
+Agents use human documentation as the authority for supported package behavior. Agent guidance adds implementation workflow, routing, invariants, and safety boundaries; it must not become a second user manual or a manually maintained copy of the HTTP contract.
+
+Update Nano documentation, docstrings, CLI help, tests, and changelog in the same change as the behavior they describe. Update a local development skill only when its repeatable workflow or architectural invariants change. Update ecosystem documentation only when topology, ownership, compatibility, lifecycle, safety, or a shared workflow changes.
+
+Changes spanning repositories cannot land atomically. Link the coordinated issues, pull requests, or commits; land the authoritative producer before or together with its consumers; and record any temporary compatibility window explicitly.
 
 ## Development workflow
 

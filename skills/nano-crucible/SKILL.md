@@ -5,6 +5,10 @@ description: Help users configure and operate the nano-crucible Python client or
 
 # nano-crucible
 
+## Ownership status
+
+This repository copy is a temporary operational template. Shared operational guidance is moving to [`crucible-ecosystem`](https://github.com/MolecularFoundryCrucible/crucible-ecosystem), which will become authoritative after migration. Until then, verify exact package behavior against Nano's published user documentation and the installed CLI help. Repository-specific development skills remain with the Nano source code.
+
 Help the user accomplish a concrete Crucible workflow through the installed Python client or `crucible` CLI. Prefer the interface the user is already using; when they have no preference, use the CLI for interactive one-off work and Python for repeatable automation.
 
 ## Establish context
