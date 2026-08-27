@@ -11,7 +11,7 @@ from typing import Optional
 
 # internal modules
 from ..constants import DEFAULT_LIMIT
-from ..utils.deprecation import _deprecated
+from ..utils.deprecation import _deprecated, _deprecated_parameter
 
 class BaseResource:
     """Base class for resource-specific operations.
@@ -122,16 +122,21 @@ class BaseResource:
         """Deprecated: use search_metadata() instead."""
         return self.search_metadata(q, limit=limit)
 
-    def get_scientific_metadata(self, resource_id: str) -> dict:
+    @_deprecated_parameter('resource_id', 'resource_mfid')
+    def get_scientific_metadata(self, resource_mfid: str) -> dict:
         """Get scientific metadata for a resource."""
-        return self._request('get', f'/resources/{resource_id}/metadata')
+        return self._request('get', f'/resources/{resource_mfid}/metadata')
 
-    def replace_scientific_metadata(self, resource_id: str, metadata: dict) -> dict:
+    @_deprecated_parameter('resource_id', 'resource_mfid')
+    def replace_scientific_metadata(self, resource_mfid: str, metadata: dict) -> dict:
         """Create new scientific metadata entry for a resource."""
         # this is kind of redundant with API but its better here? #TODO
-        return self._request('post', f'/resources/{resource_id}/metadata', json=metadata, params = {'overwrite': True})
+        return self._request(
+            'post', f'/resources/{resource_mfid}/metadata',
+            json=metadata, params={'overwrite': True})
 
-    def update_scientific_metadata(self, resource_id: str, metadata: dict,
+    @_deprecated_parameter('resource_id', 'resource_mfid')
+    def update_scientific_metadata(self, resource_mfid: str, metadata: dict,
                                    overwrite: bool = False) -> dict:
         """Add or Update scientific metadata for a resource.
 
@@ -139,5 +144,8 @@ class BaseResource:
             overwrite: If True, replace all metadata (POST); if False, merge with existing (PATCH)
         """
         if overwrite:
-            return self._request('post', f'/resources/{resource_id}/metadata', json=metadata, params = {'overwrite':overwrite})
-        return self._request('patch', f'/resources/{resource_id}/metadata', json=metadata)
+            return self._request(
+                'post', f'/resources/{resource_mfid}/metadata',
+                json=metadata, params={'overwrite': overwrite})
+        return self._request(
+            'patch', f'/resources/{resource_mfid}/metadata', json=metadata)

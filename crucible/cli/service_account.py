@@ -60,7 +60,7 @@ def _resolve_sa(client, unique_id=None, username=None, ambiguous=False):
     coincidentally match that pattern too. On a miss, retry as a username
     before giving up.
     """
-    sa = client.service_accounts.get(unique_id=unique_id, username=username)
+    sa = client.service_accounts.get(service_account_mfid=unique_id, username=username)
     if sa is None and ambiguous and unique_id:
         sa = client.service_accounts.get(username=unique_id)
     if sa is None:

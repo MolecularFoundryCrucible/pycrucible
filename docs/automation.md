@@ -84,7 +84,7 @@ result = client.datasets.create(
     files=["xrd_data.xy"],
 )
 
-print(result["dsid"])
+print(result["dataset_mfid"])
 ```
 
 String paths in `files` are uploaded to Crucible storage by default. To register paths without uploading their contents, set `upload_files=False`. To catalog a file held by an external system, pass an `AssociatedFile` with its `storage_backend`, `storage_path`, and any access instructions. Choose these modes intentionally: a catalog entry does not make an external file accessible to another user by itself.

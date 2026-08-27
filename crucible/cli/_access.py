@@ -17,7 +17,7 @@ from .helpers import fail
 logger = logging.getLogger(__name__)
 
 
-def register_access_commands(subparsers, resource_ops_name, id_metavar='RESOURCE_ID'):
+def register_access_commands(subparsers, resource_ops_name, id_metavar='RESOURCE_MFID'):
     """Register 'access' (list/grant/revoke) and 'publish'/'unpublish' subcommands."""
     _register_access(subparsers, resource_ops_name, id_metavar)
     _register_publish(subparsers, resource_ops_name, id_metavar)

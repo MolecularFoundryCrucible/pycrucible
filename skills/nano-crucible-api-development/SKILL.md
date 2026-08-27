@@ -31,6 +31,8 @@ When adding a new resource namespace, export the operations class from `crucible
 - Use `user_unique_id` for an ORCID-or-service-account-MFID parameter because not every canonical user identifier is an MFID.
 - When replacing an ambiguous public keyword such as `dsid`, preserve it temporarily as an explicit deprecated alias. Positional compatibility should remain intact where practical.
 - Keep canonical and exact-filter request methods private. Extract shared request behavior only when validation, request shape, response handling, and error semantics are genuinely identical across resources.
+- Dataset and sample route positions, including nested relationship, file, keyword, thumbnail, graph, and download routes, accept MFIDs only. Name their client parameters with `_mfid` even when the server's Python route variable still says `dataset_id`, `sample_id`, or `dsid`.
+- Do not rename serialized wire fields. Some link responses use `dataset_id` and `sample_id` for MFID values, while database link models use those names for integer foreign keys; preserve the response contract and clarify only the client parameter names.
 
 If the change also adds or alters a command, load [`nano-crucible-cli-development`](../nano-crucible-cli-development/SKILL.md).
 

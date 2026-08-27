@@ -19,8 +19,8 @@
 | Relationship | Key(s) | Description |
 |---|---|---|
 | **Scientific metadata** | `scientific_metadata` in `create()`; `metadata` in `update_scientific_metadata()` / `replace_scientific_metadata()` | A free-form JSON object for sample-specific properties (e.g. solubility, physical location). |
-| **Datasets** | `dataset_id` in `add_dataset(sample_id, dataset_id)` | A sample can be linked to one or more datasets, and a dataset to one or more samples — capturing which material was measured. |
-| **Parent/child samples** | `parent_id`, `child_id` in `link(parent_id, child_id)`; also accepted in `create()` | Samples form hierarchies to represent provenance (e.g. boule → wafer → thin film). |
+| **Datasets** | `dataset_mfid` in `add_dataset(sample_mfid, dataset_mfid)` | A sample can be linked to one or more datasets, and a dataset to one or more samples, capturing which material was measured. |
+| **Parent/child samples** | `parent_sample_mfid`, `child_sample_mfid` in `link()`; parent and child records are also accepted in `create()` | Samples form hierarchies to represent provenance, such as boule to wafer to thin film. |
 
 # Working with Samples
 
@@ -38,7 +38,7 @@ sample = client.samples.create(
     )
 )
 
-smid = sample["unique_id"]
+sample_mfid = sample["unique_id"]
 ```
 
 ## Retrieving a sample
@@ -57,14 +57,14 @@ Samples are retrieved only by their canonical 26-character MFID. Sample names ar
 samples = client.samples.list(project_id="my-project", limit=50)
 
 # Samples linked to a specific dataset
-samples = client.samples.list(dataset_id="ds-xyz789")
+samples = client.samples.list(dataset_mfid="0tkn2knjast3h0008nyq9zps2c")
 ```
 
 ## Updating a sample
 
 ```python
 client.samples.update(
-    "sm-abc123",
+    "0td7evvtg5wb90005k1j97ak94",
     description="5 nm Au NPs, annealed at 200 C for 2h after synthesis",
 )
 ```
@@ -72,18 +72,18 @@ client.samples.update(
 Project and ownership changes use preview-first workflows:
 
 ```python
-project_preview = client.samples.reassign_project("sm-abc123", "new-project")
-client.samples.reassign_project("sm-abc123", "new-project", confirm=True)
-owner_preview = client.samples.transfer_ownership("sm-abc123", "new-owner@example.org")
-client.samples.transfer_ownership("sm-abc123", "new-owner@example.org", confirm=True)
+project_preview = client.samples.reassign_project(sample_mfid, "new-project")
+client.samples.reassign_project(sample_mfid, "new-project", confirm=True)
+owner_preview = client.samples.transfer_ownership(sample_mfid, "new-owner@example.org")
+client.samples.transfer_ownership(sample_mfid, "new-owner@example.org", confirm=True)
 ```
 
 ## Managing access
 
 ```python
-grants = client.samples.list_access("sm-abc123")
-client.samples.set_access("sm-abc123", "users", "0000-0002-1825-0097", "viewer")
-client.samples.set_public("sm-abc123")
+grants = client.samples.list_access(sample_mfid)
+client.samples.set_access(sample_mfid, "users", "0000-0002-1825-0097", "viewer")
+client.samples.set_public(sample_mfid)
 ```
 
 Normal access grants accept `viewer`, `contributor`, `editor`, or `admin`. Use `transfer_ownership()` for ownership.
@@ -94,7 +94,10 @@ Samples can form parent-child trees to represent provenance. Use `link()` to con
 
 ```python
 # Link a wafer (child) to the boule it was cut from (parent)
-client.samples.link(parent_id=boule_smid, child_id=wafer_smid)
+client.samples.link(
+    parent_sample_mfid=boule_sample_mfid,
+    child_sample_mfid=wafer_sample_mfid,
+)
 ```
 
 You can also pass `parents` or `children` lists at creation time:
@@ -106,37 +109,37 @@ thin_film = client.samples.create(
         sample_type="thin film",
         project_id="my-project",
     ),
-    parents=[{"unique_id": wafer_smid}],
+    parents=[{"unique_id": wafer_sample_mfid}],
 )
 ```
 
 Navigate the hierarchy:
 
 ```python
-parents = client.samples.list_parents("sm-abc123")
-children = client.samples.list_children("sm-abc123")
+parents = client.samples.list_parents(sample_mfid)
+children = client.samples.list_children(sample_mfid)
 ```
 
 ## Linking samples to datasets
 
 ```python
 # Link a dataset to a sample
-client.samples.add_dataset(sample_id="sm-abc123", dataset_id="ds-xyz789")
+client.samples.add_dataset(sample_mfid=sample_mfid, dataset_mfid=dataset_mfid)
 
 # Remove the link
-client.samples.remove_dataset(sample_id="sm-abc123", dataset_id="ds-xyz789")
+client.samples.remove_dataset(sample_mfid=sample_mfid, dataset_mfid=dataset_mfid)
 ```
 
 ## Viewing the sample graph
 
 ```python
 # First-degree connections (datasets, parent/child samples)
-graph = client.samples.graph("sm-abc123")
+graph = client.samples.graph(sample_mfid)
 
 # Full connected component
-graph = client.samples.graph("sm-abc123", recursive=True)
+graph = client.samples.graph(sample_mfid, recursive=True)
 
 # As a networkx DiGraph (requires networkx)
 import networkx as nx
-G = client.samples.graph("sm-abc123", recursive=True, as_networkx=True)
+G = client.samples.graph(sample_mfid, recursive=True, as_networkx=True)
 ```

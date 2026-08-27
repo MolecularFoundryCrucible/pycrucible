@@ -16,33 +16,33 @@ Running `crucible` without a command starts the interactive shell. See the [CLI 
 | Command | Description |
 |---|---|
 | `dataset list` | List datasets with project, measurement, keyword, session, format, type, instrument, and name-pattern filters |
-| `dataset get ID` | Show a dataset, its files, and linked resources |
+| `dataset get MFID` | Show a dataset, its files, and linked resources |
 | `dataset create -i FILE` | Create a dataset and upload or catalog files |
-| `dataset update ID` | Update model fields or scientific metadata |
-| `dataset edit ID` | Edit dataset fields interactively |
-| `dataset reassign-project ID PROJECT` | Move a dataset to another project |
-| `dataset transfer-ownership ID USER` | Transfer dataset ownership |
-| `dataset delete ID` | Permanently delete a dataset after confirmation |
+| `dataset update MFID` | Update model fields or scientific metadata |
+| `dataset edit MFID` | Edit dataset fields interactively |
+| `dataset reassign-project MFID PROJECT` | Move a dataset to another project |
+| `dataset transfer-ownership MFID USER` | Transfer dataset ownership |
+| `dataset delete MFID` | Permanently delete a dataset after confirmation |
 | `dataset search QUERY` | Search dataset names |
 | `dataset search-metadata QUERY` | Search scientific metadata; `search-md` is an alias |
 | `dataset link` | Link parent and child datasets |
 | `dataset remove-child` | Remove a dataset parent-child link |
-| `dataset list-parents ID` | List parent datasets |
-| `dataset list-children ID` | List child datasets |
-| `dataset add-sample ID` | Link a sample to a dataset |
-| `dataset remove-sample ID` | Unlink a sample from a dataset |
-| `dataset list-samples ID` | List samples linked to a dataset |
-| `dataset add-file ID FILE` | Upload files to an existing dataset |
-| `dataset list-files ID` | List associated files and available download links |
-| `dataset download ID` | Download dataset files with optional include and exclude patterns |
-| `dataset ingestion ID` | Show ingestion requests for a dataset |
-| `dataset add-keyword ID WORD` | Add a keyword |
-| `dataset list-keywords [ID]` | List dataset keywords and usage counts |
-| `dataset list-access-groups ID` | List access groups associated with a dataset |
-| `dataset add-access-group ID GROUP` | Grant an access group access to a dataset |
+| `dataset list-parents MFID` | List parent datasets |
+| `dataset list-children MFID` | List child datasets |
+| `dataset add-sample MFID` | Link a sample to a dataset |
+| `dataset remove-sample MFID` | Unlink a sample from a dataset |
+| `dataset list-samples MFID` | List samples linked to a dataset |
+| `dataset add-file MFID FILE` | Upload files to an existing dataset |
+| `dataset list-files MFID` | List associated files and available download links |
+| `dataset download MFID` | Download dataset files with optional include and exclude patterns |
+| `dataset ingestion MFID` | Show ingestion requests for a dataset |
+| `dataset add-keyword MFID WORD` | Add a keyword |
+| `dataset list-keywords MFID` | List a dataset's keywords and usage counts |
+| `dataset list-access-groups MFID` | List access groups associated with a dataset |
+| `dataset add-access-group MFID GROUP` | Grant an access group access to a dataset |
 | `dataset access ...` | List, grant, or revoke direct access entries |
-| `dataset publish ID` | Make a dataset publicly viewable |
-| `dataset unpublish ID` | Remove public access from a dataset |
+| `dataset publish MFID` | Make a dataset publicly viewable |
+| `dataset unpublish MFID` | Remove public access from a dataset |
 | `dataset parsers` | List installed client-side parsers |
 | `dataset ingestors` | List server-advertised ingestion classes |
 
@@ -61,24 +61,24 @@ Fields normally updated through `dataset update --set` include `dataset_name`, `
 | Command | Description |
 |---|---|
 | `sample list` | List samples with project, name, type, and name-pattern filters |
-| `sample get ID` | Show a sample and its linked resources |
+| `sample get MFID` | Show a sample and its linked resources |
 | `sample create` | Create a sample |
-| `sample update ID` | Update sample fields or scientific metadata |
-| `sample edit ID` | Edit sample fields interactively |
-| `sample reassign-project ID PROJECT` | Move a sample to another project |
-| `sample transfer-ownership ID USER` | Transfer sample ownership |
+| `sample update MFID` | Update sample fields or scientific metadata |
+| `sample edit MFID` | Edit sample fields interactively |
+| `sample reassign-project MFID PROJECT` | Move a sample to another project |
+| `sample transfer-ownership MFID USER` | Transfer sample ownership |
 | `sample search QUERY` | Search sample names |
 | `sample search-metadata QUERY` | Search scientific metadata; `search-md` is an alias |
 | `sample link` | Link parent and child samples |
 | `sample remove-child` | Remove a sample parent-child link |
-| `sample list-parents ID` | List parent samples |
-| `sample list-children ID` | List child samples |
-| `sample add-dataset ID` | Link a dataset to a sample |
-| `sample remove-dataset ID` | Unlink a dataset from a sample |
-| `sample list-datasets ID` | List datasets linked to a sample |
+| `sample list-parents MFID` | List parent samples |
+| `sample list-children MFID` | List child samples |
+| `sample add-dataset MFID` | Link a dataset to a sample |
+| `sample remove-dataset MFID` | Unlink a dataset from a sample |
+| `sample list-datasets MFID` | List datasets linked to a sample |
 | `sample access ...` | List, grant, or revoke direct access entries |
-| `sample publish ID` | Make a sample publicly viewable |
-| `sample unpublish ID` | Remove public access from a sample |
+| `sample publish MFID` | Make a sample publicly viewable |
+| `sample unpublish MFID` | Remove public access from a sample |
 
 Fields normally updated through `sample update` include `sample_name`, `sample_type`, `description`, `timestamp`, and `public`. Use `reassign-project` and `transfer-ownership` for project and owner changes.
 
@@ -113,8 +113,8 @@ The `access grant` commands accept `viewer`, `contributor`, `editor`, or `admin`
 | `instrument list` | List instruments |
 | `instrument get INSTRUMENT` | Show an instrument by MFID or instrument slug |
 | `instrument create` | Register an instrument |
-| `instrument update ID` | Update an instrument record or scientific metadata |
-| `instrument edit ID` | Edit instrument fields interactively |
+| `instrument update MFID` | Update an instrument record or scientific metadata |
+| `instrument edit MFID` | Edit instrument fields interactively |
 | `instrument search QUERY` | Search names, types, and manufacturers |
 | `instrument search-metadata QUERY` | Search scientific metadata; `search-md` is an alias |
 
@@ -251,12 +251,12 @@ Configuration values can come from environment variables, the platform-specific 
 |---|---|
 | `status` | Check API reachability, database health, and authentication |
 | `whoami` | Show the identity associated with the configured key |
-| `get ID` | Show a dataset or sample after detecting its resource type |
-| `edit ID` | Edit a dataset, sample, or instrument after detecting its type |
-| `download ID` | Save a record and, for datasets, associated files |
+| `get MFID` | Show a dataset or sample after detecting its resource type |
+| `edit MFID` | Edit a dataset, sample, or instrument after detecting its type |
+| `download MFID` | Save a record and, for datasets, associated files |
 | `link` | Link parent-child resources or associate a dataset and sample |
-| `unlink ID1 ID2` | Remove a resource relationship |
-| `tree ID` | Display connected ancestors and descendants |
+| `unlink MFID1 MFID2` | Remove a resource relationship |
+| `tree MFID` | Display connected ancestors and descendants |
 | `open [ID]` | Open the Graph Explorer or print its URL |
 | `qr ID` | Print a terminal QR code for an MFID |
 | `completion [SHELL]` | Generate and install completion for bash, zsh, fish, or tcsh |

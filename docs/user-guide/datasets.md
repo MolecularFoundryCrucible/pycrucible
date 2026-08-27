@@ -23,11 +23,11 @@
 
 | Relationship | Key(s) | Description |
 |---|---|---|
-| **Files** | `files` in `create()`; `add_file(dsid, file_path)` to add later | Zero or more files can be attached to a dataset. Each file is uploaded to cloud storage and triggers an ingestion process to parse metadata and generate thumbnails. |
+| **Files** | `files` in `create()`; `add_file(dataset_mfid, file_path)` to add later | Zero or more files can be attached to a dataset. Each file is uploaded to cloud storage and triggers an ingestion process to parse metadata and generate thumbnails. |
 | **Scientific metadata** | `scientific_metadata` in `create()`; `metadata` in `update_scientific_metadata()` / `replace_scientific_metadata()` | A free-form JSON object for experiment-specific parameters. Stored separately from structured fields and searchable across datasets. |
-| **Thumbnails** | `add_thumbnail(dsid, image)` | Small preview images representing the data or results. Generated automatically by ingestors where supported, or uploaded manually. |
-| **Samples** | `sample_id` in `add_sample(dataset_id, sample_id)` | A dataset can be linked to one or more samples, and a sample to one or more datasets — capturing which material was measured. |
-| **Parent/child datasets** | `parent_dataset_id`, `child_dataset_id` in `link_parent_child()` | Datasets can be linked in a directed hierarchy to represent processing pipelines (e.g. raw → calibrated → analyzed). |
+| **Thumbnails** | `add_thumbnail(dataset_mfid, image)` | Small preview images representing the data or results. Generated automatically by ingestors where supported, or uploaded manually. |
+| **Samples** | `sample_mfid` in `add_sample(dataset_mfid, sample_mfid)` | A dataset can be linked to one or more samples, and a sample to one or more datasets, capturing which material was measured. |
+| **Parent/child datasets** | `parent_dataset_mfid`, `child_dataset_mfid` in `link_parent_child()` | Datasets can be linked in a directed hierarchy to represent processing pipelines, such as raw to calibrated to analyzed. |
 
 # Working with Datasets
 ## Creating a dataset
@@ -49,7 +49,7 @@ result = client.datasets.create(
     keywords=["XRD", "powder"],
 )
 
-dsid = result["dsid"]
+dataset_mfid = result["dataset_mfid"]
 ```
 
 You can upload multiple files in one call:
@@ -63,9 +63,9 @@ result = client.datasets.create(
 !!! note "What happens when you call create()"
     `create()` is a client-side convenience method that chains several API calls:
 
-    1. **POST** `/datasets` — creates the dataset record and returns a `dsid`
-    2. **POST** `/resources/{dsid}/metadata` — adds scientific metadata (if provided)
-    3. **POST** `/datasets/{dsid}/keywords` — adds each keyword individually (if provided)
+    1. **POST** `/datasets` creates the dataset record and returns its `unique_id` MFID.
+    2. **POST** `/resources/{dataset_mfid}/metadata` adds scientific metadata when provided.
+    3. **POST** `/datasets/{dataset_mfid}/keywords` adds each keyword individually when provided.
     4. Uploads each file via GCS and triggers an ingestion request per file (if `files` is provided)
 
 
@@ -91,14 +91,14 @@ datasets = client.datasets.list(project_id="my-project", measurement="SEM imagin
 datasets = client.datasets.list(project_id="my-project", keyword="gold")
 
 # Datasets linked to a specific sample
-datasets = client.datasets.list(sample_id="sm-xyz789")
+datasets = client.datasets.list(sample_mfid="0td7evvtg5wb90005k1j97ak94")
 ```
 
 ## Updating a dataset
 
 ```python
 client.datasets.update(
-    "ds-abc123",
+    "0tkn2knjast3h0008nyq9zps2c",
     dataset_name="XRD run 5 (corrected)",
     measurement="Powder X-ray diffraction",
 )
@@ -107,21 +107,21 @@ client.datasets.update(
 Project and ownership changes use preview-first workflows. Pass `confirm=True` only after reviewing the preview:
 
 ```python
-project_preview = client.datasets.reassign_project("ds-abc123", "new-project")
-client.datasets.reassign_project("ds-abc123", "new-project", confirm=True)
+project_preview = client.datasets.reassign_project(dataset_mfid, "new-project")
+client.datasets.reassign_project(dataset_mfid, "new-project", confirm=True)
 
-owner_preview = client.datasets.transfer_ownership("ds-abc123", "new-owner@example.org")
-client.datasets.transfer_ownership("ds-abc123", "new-owner@example.org", confirm=True)
+owner_preview = client.datasets.transfer_ownership(dataset_mfid, "new-owner@example.org")
+client.datasets.transfer_ownership(dataset_mfid, "new-owner@example.org", confirm=True)
 ```
 
 ## Managing access
 
 ```python
-grants = client.datasets.list_access("ds-abc123")
-client.datasets.set_access("ds-abc123", "users", "0000-0002-1825-0097", "editor")
-client.datasets.revoke_access("ds-abc123", "users", "0000-0002-1825-0097")
-client.datasets.set_public("ds-abc123")
-client.datasets.unset_public("ds-abc123")
+grants = client.datasets.list_access(dataset_mfid)
+client.datasets.set_access(dataset_mfid, "users", "0000-0002-1825-0097", "editor")
+client.datasets.revoke_access(dataset_mfid, "users", "0000-0002-1825-0097")
+client.datasets.set_public(dataset_mfid)
+client.datasets.unset_public(dataset_mfid)
 ```
 
 Normal access grants accept `viewer`, `contributor`, `editor`, or `admin`. Use `transfer_ownership()` for ownership.
@@ -131,7 +131,7 @@ Normal access grants accept `viewer`, `contributor`, `editor`, or `admin`. Use `
 Add files to an existing dataset:
 
 ```python
-client.datasets.add_file("ds-abc123", "additional_file.dat")
+client.datasets.add_file(dataset_mfid, "additional_file.dat")
 ```
 
 ### How the data ingestion process works
@@ -162,7 +162,7 @@ Sometimes a file isn't worth (or isn't possible to) upload to GCS - it lives on 
 ```python
 from crucible.models import AssociatedFile
 
-client.datasets.add_remote_file(dsid, AssociatedFile(
+client.datasets.add_remote_file(dataset_mfid, AssociatedFile(
     filename="raw_data.tar",
     storage_backend="globus",
     storage_path="https://app.globus.org/file-manager?origin_id=...&origin_path=...",
@@ -204,12 +204,12 @@ Scientific metadata stores experiment-specific parameters as a free-form JSON ob
 ```python
 # Merge new keys into existing metadata (PATCH — appends/updates individual keys)
 client.datasets.update_scientific_metadata(
-    "ds-abc123",
+    dataset_mfid,
     metadata={"temperature_K": 300, "pressure_bar": 1.0, "scan_rate_mV_s": 50},
 )
 
 # Retrieve it
-meta = client.datasets.get_scientific_metadata("ds-abc123")
+meta = client.datasets.get_scientific_metadata(dataset_mfid)
 
 # Search across all datasets
 results = client.datasets.search_scientific_metadata("temperature", limit=20)
@@ -219,34 +219,34 @@ results = client.datasets.search_scientific_metadata("temperature", limit=20)
 
 ```python
 # Replace all metadata entirely (POST)
-client.datasets.replace_scientific_metadata("ds-abc123", {"new_key": "value"})
+client.datasets.replace_scientific_metadata(dataset_mfid, {"new_key": "value"})
 ```
 
 ## Keywords
 
 ```python
-client.datasets.add_keyword("ds-abc123", "annealed")
-keywords = client.datasets.get_keywords(dataset_id="ds-abc123")
+client.datasets.add_keyword(dataset_mfid, "annealed")
+keywords = client.datasets.get_keywords(dataset_mfid=dataset_mfid)
 ```
 
 ## Thumbnails
 
 ```python
-client.datasets.add_thumbnail("ds-abc123", "preview.png")
-thumbnails = client.datasets.get_thumbnails("ds-abc123")
+client.datasets.add_thumbnail(dataset_mfid, "preview.png")
+thumbnails = client.datasets.get_thumbnails(dataset_mfid)
 ```
 
 ## Downloading
 
 ```python
 # Download all files for a dataset
-client.datasets.download("ds-abc123", output_dir="./downloads")
+client.datasets.download(dataset_mfid, output_dir="./downloads")
 
 # Download only matching files
-client.datasets.download("ds-abc123", output_dir="./downloads", include=["*.dat"])
+client.datasets.download(dataset_mfid, output_dir="./downloads", include=["*.dat"])
 
 # Get temporary signed download URLs, keyed by file MFID
-links = client.datasets.get_download_links("ds-abc123")
+links = client.datasets.get_download_links(dataset_mfid)
 ```
 
 ## Parent-child relationships between datasets
@@ -255,17 +255,20 @@ Link datasets to represent a processing pipeline:
 
 ```python
 # raw → processed
-client.datasets.link_parent_child(parent_dataset_id=raw_dsid, child_dataset_id=processed_dsid)
+client.datasets.link_parent_child(
+    parent_dataset_mfid=raw_dataset_mfid,
+    child_dataset_mfid=processed_dataset_mfid,
+)
 
 # List relationships
-parents = client.datasets.list_parents("ds-processed")
-children = client.datasets.list_children("ds-raw")
+parents = client.datasets.list_parents(processed_dataset_mfid)
+children = client.datasets.list_children(raw_dataset_mfid)
 ```
 
 ## Requesting dataset deletion
 
 ```python
-client.deletions.request("ds-abc123", reason="Superseded dataset")
+client.deletions.request(dataset_mfid, reason="Superseded dataset")
 ```
 
 !!! note

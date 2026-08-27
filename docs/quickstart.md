@@ -51,15 +51,15 @@ result = client.datasets.create(
     keywords=["XRD", "powder diffraction"],
 )
 
-dataset_id = result["dsid"]
+dataset_mfid = result["dataset_mfid"]
 dataset = result["created_record"]
-print(dataset_id)
+print(dataset_mfid)
 ```
 
 Retrieve it later:
 
 ```python
-ds = client.datasets.get(dataset_id)
+ds = client.datasets.get(dataset_mfid)
 print(ds["dataset_name"])
 ```
 
@@ -77,7 +77,7 @@ sample = client.samples.create(Sample(
     description="FZ silicon, 100-orientation, 4-inch wafer",
 ))
 
-print(sample["unique_id"])  # system-assigned sample ID
+print(sample["unique_id"])  # system-assigned sample MFID
 ```
 
 ---
@@ -85,7 +85,7 @@ print(sample["unique_id"])  # system-assigned sample ID
 ## Link a dataset to a sample
 
 ```python
-client.samples.add_dataset(sample["unique_id"], dataset_id)
+client.samples.add_dataset(sample["unique_id"], dataset_mfid)
 ```
 
 See [linking resources](user-guide/linking.md) for dataset processing chains and sample hierarchies.
@@ -105,7 +105,7 @@ for ds in datasets:
 ## Download a dataset
 
 ```python
-client.datasets.download(dataset_id, output_dir="./downloads")
+client.datasets.download(dataset_mfid, output_dir="./downloads")
 ```
 
 ---

@@ -26,40 +26,40 @@ def register_subcommand(subparsers):
         epilog="""
 Examples:
     # Link two datasets (resource types auto-detected)
-    crucible link -p parent_dataset_id -c child_dataset_id
+    crucible link -p PARENT_DATASET_MFID -c CHILD_DATASET_MFID
 
     # Link two samples (resource types auto-detected)
-    crucible link -p parent_sample_id -c child_sample_id
+    crucible link -p PARENT_SAMPLE_MFID -c CHILD_SAMPLE_MFID
 
     # Link sample to dataset
-    crucible link -d dataset_id -s sample_id
+    crucible link -d DATASET_MFID -s SAMPLE_MFID
 """
     )
 
     # Parent-child relationship flags
     parser.add_argument(
         '-p', '--parent',
-        metavar='ID',
-        help='Parent resource ID'
+        metavar='MFID',
+        help='Parent resource MFID'
     )
 
     parser.add_argument(
         '-c', '--child',
-        metavar='ID',
-        help='Child resource ID'
+        metavar='MFID',
+        help='Child resource MFID'
     )
 
     # Dataset-sample relationship flags
     parser.add_argument(
         '-d', '--dataset',
-        metavar='ID',
-        help='Dataset ID (for linking sample to dataset)'
+        metavar='MFID',
+        help='Dataset MFID'
     )
 
     parser.add_argument(
         '-s', '--sample',
-        metavar='ID',
-        help='Sample ID (for linking sample to dataset)'
+        metavar='MFID',
+        help='Sample MFID'
     )
 
     parser.set_defaults(func=execute)

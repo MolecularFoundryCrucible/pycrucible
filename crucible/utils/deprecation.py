@@ -23,6 +23,27 @@ def _deprecated(new_api: str):
     return decorator
 
 
+def _deprecated_parameter(old_name: str, new_name: str):
+    """Map a deprecated keyword to its replacement while preserving positional calls."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if old_name in kwargs:
+                if new_name in kwargs:
+                    raise TypeError(
+                        f"Pass either '{new_name}' or deprecated '{old_name}', not both."
+                    )
+                warnings.warn(
+                    f"The '{old_name}' keyword is deprecated; use '{new_name}' instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                kwargs[new_name] = kwargs.pop(old_name)
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
 def _removed(reason: str):
     """Decorator that raises NotImplementedError for methods removed from the API."""
     def decorator(func):

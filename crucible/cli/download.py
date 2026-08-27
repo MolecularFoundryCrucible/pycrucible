@@ -21,7 +21,8 @@ def register_subcommand(subparsers):
     )
     parser.add_argument(
         'resource_id',
-        help='Unique ID of the sample or dataset to download',
+        metavar='MFID',
+        help='Dataset or sample MFID to download',
     )
     parser.add_argument(
         '-o', '--output-dir',

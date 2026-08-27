@@ -61,7 +61,7 @@ def register_subcommand(subparsers):
     _register_remove_dataset(sample_subparsers)
     _register_remove_child(sample_subparsers)
     from ._access import register_access_commands
-    register_access_commands(sample_subparsers, 'samples', id_metavar='SAMPLE_ID')
+    register_access_commands(sample_subparsers, 'samples', id_metavar='SAMPLE_MFID')
 
 
 def _register_list(subparsers):
@@ -162,8 +162,8 @@ def _register_get(subparsers):
 
     sample_id_arg = parser.add_argument(
         'sample_id',
-        metavar='SAMPLE_ID',
-        help='Sample unique ID'
+        metavar='SAMPLE_MFID',
+        help='Sample MFID'
     )
     # Disable file completion for sample_id
     if ARGCOMPLETE_AVAILABLE:
@@ -291,12 +291,12 @@ def _register_update(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sample update SAMPLE_ID --name "Silicon Wafer B"
-    crucible sample update SAMPLE_ID --description "Annealed at 900C" --type substrate
-    crucible sample update SAMPLE_ID --public
-    crucible sample update SAMPLE_ID --metadata '{"thickness_nm": 50}'
-    crucible sample update SAMPLE_ID --metadata metadata.json --overwrite
-    crucible sample update SAMPLE_ID --set session_name=run42
+    crucible sample update SAMPLE_MFID --name "Silicon Wafer B"
+    crucible sample update SAMPLE_MFID --description "Annealed at 900C" --type substrate
+    crucible sample update SAMPLE_MFID --public
+    crucible sample update SAMPLE_MFID --metadata '{"thickness_nm": 50}'
+    crucible sample update SAMPLE_MFID --metadata metadata.json --overwrite
+    crucible sample update SAMPLE_MFID --set session_name=run42
 
 Use `sample reassign-project`/`sample transfer-ownership` to change project or owner.
 """
@@ -304,8 +304,8 @@ Use `sample reassign-project`/`sample transfer-ownership` to change project or o
 
     sample_id_arg = parser.add_argument(
         'sample_id',
-        metavar='SAMPLE_ID',
-        help='Sample unique ID'
+        metavar='SAMPLE_MFID',
+        help='Sample MFID'
     )
     if ARGCOMPLETE_AVAILABLE:
         sample_id_arg.completer = argcomplete.completers.SuppressCompleter()
@@ -417,11 +417,11 @@ def _register_reassign_project(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sample reassign-project SAMPLE_ID new-project
-    crucible sample reassign-project SAMPLE_ID new-project --confirm
+    crucible sample reassign-project SAMPLE_MFID new-project
+    crucible sample reassign-project SAMPLE_MFID new-project --confirm
 """
     )
-    parser.add_argument('sample_id', metavar='SAMPLE_ID', help='Sample unique identifier')
+    parser.add_argument('sample_id', metavar='SAMPLE_MFID', help='Sample MFID')
     parser.add_argument('project_id', metavar='PROJECT_ID', help='Target project ID')
     parser.add_argument('--confirm', action='store_true', help='Execute the move (default: preview only)')
     parser.set_defaults(func=_execute_reassign_project)
@@ -449,11 +449,11 @@ def _register_transfer_ownership(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sample transfer-ownership SAMPLE_ID newowner@example.com
-    crucible sample transfer-ownership SAMPLE_ID newowner@example.com --confirm
+    crucible sample transfer-ownership SAMPLE_MFID newowner@example.com
+    crucible sample transfer-ownership SAMPLE_MFID newowner@example.com --confirm
 """
     )
-    parser.add_argument('sample_id', metavar='SAMPLE_ID', help='Sample unique identifier')
+    parser.add_argument('sample_id', metavar='SAMPLE_MFID', help='Sample MFID')
     parser.add_argument('new_owner', metavar='NEW_OWNER', help='ORCID, username, or email of the new owner')
     parser.add_argument('--confirm', action='store_true', help='Execute the transfer (default: preview only)')
     parser.set_defaults(func=_execute_transfer_ownership)
@@ -481,14 +481,14 @@ def _register_edit(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sample edit SAMPLE_ID
-    EDITOR=vim crucible sample edit SAMPLE_ID
+    crucible sample edit SAMPLE_MFID
+    EDITOR=vim crucible sample edit SAMPLE_MFID
 """
     )
     sample_id_arg = parser.add_argument(
         'sample_id',
-        metavar='SAMPLE_ID',
-        help='Sample unique ID'
+        metavar='SAMPLE_MFID',
+        help='Sample MFID'
     )
     if ARGCOMPLETE_AVAILABLE:
         sample_id_arg.completer = argcomplete.completers.SuppressCompleter()
@@ -566,15 +566,15 @@ def _register_link(subparsers):
     parser.add_argument(
         '-p', '--parent',
         required=True,
-        metavar='PARENT_ID',
-        help='Parent sample ID'
+        metavar='PARENT_MFID',
+        help='Parent sample MFID'
     )
 
     parser.add_argument(
         '-c', '--child',
         required=True,
-        metavar='CHILD_ID',
-        help='Child sample ID'
+        metavar='CHILD_MFID',
+        help='Child sample MFID'
     )
 
     parser.set_defaults(func=_execute_link)
@@ -589,11 +589,11 @@ def _register_add_dataset(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sample add-dataset SAMPLE_ID --dataset DATASET_ID
+    crucible sample add-dataset SAMPLE_MFID --dataset DATASET_MFID
 """
     )
-    parser.add_argument('sample_id', metavar='SAMPLE_ID', help='Sample unique ID')
-    parser.add_argument('-d', '--dataset', required=True, metavar='DATASET_ID', help='Dataset ID')
+    parser.add_argument('sample_id', metavar='SAMPLE_MFID', help='Sample MFID')
+    parser.add_argument('-d', '--dataset', required=True, metavar='DATASET_MFID', help='Dataset MFID')
     parser.set_defaults(func=_execute_link_dataset)
 
 
@@ -606,10 +606,10 @@ def _register_list_parents(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sample list-parents SAMPLE_ID
+    crucible sample list-parents SAMPLE_MFID
 """
     )
-    parser.add_argument('sample_id', metavar='SAMPLE_ID', help='Sample unique ID')
+    parser.add_argument('sample_id', metavar='SAMPLE_MFID', help='Sample MFID')
     parser.add_argument('--limit', type=int, default=_config.default_limit, metavar='N',
                         help=f'Maximum number of results (default: {_config.default_limit})')
     parser.set_defaults(func=_execute_list_parents)
@@ -624,10 +624,10 @@ def _register_list_children(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sample list-children SAMPLE_ID
+    crucible sample list-children SAMPLE_MFID
 """
     )
-    parser.add_argument('sample_id', metavar='SAMPLE_ID', help='Sample unique ID')
+    parser.add_argument('sample_id', metavar='SAMPLE_MFID', help='Sample MFID')
     parser.add_argument('--limit', type=int, default=_config.default_limit, metavar='N',
                         help=f'Maximum number of results (default: {_config.default_limit})')
     parser.set_defaults(func=_execute_list_children)
@@ -642,10 +642,10 @@ def _register_list_datasets(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sample list-datasets SAMPLE_ID
+    crucible sample list-datasets SAMPLE_MFID
 """
     )
-    parser.add_argument('sample_id', metavar='SAMPLE_ID', help='Sample unique ID')
+    parser.add_argument('sample_id', metavar='SAMPLE_MFID', help='Sample MFID')
     parser.add_argument('--limit', type=int, default=_config.default_limit, metavar='N',
                         help=f'Maximum number of results (default: {_config.default_limit})')
     parser.set_defaults(func=_execute_list_datasets)
@@ -1028,7 +1028,7 @@ def _execute_list_datasets(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        datasets = sorted(client.datasets.list(sample_id=args.sample_id, limit=args.limit),
+        datasets = sorted(client.datasets.list(sample_mfid=args.sample_id, limit=args.limit),
                           key=lambda ds: (ds.get('dataset_name') or '').lower())
         term.header(f"Datasets · {args.sample_id} ({len(datasets)})")
         if not datasets:
@@ -1066,11 +1066,11 @@ def _register_remove_child(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sample remove-child PARENT_ID --child CHILD_ID
+    crucible sample remove-child PARENT_MFID --child CHILD_MFID
 """
     )
-    parser.add_argument('parent_id', metavar='PARENT_ID', help='Parent sample unique ID')
-    parser.add_argument('-c', '--child', required=True, metavar='CHILD_ID', help='Child sample ID to unlink')
+    parser.add_argument('parent_id', metavar='PARENT_MFID', help='Parent sample MFID')
+    parser.add_argument('-c', '--child', required=True, metavar='CHILD_MFID', help='Child sample MFID to unlink')
     parser.set_defaults(func=_execute_remove_child)
 
 
@@ -1095,11 +1095,11 @@ def _register_remove_dataset(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sample remove-dataset SAMPLE_ID --dataset DATASET_ID
+    crucible sample remove-dataset SAMPLE_MFID --dataset DATASET_MFID
 """
     )
-    parser.add_argument('sample_id', metavar='SAMPLE_ID', help='Sample unique ID')
-    parser.add_argument('-d', '--dataset', required=True, metavar='DATASET_ID', help='Dataset ID to unlink')
+    parser.add_argument('sample_id', metavar='SAMPLE_MFID', help='Sample MFID')
+    parser.add_argument('-d', '--dataset', required=True, metavar='DATASET_MFID', help='Dataset MFID to unlink')
     parser.set_defaults(func=_execute_remove_dataset)
 
 

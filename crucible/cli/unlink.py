@@ -29,42 +29,42 @@ Examples:
     crucible unlink MFID1 MFID2
 
     # Legacy flag syntax (still supported)
-    crucible unlink -p parent_id -c child_id
-    crucible unlink -d dataset_id -s sample_id
+    crucible unlink -p PARENT_MFID -c CHILD_MFID
+    crucible unlink -d DATASET_MFID -s SAMPLE_MFID
 """
     )
 
     parser.add_argument(
         'id1',
         nargs='?',
-        metavar='ID1',
-        help='First resource ID'
+        metavar='MFID1',
+        help='First resource MFID'
     )
     parser.add_argument(
         'id2',
         nargs='?',
-        metavar='ID2',
-        help='Second resource ID'
+        metavar='MFID2',
+        help='Second resource MFID'
     )
     parser.add_argument(
         '-p', '--parent',
-        metavar='ID',
-        help='First resource ID (legacy)'
+        metavar='MFID',
+        help='First resource MFID (legacy form)'
     )
     parser.add_argument(
         '-c', '--child',
-        metavar='ID',
-        help='Second resource ID (legacy)'
+        metavar='MFID',
+        help='Second resource MFID (legacy form)'
     )
     parser.add_argument(
         '-d', '--dataset',
-        metavar='ID',
-        help='Dataset ID (legacy)'
+        metavar='MFID',
+        help='Dataset MFID (legacy form)'
     )
     parser.add_argument(
         '-s', '--sample',
-        metavar='ID',
-        help='Sample ID (legacy)'
+        metavar='MFID',
+        help='Sample MFID (legacy form)'
     )
 
     parser.set_defaults(func=execute)
