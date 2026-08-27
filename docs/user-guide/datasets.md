@@ -27,7 +27,7 @@
 | **Scientific metadata** | `scientific_metadata` in `create()`; `metadata` in `update_scientific_metadata()` / `replace_scientific_metadata()` | A free-form JSON object for experiment-specific parameters. Stored separately from structured fields and searchable across datasets. |
 | **Thumbnails** | `add_thumbnail(dataset_mfid, image)` | Small preview images representing the data or results. Generated automatically by ingestors where supported, or uploaded manually. |
 | **Samples** | `sample_mfid` in `add_sample(dataset_mfid, sample_mfid)` | A dataset can be linked to one or more samples, and a sample to one or more datasets, capturing which material was measured. |
-| **Parent/child datasets** | `parent_dataset_mfid`, `child_dataset_mfid` in `link_parent_child()` | Datasets can be linked in a directed hierarchy to represent processing pipelines, such as raw to calibrated to analyzed. |
+| **Parent/child datasets** | `parent_mfid`, `child_mfid` in `link_parent_child()` | Datasets can be linked in a directed hierarchy to represent processing pipelines, such as raw to calibrated to analyzed. |
 
 # Working with Datasets
 ## Creating a dataset
@@ -256,8 +256,8 @@ Link datasets to represent a processing pipeline:
 ```python
 # raw → processed
 client.datasets.link_parent_child(
-    parent_dataset_mfid=raw_dataset_mfid,
-    child_dataset_mfid=processed_dataset_mfid,
+    parent_mfid=raw_dataset_mfid,
+    child_mfid=processed_dataset_mfid,
 )
 
 # List relationships

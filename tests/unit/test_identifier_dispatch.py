@@ -243,6 +243,72 @@ class TestDeprecatedParameterCompatibility:
         ops._paginate.assert_called_once_with(
             f'/datasets/{MFID}/samples', {}, 100, 0)
 
+    @pytest.mark.parametrize(
+        ('operations_class', 'method_name', 'resource'),
+        [
+            (DatasetOperations, 'link_parent_child', 'datasets'),
+            (SampleOperations, 'link', 'samples'),
+        ],
+    )
+    def test_relationship_methods_use_role_mfid_parameters(
+            self, operations_class, method_name, resource):
+        ops = make_ops(operations_class)
+        ops._request = MagicMock(return_value={})
+
+        getattr(ops, method_name)(parent_mfid=MFID, child_mfid=SECOND_MFID)
+
+        ops._request.assert_called_once_with(
+            'post', f'/{resource}/{MFID}/children/{SECOND_MFID}')
+
+    @pytest.mark.parametrize(
+        ('operations_class', 'method_name', 'parent_keyword', 'child_keyword', 'resource'),
+        [
+            (
+                DatasetOperations,
+                'link_parent_child',
+                'parent_dataset_id',
+                'child_dataset_id',
+                'datasets',
+            ),
+            (
+                DatasetOperations,
+                'link_parent_child',
+                'parent_dataset_mfid',
+                'child_dataset_mfid',
+                'datasets',
+            ),
+            (
+                SampleOperations,
+                'link',
+                'parent_id',
+                'child_id',
+                'samples',
+            ),
+            (
+                SampleOperations,
+                'link',
+                'parent_sample_mfid',
+                'child_sample_mfid',
+                'samples',
+            ),
+        ],
+    )
+    def test_deprecated_relationship_keywords_remain_compatible(
+            self, operations_class, method_name, parent_keyword,
+            child_keyword, resource):
+        ops = make_ops(operations_class)
+        ops._request = MagicMock(return_value={})
+
+        with pytest.warns(DeprecationWarning) as warnings:
+            getattr(ops, method_name)(**{
+                parent_keyword: MFID,
+                child_keyword: SECOND_MFID,
+            })
+
+        assert len(warnings) == 2
+        ops._request.assert_called_once_with(
+            'post', f'/{resource}/{MFID}/children/{SECOND_MFID}')
+
     def test_sample_update_preserves_unique_id_keyword(self):
         ops = make_ops(SampleOperations)
         ops._request = MagicMock(return_value={'unique_id': MFID})

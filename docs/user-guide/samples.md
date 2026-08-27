@@ -20,7 +20,7 @@
 |---|---|---|
 | **Scientific metadata** | `scientific_metadata` in `create()`; `metadata` in `update_scientific_metadata()` / `replace_scientific_metadata()` | A free-form JSON object for sample-specific properties (e.g. solubility, physical location). |
 | **Datasets** | `dataset_mfid` in `add_dataset(sample_mfid, dataset_mfid)` | A sample can be linked to one or more datasets, and a dataset to one or more samples, capturing which material was measured. |
-| **Parent/child samples** | `parent_sample_mfid`, `child_sample_mfid` in `link()`; parent and child records are also accepted in `create()` | Samples form hierarchies to represent provenance, such as boule to wafer to thin film. |
+| **Parent/child samples** | `parent_mfid`, `child_mfid` in `link()`; parent and child records are also accepted in `create()` | Samples form hierarchies to represent provenance, such as boule to wafer to thin film. |
 
 # Working with Samples
 
@@ -95,8 +95,8 @@ Samples can form parent-child trees to represent provenance. Use `link()` to con
 ```python
 # Link a wafer (child) to the boule it was cut from (parent)
 client.samples.link(
-    parent_sample_mfid=boule_sample_mfid,
-    child_sample_mfid=wafer_sample_mfid,
+    parent_mfid=boule_sample_mfid,
+    child_mfid=wafer_sample_mfid,
 )
 ```
 

@@ -363,45 +363,49 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         """
         return self._request('delete', f"/datasets/{dataset_mfid}/samples/{sample_mfid}")
 
-    @_deprecated_parameter('parent_dataset_id', 'parent_dataset_mfid')
-    @_deprecated_parameter('child_dataset_id', 'child_dataset_mfid')
-    def remove_child(self, parent_dataset_mfid: str, child_dataset_mfid: str) -> Dict:
+    @_deprecated_parameter('parent_dataset_id', 'parent_mfid')
+    @_deprecated_parameter('parent_dataset_mfid', 'parent_mfid')
+    @_deprecated_parameter('child_dataset_id', 'child_mfid')
+    @_deprecated_parameter('child_dataset_mfid', 'child_mfid')
+    def remove_child(self, parent_mfid: str, child_mfid: str) -> Dict:
         """Remove the parent-child link between two datasets.
 
         Args:
-            parent_dataset_mfid (str): Parent dataset MFID
-            child_dataset_mfid (str): Child dataset MFID
+            parent_mfid (str): Parent dataset MFID
+            child_mfid (str): Child dataset MFID
 
         Returns:
             Dict: Deletion confirmation
         """
         return self._request(
-            'delete', f"/datasets/{parent_dataset_mfid}/children/{child_dataset_mfid}")
+            'delete', f"/datasets/{parent_mfid}/children/{child_mfid}")
 
-    @_deprecated_parameter('parent_dataset_id', 'parent_dataset_mfid')
-    @_deprecated_parameter('child_dataset_id', 'child_dataset_mfid')
-    def link_parent_child(self, parent_dataset_mfid: str,
-                          child_dataset_mfid: str) -> Dict:
+    @_deprecated_parameter('parent_dataset_id', 'parent_mfid')
+    @_deprecated_parameter('parent_dataset_mfid', 'parent_mfid')
+    @_deprecated_parameter('child_dataset_id', 'child_mfid')
+    @_deprecated_parameter('child_dataset_mfid', 'child_mfid')
+    def link_parent_child(self, parent_mfid: str, child_mfid: str) -> Dict:
         """Link a derived dataset to a parent dataset.
 
         Args:
-            parent_dataset_mfid (str): Parent dataset MFID
-            child_dataset_mfid (str): Derived dataset MFID
+            parent_mfid (str): Parent dataset MFID
+            child_mfid (str): Derived dataset MFID
 
         Returns:
             Dict: Information about the created link
         """
         new_link = self._request(
-            'post', f"/datasets/{parent_dataset_mfid}/children/{child_dataset_mfid}")
+            'post', f"/datasets/{parent_mfid}/children/{child_mfid}")
         return new_link
 
-    @_deprecated_parameter('parent_dataset_id', 'parent_dataset_mfid')
-    def list_children(self, parent_dataset_mfid: str, limit: int = DEFAULT_LIMIT,
+    @_deprecated_parameter('parent_dataset_id', 'parent_mfid')
+    @_deprecated_parameter('parent_dataset_mfid', 'parent_mfid')
+    def list_children(self, parent_mfid: str, limit: int = DEFAULT_LIMIT,
                       offset: int = 0, **kwargs) -> List[Dict]:
         """List the children of a given dataset with optional filtering.
 
         Args:
-            parent_dataset_mfid (str): Parent dataset MFID
+            parent_mfid (str): Parent dataset MFID
             limit (int): Maximum number of results to return
             offset (int): Starting position in the full result set (default: 0)
             **kwargs (Any): Query parameters for filtering datasets
@@ -411,15 +415,16 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         """
         params = {k: v for k, v in kwargs.items() if v is not None}
         return self._paginate(
-            f"/datasets/{parent_dataset_mfid}/children", params, limit, offset)
+            f"/datasets/{parent_mfid}/children", params, limit, offset)
 
-    @_deprecated_parameter('child_dataset_id', 'child_dataset_mfid')
-    def list_parents(self, child_dataset_mfid: str, limit: int = DEFAULT_LIMIT,
+    @_deprecated_parameter('child_dataset_id', 'child_mfid')
+    @_deprecated_parameter('child_dataset_mfid', 'child_mfid')
+    def list_parents(self, child_mfid: str, limit: int = DEFAULT_LIMIT,
                      offset: int = 0, **kwargs) -> List[Dict]:
         """List the parents of a given dataset with optional filtering.
 
         Args:
-            child_dataset_mfid (str): Child dataset MFID
+            child_mfid (str): Child dataset MFID
             limit (int): Maximum number of results to return
             offset (int): Starting position in the full result set (default: 0)
             **kwargs (Any): Query parameters for filtering datasets
@@ -429,7 +434,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         """
         params = {k: v for k, v in kwargs.items() if v is not None}
         return self._paginate(
-            f"/datasets/{child_dataset_mfid}/parents", params, limit, offset)
+            f"/datasets/{child_mfid}/parents", params, limit, offset)
 
     # Special Processing Methods
     @_deprecated_parameter('dsid', 'dataset_mfid')

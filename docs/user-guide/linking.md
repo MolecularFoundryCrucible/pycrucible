@@ -30,14 +30,14 @@ Use parent-child links to represent processing pipelines:
 ```python
 # Establish raw → processed relationship
 client.datasets.link_parent_child(
-    parent_dataset_mfid=raw_dataset_mfid,
-    child_dataset_mfid=processed_dataset_mfid,
+    parent_mfid=raw_dataset_mfid,
+    child_mfid=processed_dataset_mfid,
 )
 
 # Remove it
 client.datasets.remove_child(
-    parent_dataset_mfid=raw_dataset_mfid,
-    child_dataset_mfid=processed_dataset_mfid,
+    parent_mfid=raw_dataset_mfid,
+    child_mfid=processed_dataset_mfid,
 )
 
 # Navigate
@@ -52,14 +52,14 @@ children = client.datasets.list_children(raw_dataset_mfid)
 ```python
 # Establish provenance: boule → wafer
 client.samples.link(
-    parent_sample_mfid=boule_sample_mfid,
-    child_sample_mfid=wafer_sample_mfid,
+    parent_mfid=boule_sample_mfid,
+    child_mfid=wafer_sample_mfid,
 )
 
 # Remove it
 client.samples.remove_child(
-    parent_sample_mfid=boule_sample_mfid,
-    child_sample_mfid=wafer_sample_mfid,
+    parent_mfid=boule_sample_mfid,
+    child_mfid=wafer_sample_mfid,
 )
 
 # Navigate

@@ -73,9 +73,10 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         return self._parse(require_canonical_identifier(raw, 'sample'))
 
     @_deprecated_parameter('dataset_id', 'dataset_mfid')
-    @_deprecated_parameter('parent_id', 'parent_sample_mfid')
+    @_deprecated_parameter('parent_id', 'parent_mfid')
+    @_deprecated_parameter('parent_sample_mfid', 'parent_mfid')
     def list(self, dataset_mfid: Optional[str] = None,
-             parent_sample_mfid: Optional[str] = None,
+             parent_mfid: Optional[str] = None,
              include_metadata: bool = False, include_links: bool = False,
              include_owner: bool = False, limit: int = DEFAULT_LIMIT,
              offset: int = 0, **kwargs) -> List[Dict]:
@@ -83,7 +84,7 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
 
         Args:
             dataset_mfid (str, optional): Get samples linked to this dataset MFID
-            parent_sample_mfid (str, optional): Get child samples from this parent MFID
+            parent_mfid (str, optional): Get child samples from this parent MFID
             include_metadata (bool): Include scientific metadata in results
             include_links (bool): Include linked resources (parents, children, associated) per sample
             include_owner (bool): Resolve owner_orcid into a full user object per sample
@@ -107,8 +108,8 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             params['include_owner'] = True
         if dataset_mfid:
             endpoint = f"/datasets/{dataset_mfid}/samples"
-        elif parent_sample_mfid:
-            endpoint = f"/samples/{parent_sample_mfid}/children"
+        elif parent_mfid:
+            endpoint = f"/samples/{parent_mfid}/children"
         else:
             endpoint = "/samples"
             if offset:
@@ -127,13 +128,14 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         result = self._request('get', '/samples', params={**params, 'limit': 1})
         return result['total']
 
-    @_deprecated_parameter('sample_id', 'sample_mfid')
-    def list_parents(self, sample_mfid: str, limit: int = DEFAULT_LIMIT,
+    @_deprecated_parameter('sample_id', 'child_mfid')
+    @_deprecated_parameter('sample_mfid', 'child_mfid')
+    def list_parents(self, child_mfid: str, limit: int = DEFAULT_LIMIT,
                      offset: int = 0, **kwargs) -> List[Dict]:
         """List the parents of a given sample with optional filtering.
 
         Args:
-            sample_mfid (str): Child sample MFID
+            child_mfid (str): Child sample MFID
             limit (int): Maximum number of results to return (default: 100)
             offset (int): Starting position in the full result set (default: 0)
             **kwargs: Query parameters for filtering samples
@@ -142,15 +144,16 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             List[Dict]: Parent samples
         """
         params = {k: v for k, v in kwargs.items() if v is not None}
-        return self._paginate(f"/samples/{sample_mfid}/parents", params, limit, offset)
+        return self._paginate(f"/samples/{child_mfid}/parents", params, limit, offset)
 
-    @_deprecated_parameter('sample_id', 'sample_mfid')
-    def list_children(self, sample_mfid: str, limit: int = DEFAULT_LIMIT,
+    @_deprecated_parameter('sample_id', 'parent_mfid')
+    @_deprecated_parameter('sample_mfid', 'parent_mfid')
+    def list_children(self, parent_mfid: str, limit: int = DEFAULT_LIMIT,
                       offset: int = 0, **kwargs) -> List[Dict]:
         """List the children of a given sample with optional filtering.
 
         Args:
-            sample_mfid (str): Parent sample MFID
+            parent_mfid (str): Parent sample MFID
             limit (int): Maximum number of results to return (default: 100)
             offset (int): Starting position in the full result set (default: 0)
             **kwargs: Query parameters for filtering samples
@@ -159,7 +162,7 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             List[Dict]: Children samples
         """
         params = {k: v for k, v in kwargs.items() if v is not None}
-        return self._paginate(f"/samples/{sample_mfid}/children", params, limit, offset)
+        return self._paginate(f"/samples/{parent_mfid}/children", params, limit, offset)
 
     def create(self, sample=None, scientific_metadata: Optional[Dict] = None,
                parents: List[Dict] = [], children: List[Dict] = [],
@@ -358,36 +361,39 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         )
         return self.remove_dataset(sample_id, dataset_id)
 
-    @_deprecated_parameter('parent_id', 'parent_sample_mfid')
-    @_deprecated_parameter('child_id', 'child_sample_mfid')
-    def remove_child(self, parent_sample_mfid: str,
-                     child_sample_mfid: str) -> Dict:
+    @_deprecated_parameter('parent_id', 'parent_mfid')
+    @_deprecated_parameter('parent_sample_mfid', 'parent_mfid')
+    @_deprecated_parameter('child_id', 'child_mfid')
+    @_deprecated_parameter('child_sample_mfid', 'child_mfid')
+    def remove_child(self, parent_mfid: str, child_mfid: str) -> Dict:
         """Remove the parent-child link between two samples.
 
         Args:
-            parent_sample_mfid (str): Parent sample MFID
-            child_sample_mfid (str): Child sample MFID
+            parent_mfid (str): Parent sample MFID
+            child_mfid (str): Child sample MFID
 
         Returns:
             Dict: Deletion confirmation
         """
         return self._request(
-            'delete', f"/samples/{parent_sample_mfid}/children/{child_sample_mfid}")
+            'delete', f"/samples/{parent_mfid}/children/{child_mfid}")
 
-    @_deprecated_parameter('parent_id', 'parent_sample_mfid')
-    @_deprecated_parameter('child_id', 'child_sample_mfid')
-    def link(self, parent_sample_mfid: str, child_sample_mfid: str) -> Dict:
+    @_deprecated_parameter('parent_id', 'parent_mfid')
+    @_deprecated_parameter('parent_sample_mfid', 'parent_mfid')
+    @_deprecated_parameter('child_id', 'child_mfid')
+    @_deprecated_parameter('child_sample_mfid', 'child_mfid')
+    def link(self, parent_mfid: str, child_mfid: str) -> Dict:
         """Link two samples with a parent-child relationship.
 
         Args:
-            parent_sample_mfid (str): Parent sample MFID
-            child_sample_mfid (str): Child sample MFID
+            parent_mfid (str): Parent sample MFID
+            child_mfid (str): Child sample MFID
 
         Returns:
             Dict: Created link object
         """
         return self._request(
-            'post', f"/samples/{parent_sample_mfid}/children/{child_sample_mfid}")
+            'post', f"/samples/{parent_mfid}/children/{child_mfid}")
 
     def search(self, q: str, project_id: Optional[str] = None,
                limit: int = 20) -> List[Dict]:
