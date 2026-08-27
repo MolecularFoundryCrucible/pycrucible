@@ -63,4 +63,4 @@ Parser-specific architecture and registration instructions are in [`crucible/par
 
 ## Coding-agent guidance
 
-Repository-aware coding agents should read [`AGENTS.md`](AGENTS.md), which routes API, CLI, parser, and cast changes to the relevant development skill under [`skills/`](skills/). The separate [`nano-crucible`](skills/nano-crucible/) skill is a temporary operational template; the shared copy in [`crucible-ecosystem`](https://github.com/MolecularFoundryCrucible/crucible-ecosystem) will become authoritative after migration.
+Repository-aware coding agents should read [`AGENTS.md`](AGENTS.md), which routes API, CLI, parser, and cast changes to the relevant development skill under [`skills/`](skills/). The operational [`nano-crucible` ecosystem skill](https://github.com/MolecularFoundryCrucible/crucible-ecosystem/blob/main/skills/nano-crucible/SKILL.md) is authoritative; Nano retains a small [discovery and safety shim](skills/nano-crucible/SKILL.md) for agents that cannot load the shared skill directly.
