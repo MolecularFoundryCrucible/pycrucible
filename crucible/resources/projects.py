@@ -58,7 +58,8 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
         ``members: None`` regardless of the flag.
 
         Args:
-            project_ref (str, optional): Project MFID or 3-to-25-character project slug
+            project_ref (str, optional): Project MFID or project slug. Lookup accepts
+                                         legacy slugs outside the current write limits.
             project_id (str, optional): Explicit project slug
             project_mfid (str, optional): Explicit project MFID
             include_metadata (bool): Whether to include scientific metadata

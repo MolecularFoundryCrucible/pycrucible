@@ -44,14 +44,17 @@ def validate_slug(value: str, resource_name: str) -> str:
 
 
 def classify_slug_reference(value: str, resource_name: str) -> str:
-    """Classify a project or instrument reference as ``mfid`` or ``slug``."""
+    """Classify a project or instrument reference as ``mfid`` or lookup slug.
+
+    Lookup accepts legacy slugs that predate the current write-time format.
+    """
     if is_mfid(value):
         return 'mfid'
-    if is_slug(value):
+    if isinstance(value, str) and value:
         return 'slug'
     raise ValueError(
-        f"Invalid {resource_name} reference. Pass a 26-character MFID or a "
-        "3-to-25-character slug containing letters, digits, underscores, or hyphens."
+        f"Invalid {resource_name} reference. Pass a non-empty slug or a "
+        "26-character MFID."
     )
 
 

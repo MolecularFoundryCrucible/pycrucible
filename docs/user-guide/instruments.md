@@ -16,6 +16,8 @@
 | `creation_time` | When the record was created | server-assigned |
 | `modification_time` | When the record was last modified | server-assigned |
 
+New and renamed instrument IDs must contain 3 to 25 characters. Lookup remains compatible with older IDs outside that range.
+
 # Working with Instruments
 
 ## Creating an instrument

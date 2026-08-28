@@ -36,10 +36,14 @@ class TestClassification:
         assert classify_slug_reference('abc', 'project') == 'slug'
         assert classify_slug_reference('a' * 25, 'project') == 'slug'
 
-    @pytest.mark.parametrize('value', ['ab', 'i' * 26, 'has spaces'])
+    @pytest.mark.parametrize('value', ['', None])
     def test_invalid_general_slug_reference(self, value):
         with pytest.raises(ValueError):
             classify_slug_reference(value, 'project')
+
+    @pytest.mark.parametrize('value', ['ab', 'i' * 26, 'has spaces', 'legacy-' * 10])
+    def test_legacy_slug_reference_remains_readable(self, value):
+        assert classify_slug_reference(value, 'project') == 'slug'
 
     @pytest.mark.parametrize(
         ('value', 'expected'),
