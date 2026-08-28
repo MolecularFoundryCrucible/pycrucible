@@ -278,6 +278,7 @@ class UserOperations(BaseResource):
         """
         return self._request('get', f'/users/{orcid}/access_groups')
 
+    @_deprecated("client.projects.add_user() or client.instruments.bind_service_account()")
     def add_to_access_group(self, orcid: str, group_name: str) -> Dict:
         """Add a user to an access group.
 
@@ -325,6 +326,7 @@ class UserOperations(BaseResource):
         """Deprecated: use client.account.api_key() instead."""
         return self._client.account.api_key()
 
+    @_deprecated("client.projects.remove_user() or client.instruments.unbind_service_account()")
     def remove_from_access_group(self, orcid: str, group_name: str) -> Dict:
         """Remove a user from an access group.
 

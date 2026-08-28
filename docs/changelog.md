@@ -26,6 +26,8 @@
 
 ### Changed
 
+- Project membership mutations resolve usernames and emails before using canonical user identifiers; the old `orcid` keyword remains temporarily supported.
+- Generic access-group mutation helpers and CLI commands are deprecated in favor of typed resource, project, and instrument operations.
 - User-directory, project-lead, member, and operator views now treat user profiles as public-safe and email-free.
 - `user list-datasets` now uses the canonical paginated dataset collection and supports `--limit`.
 - `client.users.check_dataset_access()` and `user check-access` now report the canonical effective access role.

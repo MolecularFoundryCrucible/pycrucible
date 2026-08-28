@@ -1589,8 +1589,8 @@ def _execute_list_keywords(args):
 def _register_list_access_groups(subparsers):
     parser = subparsers.add_parser(
         'list-access-groups',
-        help='List access groups for a dataset (admin)',
-        description='List access groups that have been granted access to a dataset.',
+        help='Deprecated: use dataset access list',
+        description='Deprecated compatibility command. Use dataset access list.',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -1621,8 +1621,8 @@ def _execute_list_access_groups(args):
 def _register_add_access_group(subparsers):
     parser = subparsers.add_parser(
         'add-access-group',
-        help='Grant an access group access to a dataset (admin)',
-        description='Add an access group to a dataset with read and/or write permissions.',
+        help='Deprecated: use dataset access grant',
+        description='Deprecated compatibility command. Use dataset access grant.',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:

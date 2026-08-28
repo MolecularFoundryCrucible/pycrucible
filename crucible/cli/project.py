@@ -569,7 +569,7 @@ def _execute_add_user(args):
         import requests as _req
         client = CrucibleClient()
         role = getattr(args, 'role', None)
-        users = client.projects.add_user(orcid=orcid, project_id=args.project_id,
+        users = client.projects.add_user(user_unique_id=orcid, project_id=args.project_id,
                                          email=email, username=username, role=role)
 
         name = orcid or username or email
@@ -675,13 +675,20 @@ def _execute_remove_user(args):
 
         try:
             user = client.users.get(orcid=orcid, email=email, username=username)
+            user_unique_id = user.get('unique_id')
             first = user.get('first_name') or ''
             last  = user.get('last_name') or ''
             name  = ' '.join(p for p in (first, last) if p) or orcid or username or email
         except Exception:
+            user_unique_id = orcid
             name = orcid or username or email
 
-        client.projects.remove_user(args.project_id, orcid=orcid, email=email, username=username)
+        client.projects.remove_user(
+            args.project_id,
+            user_unique_id=user_unique_id,
+            email=None if user_unique_id else email,
+            username=None if user_unique_id else username,
+        )
         logger.info(f"Removed {name} from project '{args.project_id}'")
 
     except _req.exceptions.HTTPError as e:
@@ -716,7 +723,10 @@ Examples:
     )
     if ARGCOMPLETE_AVAILABLE:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
-    parser.add_argument('orcid', metavar='ORCID', help="Member's ORCID identifier")
+    parser.add_argument(
+        'user_unique_id', metavar='USER_ID',
+        help="Member's canonical ORCID or service-account MFID",
+    )
     parser.add_argument('role', metavar='ROLE', help='New role to grant')
     parser.set_defaults(func=_execute_update_user_role)
 
@@ -728,8 +738,11 @@ def _execute_update_user_role(args):
 
     try:
         client = CrucibleClient()
-        users = sort_members(client.projects.update_user_role(args.project_id, args.orcid, args.role))
-        logger.info(f"✓ {args.orcid} is now '{args.role}' in project '{args.project_id}'")
+        users = sort_members(client.projects.update_user_role(
+            args.project_id, args.user_unique_id, args.role))
+        logger.info(
+            f"✓ {args.user_unique_id} is now '{args.role}' in project '{args.project_id}'"
+        )
         rows = [(u.username or '-', term.fmt_name(u.model_dump(), default='-', fallback_username=False),
                  u.role or '-') for u in users]
         term.table(rows, ['Username', 'Name', 'Role'], max_widths=[20, 25, 12])

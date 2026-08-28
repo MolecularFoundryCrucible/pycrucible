@@ -227,7 +227,8 @@ class TestProjectAddUserRole:
             {'unique_id': 'u1', 'username': 'alice', 'role': 'editor'},
         ])
 
-        result = project_ops.add_user(orcid='0000-0001', project_id='proj-1', role='editor')
+        result = project_ops.add_user(
+            user_unique_id='0000-0001', project_id='proj-1', role='editor')
 
         project_ops._request.assert_called_once_with(
             'post', '/projects/proj-1/users/0000-0001', params={'role': 'editor'})
@@ -237,8 +238,21 @@ class TestProjectAddUserRole:
     def test_role_omitted_when_not_given(self, project_ops):
         project_ops._request = MagicMock(return_value=[])
 
-        project_ops.add_user(orcid='0000-0001', project_id='proj-1')
+        project_ops.add_user(user_unique_id='0000-0001', project_id='proj-1')
 
+        project_ops._request.assert_called_once_with(
+            'post', '/projects/proj-1/users/0000-0001', params={})
+
+    def test_username_resolves_before_canonical_membership_request(self, project_ops):
+        project_ops._client.users.get.return_value = {
+            'unique_id': '0000-0001',
+            'username': 'alice',
+        }
+        project_ops._request = MagicMock(return_value=[])
+
+        project_ops.add_user(username='alice', project_id='proj-1')
+
+        project_ops._client.users.get.assert_called_once_with(username='alice')
         project_ops._request.assert_called_once_with(
             'post', '/projects/proj-1/users/0000-0001', params={})
 

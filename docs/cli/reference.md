@@ -38,8 +38,8 @@ Running `crucible` without a command starts the interactive shell. See the [CLI 
 | `dataset ingestion MFID` | Show ingestion requests for a dataset |
 | `dataset add-keyword MFID WORD` | Add a keyword |
 | `dataset list-keywords MFID` | List a dataset's keywords and usage counts |
-| `dataset list-access-groups MFID` | List access groups associated with a dataset |
-| `dataset add-access-group MFID GROUP` | Grant an access group access to a dataset |
+| `dataset list-access-groups MFID` | Deprecated compatibility command; use `dataset access list` |
+| `dataset add-access-group MFID GROUP` | Deprecated compatibility command; use `dataset access grant` |
 | `dataset access ...` | List, grant, or revoke direct access entries |
 | `dataset publish MFID` | Make a dataset publicly viewable |
 | `dataset unpublish MFID` | Remove public access from a dataset |
@@ -96,7 +96,7 @@ Fields normally updated through `sample update` include `sample_name`, `sample_t
 | `project list-users ID` | List project members and roles |
 | `project add-user ID` | Add a user to a project |
 | `project remove-user ID` | Remove a user from a project |
-| `project update-user-role ID` | Change a project member's role |
+| `project update-user-role ID USER_ID ROLE` | Change a project member's role |
 | `project transfer-ownership ID USER` | Transfer project ownership |
 | `project request-join ID` | Request membership in a project |
 | `project list-join-requests ID` | List project join requests |
@@ -133,8 +133,8 @@ Most user-management commands require administrator permissions.
 | `user list-datasets USER [--limit N]` | List datasets accessible to a user |
 | `user check-access USER DATASET_MFID` | Show a user's effective dataset access role |
 | `user list-access-groups USER` | List a user's access groups |
-| `user add-access-group USER GROUP` | Add a user to an access group |
-| `user remove-access-group USER GROUP` | Remove a user from an access group |
+| `user add-access-group USER GROUP` | Deprecated; use the typed project or instrument membership command |
+| `user remove-access-group USER GROUP` | Deprecated; use the typed project or instrument membership command |
 | `user list-projects USER` | List a user's projects |
 
 ## File commands
@@ -172,8 +172,8 @@ File commands operate on individual file MFIDs. Dataset-scoped file operations r
 | `sa update USER` | Update a service account |
 | `sa edit USER` | Edit a service account interactively |
 | `sa list-access-groups USER` | List access groups for a service account |
-| `sa add-access-group USER GROUP` | Add a service account to an access group |
-| `sa remove-access-group USER GROUP` | Remove a service account from an access group |
+| `sa add-access-group USER GROUP` | Deprecated; use `project add-user` or `instrument bind-sa` |
+| `sa remove-access-group USER GROUP` | Deprecated; use `project remove-user` or `instrument unbind-sa` |
 
 ## Access-group commands
 

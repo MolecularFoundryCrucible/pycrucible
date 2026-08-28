@@ -2,15 +2,19 @@
 
 from typing import Dict, List
 
+from ..utils.deprecation import _deprecated
+
 
 class AccessControlMixin:
     """Access-control operations for resources that support generic ACLs."""
 
+    @_deprecated("list_access()")
     def get_access_groups(self, mfid: str) -> List[str]:
         """Return the names of access groups granted access to a resource."""
         groups = self._request('get', f'/resources/{mfid}/access_groups')
         return [group['group_name'] for group in groups]
 
+    @_deprecated("set_access()")
     def add_access_group(self, mfid: str, group_name: str,
                          read: bool = True, write: bool = False) -> Dict:
         """Grant an access group read and optionally write access."""

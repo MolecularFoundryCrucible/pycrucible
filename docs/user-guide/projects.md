@@ -72,7 +72,7 @@ Project lead, member, and operator records are public-safe and do not expose ema
 ### Add a user
 
 ```python
-members = client.projects.add_user(orcid="0000-0002-3456-7890", project_id="MFP12345", role="contributor")
+members = client.projects.add_user(user_unique_id="0000-0002-3456-7890", project_id="MFP12345", role="contributor")
 ```
 
 Member roles are `viewer`, `contributor`, `editor`, and `admin`. Ownership is changed only through `transfer_ownership()`.
@@ -86,7 +86,7 @@ members = client.projects.update_user_role("MFP12345", "0000-0002-3456-7890", "e
 ### Remove a user
 
 ```python
-members = client.projects.remove_user(project_id="MFP12345", orcid="0000-0002-3456-7890")
+members = client.projects.remove_user(project_id="MFP12345", user_unique_id="0000-0002-3456-7890")
 ```
 
 All three member mutations return the updated `list[ProjectMember]`.

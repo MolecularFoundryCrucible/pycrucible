@@ -108,6 +108,8 @@ graph = client.graphs.project("MFP12345")
 G = client.graphs.get(dataset_mfid, recursive=True, as_networkx=True)
 ```
 
+Relationship lists and graphs are authorized views. An inaccessible starting resource returns 403, while readable graphs omit resources the caller cannot access and any edges connected to them. A smaller graph therefore does not imply that records or relationships were deleted.
+
 ---
 
 ## CLI

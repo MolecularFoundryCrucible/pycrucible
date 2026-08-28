@@ -478,8 +478,11 @@ def _register_add_access_group(subparsers):
     """Register the 'user add-access-group' subcommand."""
     parser = subparsers.add_parser(
         'add-access-group',
-        help='Add a user to an access group',
-        description='Add a user to an access group (requires admin permissions)',
+        help='Deprecated generic access-group membership command',
+        description=(
+            'Deprecated. Use project add-user for projects or instrument bind-sa '
+            'for instrument operators.'
+        ),
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -513,8 +516,11 @@ def _register_remove_access_group(subparsers):
     """Register the 'user remove-access-group' subcommand."""
     parser = subparsers.add_parser(
         'remove-access-group',
-        help='Remove a user from an access group',
-        description='Remove a user from an access group (requires admin permissions)',
+        help='Deprecated generic access-group membership command',
+        description=(
+            'Deprecated. Use project remove-user for projects or instrument unbind-sa '
+            'for instrument operators.'
+        ),
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:

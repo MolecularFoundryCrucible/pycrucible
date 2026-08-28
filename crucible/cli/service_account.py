@@ -397,7 +397,7 @@ def _execute_list_access_groups(args):
 def _register_add_access_group(subparsers):
     parser = subparsers.add_parser(
         'add-access-group',
-        help='Add a service account to an access group',
+        help='Deprecated: use project add-user or instrument bind-sa',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -428,7 +428,7 @@ def _execute_add_access_group(args):
 def _register_remove_access_group(subparsers):
     parser = subparsers.add_parser(
         'remove-access-group',
-        help='Remove a service account from an access group',
+        help='Deprecated: use project remove-user or instrument unbind-sa',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
