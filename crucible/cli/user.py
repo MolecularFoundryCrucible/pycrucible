@@ -57,7 +57,10 @@ def _register_get(subparsers):
     parser = subparsers.add_parser(
         'get',
         help='Get user by ORCID, username, or email',
-        description='Retrieve user information (requires admin permissions)',
+        description=(
+            'Retrieve the caller-authorized user profile. Email is disclosed '
+            'only for self and platform-administrator lookups.'
+        ),
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -193,7 +196,13 @@ def _show_user(user):
     _p("Username", user.get('username') or term.dim('(not set)'))
     _p("Name",     full_name)
     _p("ORCID",    term.orcid_link(uid))
-    _p("Email",    user.get('email'))
+    if 'email' not in user:
+        email = term.dim('(not disclosed)')
+    elif user['email'] is None:
+        email = term.dim('(not set)')
+    else:
+        email = user['email']
+    _p("Email", email)
     if user.get('is_service_account'):
         _p("Type", "service account")
 

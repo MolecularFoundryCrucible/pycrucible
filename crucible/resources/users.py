@@ -35,7 +35,9 @@ class UserOperations(BaseResource):
         """Get a user by canonical unique ID, username, or email.
 
         Username and email references use exact collection filters and return
-        the matching public-safe representation without a second request.
+        the caller-authorized representation without a second request. Self
+        and platform-administrator lookups may include email; other callers
+        receive the public-safe representation.
         ``orcid``, ``email``, and ``username`` remain supported keyword forms.
 
         Args:
@@ -171,8 +173,9 @@ class UserOperations(BaseResource):
         """List users visible to the authenticated caller.
 
         Platform administrators see the full directory. Other callers see
-        users who share an access group with them. Collection records are
-        public-safe and never contain email.
+        users who share an access group with them. Broad collection records
+        are public-safe. Exact unique-ID, username, or email filters may include
+        email when the caller is that user or a platform administrator.
 
         Args:
             limit (int): Maximum number of results to return (default: 100)

@@ -304,7 +304,7 @@ The staging API already uses canonical ACL fields and the effective-access respo
 - Accept repeated `accessible_to_user` and `accessible_to_project` selectors on top-level dataset, sample, and project collections, with at most ten selectors and intersection semantics.
 - Keep legacy resource and generic membership helpers as deprecated compatibility surfaces while directing new work to canonical ACL, project membership, and instrument service-account operations.
 - Resolve project membership usernames and emails through exact user collection lookups, then send the returned canonical user identifier to the membership route.
-- Treat directory, project lead, project member, instrument operator, and access-group member records as public-safe and email-free.
+- Return the caller-authorized user representation from exact collection lookups: self and platform administrators may receive email, while broad directory, project lead, project member, instrument operator, access-group member, and unauthorized exact lookup records remain public-safe.
 - Apply current slug validation only to create and rename operations so existing out-of-range project and instrument slugs remain readable.
 - Treat graph and relationship results as permission-filtered authorized views.
 
