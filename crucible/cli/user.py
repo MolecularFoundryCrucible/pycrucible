@@ -196,13 +196,9 @@ def _show_user(user):
     _p("Username", user.get('username') or term.dim('(not set)'))
     _p("Name",     full_name)
     _p("ORCID",    term.orcid_link(uid))
-    if 'email' not in user:
-        email = term.dim('(not disclosed)')
-    elif user['email'] is None:
-        email = term.dim('(not set)')
-    else:
-        email = user['email']
-    _p("Email", email)
+    if 'email' in user:
+        email = term.dim('(not set)') if user['email'] is None else user['email']
+        _p("Email", email)
     if user.get('is_service_account'):
         _p("Type", "service account")
 

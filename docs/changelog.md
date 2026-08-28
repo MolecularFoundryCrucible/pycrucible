@@ -28,7 +28,7 @@
 
 - Project membership mutations resolve usernames and emails before using canonical user identifiers; the old `orcid` keyword remains temporarily supported.
 - Generic access-group mutation helpers and CLI commands are deprecated in favor of typed resource, project, and instrument operations.
-- Exact user lookups disclose email to self and platform administrators; other user, project-lead, member, and operator views remain public-safe.
+- Exact user lookups show email to self and platform administrators and omit the email row when it is not disclosed; other user, project-lead, member, and operator views remain public-safe.
 - `user list-datasets` now uses the canonical paginated dataset collection and supports `--limit`.
 - `client.users.check_dataset_access()` and `user check-access` now report the canonical effective access role.
 - MFID-only parameters now use role-specific `_mfid` names, including `parent_mfid` and `child_mfid`; project and instrument slugs retain `_id`, and previous keywords remain temporarily supported.

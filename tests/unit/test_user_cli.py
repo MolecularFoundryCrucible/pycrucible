@@ -11,16 +11,20 @@ BASE_USER = {
 }
 
 
-def test_omitted_email_is_reported_as_not_disclosed(capsys):
+def test_omitted_email_row_is_hidden(capsys):
     _show_user(dict(BASE_USER))
 
-    assert '(not disclosed)' in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert 'Email' not in output
+    assert '(not disclosed)' not in output
 
 
 def test_explicit_null_email_is_reported_as_not_set(capsys):
     _show_user({**BASE_USER, 'email': None})
 
-    assert '(not set)' in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert 'Email' in output
+    assert '(not set)' in output
 
 
 def test_authorized_email_is_displayed(capsys):
