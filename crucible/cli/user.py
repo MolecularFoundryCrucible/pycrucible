@@ -595,7 +595,7 @@ def _register_check_access(subparsers):
     parser = subparsers.add_parser(
         'check-access',
         help='Check user access to a dataset',
-        description='Check read/write permissions for a user on a specific dataset (requires admin permissions)',
+        description='Show a user\'s effective access role on a dataset',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -604,7 +604,7 @@ Examples:
 """
     )
     parser.add_argument('user', metavar='USER', help='ORCID, username, or email of the user')
-    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
     parser.set_defaults(func=_execute_check_access)
 
 
@@ -671,17 +671,15 @@ def _execute_list_datasets(args):
 def _execute_check_access(args):
     """Execute the 'user check-access' subcommand."""
     from crucible.client import CrucibleClient
-    from .helpers import resolve_orcid
     try:
         client = CrucibleClient()
-        orcid = resolve_orcid(client, args.user)
-        perms = client.users.check_dataset_access(orcid, args.dataset_id)
+        access = client.users.check_dataset_access(args.user, args.dataset_id)
 
         _p = term.field_printer(14)
 
         term.header(f"Access · {args.dataset_id}")
-        _p("Read",  "yes" if perms.get('read')  else "no")
-        _p("Write", "yes" if perms.get('write') else "no")
+        _p("User", access.user_id)
+        _p("Effective", access.effective_access)
 
     except ValueError as e:
         logger.error(str(e))

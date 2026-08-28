@@ -25,6 +25,7 @@
 
 ### Changed
 
+- `client.users.check_dataset_access()` and `user check-access` now report the canonical effective access role.
 - MFID-only parameters now use role-specific `_mfid` names, including `parent_mfid` and `child_mfid`; project and instrument slugs retain `_id`, and previous keywords remain temporarily supported.
 - Resource lookups now dispatch canonical MFIDs to single-resource routes and resolve project slugs, instrument slugs, usernames, and emails through exact collection filters without a second request. Returned records retain `unique_id` as their canonical identifier.
 - README now focuses on installation, navigation, and project essentials.

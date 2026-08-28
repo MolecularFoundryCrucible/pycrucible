@@ -131,7 +131,7 @@ Most user-management commands require administrator permissions.
 | `user update USER` | Update a user record |
 | `user edit USER` | Edit a user record interactively |
 | `user list-datasets USER` | List datasets accessible to a user |
-| `user check-access USER DATASET` | Check a user's dataset access |
+| `user check-access USER DATASET_MFID` | Show a user's effective dataset access role |
 | `user list-access-groups USER` | List a user's access groups |
 | `user add-access-group USER GROUP` | Add a user to an access group |
 | `user remove-access-group USER GROUP` | Remove a user from an access group |

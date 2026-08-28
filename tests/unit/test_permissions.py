@@ -8,10 +8,18 @@ deployed - see tests/unit/ vs tests/integration/ split in CLAUDE.md.
 import pytest
 from unittest.mock import MagicMock
 
-from crucible.models import AccessGrant, OwnershipTransfer, ProjectReassignment, ProjectMember, Instrument
+from crucible.models import (
+    AccessGrant,
+    EffectiveResourceAccess,
+    Instrument,
+    OwnershipTransfer,
+    ProjectMember,
+    ProjectReassignment,
+)
 from crucible.resources.datasets import DatasetOperations
 from crucible.resources.instruments import InstrumentOperations
 from crucible.resources.projects import ProjectOperations
+from crucible.resources.users import UserOperations
 
 
 @pytest.fixture
@@ -34,6 +42,14 @@ def instrument_ops():
 def project_ops():
     client = MagicMock()
     ops = ProjectOperations(client)
+    ops._client = client
+    return ops
+
+
+@pytest.fixture
+def user_ops():
+    client = MagicMock()
+    ops = UserOperations(client)
     ops._client = client
     return ops
 
@@ -100,6 +116,22 @@ class TestPublicAccess:
         dataset_ops.unset_public('ds-1')
 
         dataset_ops._request.assert_called_once_with('delete', '/resources/ds-1/access/public')
+
+
+class TestEffectiveDatasetAccess:
+    def test_parses_effective_access(self, user_ops):
+        user_ops._request = MagicMock(return_value={
+            'resource_mfid': 'ds-1',
+            'user_id': '0000-0001',
+            'effective_access': 'editor',
+        })
+
+        result = user_ops.check_dataset_access('alice', 'ds-1')
+
+        user_ops._request.assert_called_once_with(
+            'get', '/users/alice/datasets/ds-1')
+        assert isinstance(result, EffectiveResourceAccess)
+        assert result.effective_access == 'editor'
 
 
 class TestTransferOwnership:

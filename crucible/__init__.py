@@ -58,8 +58,21 @@ def setup_logging(verbose=False):
 
 
 from .client import CrucibleClient
-from .models import CrucibleResource, Dataset, Sample, Project, User, Instrument, AssociatedFile, ResourceSearchResult
+from .models import (
+    AssociatedFile,
+    CrucibleResource,
+    Dataset,
+    EffectiveResourceAccess,
+    Instrument,
+    Project,
+    ResourceSearchResult,
+    Sample,
+    User,
+)
 from . import config
 
-__all__ = ['CrucibleClient', 'CrucibleResource', 'Dataset', 'Sample', 'Project', 'User', 'Instrument', 'AssociatedFile',
-           'ResourceSearchResult', 'config', 'setup_logging', '__version__', '__author__']
+__all__ = [
+    'CrucibleClient', 'CrucibleResource', 'Dataset', 'Sample', 'Project', 'User',
+    'Instrument', 'AssociatedFile', 'EffectiveResourceAccess', 'ResourceSearchResult',
+    'config', 'setup_logging', '__version__', '__author__',
+]

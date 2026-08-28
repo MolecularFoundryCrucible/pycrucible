@@ -10,7 +10,7 @@ import logging
 from typing import Optional, Dict, List
 from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
-from ..utils.deprecation import _deprecated
+from ..utils.deprecation import _deprecated, _deprecated_parameter
 from ..utils.identifiers import (
     classify_user_reference,
     collapse_exact_lookup,
@@ -240,19 +240,25 @@ class UserOperations(BaseResource):
         """
         return self._request('get', f'/users/{orcid}/datasets')
 
-    def check_dataset_access(self, orcid: str, dsid: str) -> Dict:
-        """Check a user's read/write access to a specific dataset.
+    @_deprecated_parameter('orcid', 'user_ref')
+    @_deprecated_parameter('dsid', 'dataset_mfid')
+    def check_dataset_access(self, user_ref: str,
+                             dataset_mfid: str) -> 'EffectiveResourceAccess':
+        """Return a user's effective access role for a dataset.
 
-        **Requires admin permissions.**
+        Inspecting another user requires platform-administrator permissions.
 
         Args:
-            orcid (str): User ORCID identifier
-            dsid (str): Dataset unique identifier
+            user_ref (str): User MFID, ORCID, username, or email
+            dataset_mfid (str): Dataset MFID
 
         Returns:
-            Dict: Permissions dict with 'read' and 'write' boolean keys
+            EffectiveResourceAccess: Canonical user, resource, and effective role
         """
-        return self._request('get', f'/users/{orcid}/datasets/{dsid}')
+        from ..models import EffectiveResourceAccess
+
+        raw = self._request('get', f'/users/{user_ref}/datasets/{dataset_mfid}')
+        return EffectiveResourceAccess.model_validate(raw)
 
     def list_access_groups(self, orcid: str) -> List[str]:
         """List access group names for a user.

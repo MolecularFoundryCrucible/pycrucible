@@ -16,4 +16,6 @@ from crucible.models import Dataset, Sample, Project, Instrument, User, Deletion
 
 ::: crucible.models.User
 
+::: crucible.models.EffectiveResourceAccess
+
 ::: crucible.models.DeletionRequest

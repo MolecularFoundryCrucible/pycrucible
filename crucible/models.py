@@ -133,6 +133,18 @@ class AccessGrant(BaseModel):
         return self.permission
 
 
+class EffectiveResourceAccess(BaseModel):
+    '''A user's effective permission on one resource.'''
+
+    resource_mfid: str
+    user_id: str
+    effective_access: Literal[
+        'none', 'viewer', 'contributor', 'editor', 'admin', 'owner', 'platform_admin'
+    ]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class OwnershipTransfer(BaseModel):
     '''Result of POST /resources/{mfid}/transfer_ownership.'''
 
