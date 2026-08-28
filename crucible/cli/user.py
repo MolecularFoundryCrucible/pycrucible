@@ -158,8 +158,8 @@ def _register_list(subparsers):
     """Register the 'user list' subcommand."""
     parser = subparsers.add_parser(
         'list',
-        help='List all users',
-        description='List all users in the system (requires admin permissions)',
+        help='List visible users',
+        description='List public-safe users visible to the authenticated caller',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -177,7 +177,7 @@ Examples:
     )
 
     parser.add_argument('-u', '--username', metavar='USERNAME', default=None,
-                        help='Filter by username (partial match)')
+                        help='Filter by exact username')
 
     parser.set_defaults(func=_execute_list)
 
@@ -563,10 +563,9 @@ def _execute_list(args):
         for user in users:
             name     = term.fmt_name(user, default='-', fallback_username=False)
             orcid    = term.orcid_link(user.get('unique_id')) or '-'
-            email    = user.get('email') or '-'
             username = user.get('username') or '-'
-            rows.append((username, name, orcid, email))
-        term.table(rows, ['Username', 'Name', 'ORCID', 'Email'], max_widths=[20, 25, 19, 35])
+            rows.append((username, name, orcid))
+        term.table(rows, ['Username', 'Name', 'ORCID'], max_widths=[20, 25, 19])
 
     except Exception as e:
         from .helpers import fail

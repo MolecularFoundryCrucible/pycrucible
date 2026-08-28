@@ -7,7 +7,7 @@
 | `title` | Human-readable project title | create, update |
 | `status` | Project status (e.g. `"active"`) | create, update |
 | `project_lead` | Project lead identified by ORCID, username, or email | create |
-| `lead` | Resolved project lead record | server-assigned |
+| `lead` | Public-safe resolved project lead record without email | server-assigned |
 | `creation_time` | When the record was created | server-assigned |
 | `modification_time` | When the record was last modified | server-assigned |
 
@@ -64,8 +64,10 @@ client.projects.update("MFP12345", title="Nanoparticle synthesis study, phase 2"
 ```python
 users = client.projects.get_users("MFP12345")
 for u in users:
-    print(u.unique_id, u.email, u.role)
+    print(u.unique_id, u.username, u.role)
 ```
+
+Project lead, member, and operator records are public-safe and do not expose email addresses.
 
 ### Add a user
 

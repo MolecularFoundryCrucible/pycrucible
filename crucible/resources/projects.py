@@ -47,9 +47,8 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
 
         The response always includes project_id, organization, status, title.
 
-        The ``lead`` field's shape depends on membership: members and admins
-        get the full user record (includes email); non-members get a public
-        record (unique_id, username, first_name, last_name — no email).
+        The ``lead`` field is a public-safe user record containing canonical
+        identity, username, and name, but never email.
 
         ``scientific_metadata`` is only ever populated for members/admins —
         include_metadata is silently ignored for non-members. Same gating
@@ -130,8 +129,8 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
              accessible_to_project: Optional[Union[str, Sequence[str]]] = None) -> List[Dict]:
         """List all accessible projects.
 
-        Each project dict includes a ``lead`` key with the project lead's full
-        user record (orcid, first_name, last_name, email, lbl_email).
+        Each project dict includes a ``lead`` key with the project lead's
+        public-safe user record.
 
         Args:
             orcid (str, optional): Filter projects by those associated with a certain user

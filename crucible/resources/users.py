@@ -168,9 +168,11 @@ class UserOperations(BaseResource):
         return self._request('post', '/users/resolve', json=body)
 
     def list(self, limit: int = DEFAULT_LIMIT, offset: int = 0, **kwargs) -> List[Dict]:
-        """List all users in the system.
+        """List users visible to the authenticated caller.
 
-        **Requires admin permissions.**
+        Platform administrators see the full directory. Other callers see
+        users who share an access group with them. Collection records are
+        public-safe and never contain email.
 
         Args:
             limit (int): Maximum number of results to return (default: 100)
@@ -178,7 +180,7 @@ class UserOperations(BaseResource):
             **kwargs: Additional query parameters for filtering
 
         Returns:
-            List[Dict]: List of user objects with unique_id, name, email, is_service_account
+            List[Dict]: Public-safe user records with canonical identity and name
 
         Example:
             >>> users = client.users.list(limit=50)

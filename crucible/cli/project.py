@@ -357,9 +357,13 @@ def _execute_list(args):
 
 
 def _lead_name(project):
-    """Return the lead's display name from embedded lead dict, or fallback to project_lead_email."""
+    """Return the lead's display name or canonical identifier."""
     lead = project.get('lead') or {}
-    return term.fmt_name(lead, default=project.get('project_lead_email'), fallback_username=False)
+    return term.fmt_name(
+        lead,
+        default=project.get('project_lead_orcid'),
+        fallback_username=False,
+    )
 
 
 def _show_project(project, include_metadata=False):
@@ -372,15 +376,12 @@ def _show_project(project, include_metadata=False):
     except Exception:
         _base = None
 
-    lead = project.get('lead') or {}
-
     term.header("Project")
     pid = project.get('project_id')
     _p("ID",           term.project_link(pid, f"{_base}/{pid}" if _base and pid else None))
     _p("Title",        project.get('title'))
     _p("Organization", project.get('organization'))
     _p("Lead",         _lead_name(project))
-    _p("Lead Email",   lead.get('email') or project.get('project_lead_email'))
     _p("Status",       project.get('status'))
 
     if include_metadata:
@@ -525,10 +526,9 @@ def _execute_list_users(args):
             for u in users:
                 name     = term.fmt_name(u.model_dump(), default='-', fallback_username=False)
                 username = u.username or '-'
-                email    = u.email or '-'
                 role     = u.role or '-'
-                rows.append((username, name, email, role))
-            term.table(rows, ['Username', 'Name', 'Email', 'Role'], max_widths=[20, 25, 35, 12])
+                rows.append((username, name, role))
+            term.table(rows, ['Username', 'Name', 'Role'], max_widths=[20, 25, 12])
 
     except Exception as e:
         from .helpers import fail
@@ -576,8 +576,7 @@ def _execute_add_user(args):
         if isinstance(users, list):
             match = next((u for u in users if
                           (orcid and u.unique_id == orcid) or
-                          (username and u.username == username) or
-                          (email and u.email == email)), None)
+                          (username and u.username == username)), None)
             if match:
                 name = ' '.join(p for p in (match.first_name or '', match.last_name or '') if p) or name
 

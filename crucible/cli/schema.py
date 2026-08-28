@@ -75,7 +75,6 @@ PROJECT_FIELDS: List[FieldDef] = [
     FieldDef('title',                      'Title',         editable=True,  verbose=False),
     FieldDef('organization',               'Organization',  editable=True,  verbose=False),
     FieldDef('status',                     'Status',        editable=True,  verbose=False),
-    FieldDef('project_lead_email',         'Lead Email',    editable=False, verbose=False),
     FieldDef('project_lead_orcid',         'Lead ORCID',    editable=False, verbose=True),
     FieldDef('creation_time',              'Created',       editable=False, verbose=True),
     FieldDef('modification_time',          'Modified',      editable=False, verbose=True),
