@@ -7,7 +7,7 @@ Provides organized access to sample-related API endpoints.
 """
 
 import logging
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Sequence, Union
 from .base import BaseResource
 from .capabilities import AccessControlMixin, OwnershipMixin, ProjectAssignmentMixin
 from ..constants import DEFAULT_LIMIT, API_PAGE_MAX
@@ -79,7 +79,10 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
              parent_mfid: Optional[str] = None,
              include_metadata: bool = False, include_links: bool = False,
              include_owner: bool = False, limit: int = DEFAULT_LIMIT,
-             offset: int = 0, **kwargs) -> List[Dict]:
+             offset: int = 0,
+             accessible_to_user: Optional[Union[str, Sequence[str]]] = None,
+             accessible_to_project: Optional[Union[str, Sequence[str]]] = None,
+             **kwargs) -> List[Dict]:
         """List samples with optional filtering and automatic pagination.
 
         Args:
@@ -94,12 +97,21 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             offset (int): Deprecated for the top-level /samples endpoint, which now
                           uses keyset pagination and ignores offset. Still honored
                           for the dataset/parent sub-listings.
+            accessible_to_user: User reference or references whose effective access
+                                must include every result
+            accessible_to_project: Project reference or references whose direct access
+                                   must include every result
             **kwargs: Query parameters for filtering samples
 
         Returns:
             List[Dict]: Sample information
         """
         params = {k: v for k, v in kwargs.items() if v is not None}
+        selectors = self._access_selector_params(
+            accessible_to_user, accessible_to_project)
+        if (dataset_mfid or parent_mfid) and selectors:
+            raise ValueError("Access selectors are supported only by the top-level sample list")
+        params.update(selectors)
         if include_metadata:
             params['include_metadata'] = True
         if include_links:

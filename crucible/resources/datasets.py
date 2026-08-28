@@ -12,7 +12,7 @@ import logging
 import requests
 import warnings
 from pathlib import Path
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict, Sequence, Union
 
 import mfid
 
@@ -91,7 +91,10 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
     @_deprecated_parameter('sample_id', 'sample_mfid')
     def list(self, sample_mfid: Optional[str] = None, include_metadata: bool = False,
              include_links: bool = False, include_owner: bool = False,
-             limit: int = DEFAULT_LIMIT, offset: int = 0, **kwargs) -> List[Dict]:
+             limit: int = DEFAULT_LIMIT, offset: int = 0,
+             accessible_to_user: Optional[Union[str, Sequence[str]]] = None,
+             accessible_to_project: Optional[Union[str, Sequence[str]]] = None,
+             **kwargs) -> List[Dict]:
         """List datasets with optional filtering and automatic pagination.
 
         Args:
@@ -105,6 +108,10 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             include_metadata (bool): Include scientific metadata in results
             include_links (bool): Include linked resources (parents, children, associated) per dataset
             include_owner (bool): Resolve owner_orcid into a full user object per dataset
+            accessible_to_user: User reference or references whose effective access
+                                must include every result
+            accessible_to_project: Project reference or references whose direct access
+                                   must include every result
             **kwargs (Any): Query parameters for filtering. Supported fields include:
                 keyword, unique_id, public, dataset_name, owner_orcid, project_id,
                 instrument_name, timestamp, size, data_format, data_type, measurement,
@@ -115,6 +122,11 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             List[Dict]: Dataset objects matching filter criteria
         """
         params = {k: v for k, v in kwargs.items() if v is not None}
+        selectors = self._access_selector_params(
+            accessible_to_user, accessible_to_project)
+        if sample_mfid and selectors:
+            raise ValueError("Access selectors are supported only by the top-level dataset list")
+        params.update(selectors)
         if include_metadata:
             params['include_metadata'] = True
         if include_links:

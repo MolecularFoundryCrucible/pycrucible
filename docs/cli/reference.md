@@ -130,7 +130,7 @@ Most user-management commands require administrator permissions.
 | `user create` | Create a user |
 | `user update USER` | Update a user record |
 | `user edit USER` | Edit a user record interactively |
-| `user list-datasets USER` | List datasets accessible to a user |
+| `user list-datasets USER [--limit N]` | List datasets accessible to a user |
 | `user check-access USER DATASET_MFID` | Show a user's effective dataset access role |
 | `user list-access-groups USER` | List a user's access groups |
 | `user add-access-group USER GROUP` | Add a user to an access group |

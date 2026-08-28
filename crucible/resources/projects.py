@@ -7,7 +7,7 @@ Provides organized access to project-related API endpoints.
 """
 
 import logging
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict, Sequence, Union
 from .base import BaseResource
 from .capabilities import AccessControlMixin, OwnershipMixin
 from ..constants import DEFAULT_LIMIT
@@ -125,7 +125,9 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
         return collapse_exact_lookup(raw, 'project', project_id)
 
     def list(self, orcid: Optional[str] = None, include_metadata: bool = False,
-             limit: int = DEFAULT_LIMIT, offset: int = 0) -> List[Dict]:
+             limit: int = DEFAULT_LIMIT, offset: int = 0,
+             accessible_to_user: Optional[Union[str, Sequence[str]]] = None,
+             accessible_to_project: Optional[Union[str, Sequence[str]]] = None) -> List[Dict]:
         """List all accessible projects.
 
         Each project dict includes a ``lead`` key with the project lead's full
@@ -136,11 +138,20 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
             include_metadata (bool): Include scientific metadata in results
             limit (int): Maximum number of results to return (default: 100)
             offset (int): Starting position in the full result set (default: 0)
+            accessible_to_user: User reference or references whose effective access
+                                must include every result
+            accessible_to_project: Project reference or references whose direct access
+                                   must include every result
 
         Returns:
             List[Dict]: Project metadata including project_id, title, organization, lead
         """
-        params = {'include_metadata': True} if include_metadata else {}
+        params = self._access_selector_params(
+            accessible_to_user, accessible_to_project)
+        if orcid and params:
+            raise ValueError("Pass orcid or typed access selectors, not both")
+        if include_metadata:
+            params['include_metadata'] = True
         endpoint = f'/users/{orcid}/projects' if orcid else '/projects'
         return self._paginate(endpoint, params, limit, offset)
 

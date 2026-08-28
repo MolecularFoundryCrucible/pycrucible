@@ -7,7 +7,7 @@ Provides shared functionality for all resource operation classes.
 """
 
 # typing
-from typing import Optional
+from typing import Optional, Sequence, Union
 
 # internal modules
 from ..constants import DEFAULT_LIMIT
@@ -29,6 +29,32 @@ class BaseResource:
         """
         self._client = client
         self._request = client._request  # Delegate HTTP requests to main client
+
+    @staticmethod
+    def _access_selector_params(
+        accessible_to_user: Optional[Union[str, Sequence[str]]] = None,
+        accessible_to_project: Optional[Union[str, Sequence[str]]] = None,
+    ) -> dict:
+        """Build repeated typed access-selector query parameters."""
+        def normalize(value, name):
+            if value is None:
+                return []
+            values = [value] if isinstance(value, str) else list(value)
+            if any(not isinstance(item, str) or not item for item in values):
+                raise ValueError(f"{name} values must be non-empty strings")
+            return values
+
+        users = normalize(accessible_to_user, 'accessible_to_user')
+        projects = normalize(accessible_to_project, 'accessible_to_project')
+        if len(users) + len(projects) > 10:
+            raise ValueError("At most 10 access selectors may be supplied")
+
+        params = {}
+        if users:
+            params['accessible_to_user'] = users
+        if projects:
+            params['accessible_to_project'] = projects
+        return params
 
     def _paginate(self, endpoint: str, params: dict,
                   limit: int = DEFAULT_LIMIT, offset: int = 0) -> list:

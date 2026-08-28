@@ -578,7 +578,10 @@ def _register_list_datasets(subparsers):
     parser = subparsers.add_parser(
         'list-datasets',
         help='List datasets accessible to a user',
-        description='List dataset IDs the user has access to (requires admin permissions)',
+        description=(
+            'List dataset MFIDs accessible to a user. Inspecting another user '
+            'requires platform-administrator permissions.'
+        ),
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -587,6 +590,10 @@ Examples:
 """
     )
     parser.add_argument('user', metavar='USER', help='ORCID, username, or email of the user')
+    parser.add_argument(
+        '--limit', type=int, default=_config.default_limit, metavar='N',
+        help=f'Maximum number of datasets to return (default: {_config.default_limit})',
+    )
     parser.set_defaults(func=_execute_list_datasets)
 
 
@@ -647,11 +654,13 @@ Examples:
 def _execute_list_datasets(args):
     """Execute the 'user list-datasets' subcommand."""
     from crucible.client import CrucibleClient
-    from .helpers import resolve_orcid
     try:
         client = CrucibleClient()
-        orcid = resolve_orcid(client, args.user)
-        dataset_ids = client.users.list_datasets(orcid)
+        datasets = client.datasets.list(
+            accessible_to_user=args.user,
+            limit=args.limit,
+        )
+        dataset_ids = [dataset['unique_id'] for dataset in datasets]
 
         term.header(f"Datasets · {args.user} ({len(dataset_ids)})")
         if not dataset_ids:

@@ -227,18 +227,23 @@ class UserOperations(BaseResource):
 
         return self._request('post', "/users", json={"user_info": user_data, "project_ids": user_projects})
 
-    def list_datasets(self, orcid: str) -> List[str]:
-        """List dataset IDs accessible to a user.
+    @_deprecated("client.datasets.list(accessible_to_user=...)")
+    def list_datasets(self, user_ref: str) -> List[str]:
+        """List dataset MFIDs accessible to a user.
 
-        **Requires admin permissions.**
+        Inspecting another user requires platform-administrator permissions.
 
         Args:
-            orcid (str): User ORCID identifier
+            user_ref (str): User MFID, ORCID, username, or email
 
         Returns:
             List[str]: Dataset unique IDs the user has access to
         """
-        return self._request('get', f'/users/{orcid}/datasets')
+        records = self._client.datasets.list(
+            accessible_to_user=user_ref,
+            limit=None,
+        )
+        return [record['unique_id'] for record in records]
 
     @_deprecated_parameter('orcid', 'user_ref')
     @_deprecated_parameter('dsid', 'dataset_mfid')

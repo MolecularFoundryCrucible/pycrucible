@@ -4,6 +4,7 @@
 
 ### Added
 
+- Dataset, sample, and project lists accept repeated user and project access selectors.
 - Development skills for API, CLI, parser, and cast changes.
 - Agent-agnostic contributor guidance and a skill for safe client workflows.
 - New `file request-ingestion` CLI command to (re)request ingestion for a cataloged file.
@@ -25,6 +26,7 @@
 
 ### Changed
 
+- `user list-datasets` now uses the canonical paginated dataset collection and supports `--limit`.
 - `client.users.check_dataset_access()` and `user check-access` now report the canonical effective access role.
 - MFID-only parameters now use role-specific `_mfid` names, including `parent_mfid` and `child_mfid`; project and instrument slugs retain `_id`, and previous keywords remain temporarily supported.
 - Resource lookups now dispatch canonical MFIDs to single-resource routes and resolve project slugs, instrument slugs, usernames, and emails through exact collection filters without a second request. Returned records retain `unique_id` as their canonical identifier.
