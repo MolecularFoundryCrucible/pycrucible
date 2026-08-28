@@ -19,7 +19,14 @@
 projects = client.projects.list()
 for p in projects:
     print(p["project_id"], p["title"])
+
+shared_projects = client.projects.list(
+    accessible_to_user="alice",
+    accessible_to_project="my-project",
+)
 ```
+
+Typed access selectors accept one reference or a list of references. Multiple selectors use intersection semantics and only narrow projects readable by the authenticated caller.
 
 ## Getting a project
 

@@ -16,6 +16,7 @@ Implementation follows the repository ownership boundaries and decisions recorde
 - `Open`: observed and ready for discussion
 - `Decided`: approach agreed, implementation not started
 - `Deferred`: intentionally postponed pending another design or dependency
+- `Partial`: implemented for the current contract with explicitly retained follow-up work
 - `Implemented`: code and documentation updated
 - `Verified`: relevant local checks passed
 
@@ -167,7 +168,7 @@ Keep `extra="allow"` while explicitly declaring the known public fields. Add fle
 
 ## 5. Add instrument ownership transfer to the CLI
 
-Status: `Deferred`
+Status: `Partial`
 
 ### Issue
 
@@ -286,4 +287,25 @@ Add or update focused mocked tests as each approved behavior is implemented. Kee
 
 ### Decision
 
-Skip test additions and updates for the current implementation stage. Do not run live integration tests. Retain the identified verification gaps in this document for a later testing pass.
+Focused mocked coverage now exercises canonical ACL fields and payloads, effective dataset access, identifier dispatch, typed access selectors, project member parsing, and canonical membership targets. Instrument ownership remains deferred, and broader CLI field-parity and capability-absence coverage remains future work. Do not run live integration tests without explicit authorization.
+
+## 10. Complete the staged client rollout
+
+Status: `Implemented` in Nano; release gated on the API rollout
+
+### Issue
+
+The staging API already uses canonical ACL fields and the effective-access response, while repeated typed access selectors and universal public-safe email redaction belong to the next API deployment candidate. Older API versions silently ignore unknown collection query parameters, so a client cannot safely detect unsupported typed selectors from a successful response.
+
+### Decision
+
+- Use `principal_id`, `principal_type`, and `permission` for ACL responses and send `permission` in grant bodies.
+- Report `effective_access` directly rather than reconstructing legacy read and write Booleans.
+- Accept repeated `accessible_to_user` and `accessible_to_project` selectors on top-level dataset, sample, and project collections, with at most ten selectors and intersection semantics.
+- Keep legacy resource and generic membership helpers as deprecated compatibility surfaces while directing new work to canonical ACL, project membership, and instrument service-account operations.
+- Resolve project membership usernames and emails through exact user collection lookups, then send the returned canonical user identifier to the membership route.
+- Treat directory, project lead, project member, instrument operator, and access-group member records as public-safe and email-free.
+- Apply current slug validation only to create and rename operations so existing out-of-range project and instrument slugs remain readable.
+- Treat graph and relationship results as permission-filtered authorized views.
+
+Deploy and verify the API candidate in staging, record its commit and deterministic OpenAPI artifact, deploy the API to production, and only then release the Nano version that sends typed selectors. This ordering prevents older servers from silently ignoring selector parameters and returning the wrong authorized collection.

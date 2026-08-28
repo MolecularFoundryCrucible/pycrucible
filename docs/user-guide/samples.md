@@ -58,7 +58,15 @@ samples = client.samples.list(project_id="my-project", limit=50)
 
 # Samples linked to a specific dataset
 samples = client.samples.list(dataset_mfid="0tkn2knjast3h0008nyq9zps2c")
+
+# Samples readable by a user and directly accessible to a project
+samples = client.samples.list(
+    accessible_to_user="alice",
+    accessible_to_project="my-project",
+)
 ```
+
+Multiple user and project access selectors use intersection semantics and never broaden what the authenticated caller may read.
 
 ## Updating a sample
 

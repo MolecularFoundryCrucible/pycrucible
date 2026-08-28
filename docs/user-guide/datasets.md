@@ -92,7 +92,15 @@ datasets = client.datasets.list(project_id="my-project", keyword="gold")
 
 # Datasets linked to a specific sample
 datasets = client.datasets.list(sample_mfid="0td7evvtg5wb90005k1j97ak94")
+
+# Datasets readable by both users and directly accessible to a project
+datasets = client.datasets.list(
+    accessible_to_user=["alice", "bob"],
+    accessible_to_project="my-project",
+)
 ```
+
+Access selectors accept user MFIDs, ORCIDs, usernames, or emails and project MFIDs or project IDs. Multiple selectors use intersection semantics and only narrow resources the authenticated caller may read. Inspecting another user requires platform-administrator access, while inspecting a project requires membership in that project or platform-administrator access.
 
 ## Updating a dataset
 
