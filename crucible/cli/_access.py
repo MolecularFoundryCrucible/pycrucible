@@ -91,7 +91,7 @@ def _execute_list(args):
         if not grants:
             print(f"  {term.dim('No access grants found.')}")
         else:
-            rows = [(g.principal, g.kind, g.effective_permission, g.display_name or '-')
+            rows = [(g.principal_id, g.principal_type, g.permission, g.display_name or '-')
                     for g in grants]
             term.table(rows, ['Principal', 'Kind', 'Permission', 'Name'], max_widths=[30, 16, 14, 30])
     except Exception as e:
@@ -102,7 +102,10 @@ def _execute_grant(args):
     try:
         ops = _ops(args)
         grant = ops.set_access(args.resource_id, args.kind, args.principal, args.permission)
-        logger.info(f"✓ Granted {grant.effective_permission} to {grant.principal} ({grant.kind}) on {args.resource_id}")
+        logger.info(
+            f"✓ Granted {grant.permission} to {grant.principal_id} "
+            f"({grant.principal_type}) on {args.resource_id}"
+        )
     except Exception as e:
         fail("granting access", e, args)
 

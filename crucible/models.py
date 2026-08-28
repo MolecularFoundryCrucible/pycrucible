@@ -5,7 +5,7 @@ Pydantic models for Crucible API request and response objects.
 """
 
 from pydantic import BaseModel, ConfigDict
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 #%% Base model
 
@@ -107,14 +107,30 @@ class ProjectMember(User):
 class AccessGrant(BaseModel):
     '''One principal's access to a resource (GET/PUT /resources/{mfid}/access/...).'''
 
-    principal: str
-    kind: str            # user | service_account | project | instrument | public | unknown
-    effective_permission: str
+    principal_id: str
+    principal_type: Literal[
+        'user', 'service_account', 'project', 'instrument', 'public', 'system', 'unknown'
+    ]
+    permission: Literal['viewer', 'contributor', 'editor', 'admin', 'owner']
+    slug: Optional[str] = None
     display_name: Optional[str] = None
-    group_name: Optional[str] = None
-    group_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @property
+    def principal(self) -> str:
+        """Deprecated alias for :attr:`principal_id`."""
+        return self.principal_id
+
+    @property
+    def kind(self) -> str:
+        """Deprecated alias for :attr:`principal_type`."""
+        return self.principal_type
+
+    @property
+    def effective_permission(self) -> str:
+        """Deprecated alias for :attr:`permission`."""
+        return self.permission
 
 
 class OwnershipTransfer(BaseModel):

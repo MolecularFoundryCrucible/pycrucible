@@ -37,7 +37,7 @@ class AccessControlMixin:
         raw = self._request(
             'put',
             f'/resources/{mfid}/access/{kind}/{principal}',
-            json={'effective_permission': permission},
+            json={'permission': permission},
         )
         return AccessGrant.model_validate(raw)
 

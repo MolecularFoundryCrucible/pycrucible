@@ -48,6 +48,7 @@
 
 ### Fixed
 
+- Access-control operations now use the API's canonical principal and permission fields.
 - Paginated list operations now request only the number of records needed to satisfy `limit` instead of over-fetching full server pages.
 - Quick-start examples now use current dataset creation return values.
 - Download guides now use current namespaced methods and overwrite options.

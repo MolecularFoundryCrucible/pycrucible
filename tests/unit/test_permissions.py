@@ -41,14 +41,16 @@ def project_ops():
 class TestListAccess:
     def test_parses_access_grants(self, dataset_ops):
         dataset_ops._request = MagicMock(return_value=[
-            {'principal': '0000-0001', 'kind': 'user', 'effective_permission': 'viewer',
-             'display_name': 'A User', 'group_name': 'g1', 'group_id': 1},
+            {'principal_id': '0000-0001', 'principal_type': 'user', 'permission': 'viewer',
+             'display_name': 'A User'},
         ])
 
         result = dataset_ops.list_access('ds-1')
 
         dataset_ops._request.assert_called_once_with('get', '/resources/ds-1/access')
         assert isinstance(result[0], AccessGrant)
+        assert result[0].principal_type == 'user'
+        assert result[0].permission == 'viewer'
         assert result[0].kind == 'user'
         assert result[0].effective_permission == 'viewer'
 
@@ -56,17 +58,18 @@ class TestListAccess:
 class TestSetAccess:
     def test_sends_correct_route_and_body(self, dataset_ops):
         dataset_ops._request = MagicMock(return_value={
-            'principal': 'proj-1', 'kind': 'projects', 'effective_permission': 'editor',
-            'group_name': 'g1', 'group_id': 1,
+            'principal_id': 'project-mfid', 'principal_type': 'project',
+            'permission': 'editor', 'slug': 'proj-1',
         })
 
         result = dataset_ops.set_access('ds-1', 'projects', 'proj-1', 'editor')
 
         dataset_ops._request.assert_called_once_with(
             'put', '/resources/ds-1/access/projects/proj-1',
-            json={'effective_permission': 'editor'})
+            json={'permission': 'editor'})
         assert isinstance(result, AccessGrant)
-        assert result.principal == 'proj-1'
+        assert result.principal_id == 'project-mfid'
+        assert result.slug == 'proj-1'
 
 
 class TestRevokeAccess:
@@ -82,9 +85,9 @@ class TestRevokeAccess:
 class TestPublicAccess:
     def test_set_public_no_permission_param(self, dataset_ops):
         dataset_ops._request = MagicMock(return_value={
-            'principal': 'public',
-            'kind': 'public',
-            'effective_permission': 'viewer',
+            'principal_id': 'public',
+            'principal_type': 'public',
+            'permission': 'viewer',
         })
 
         dataset_ops.set_public('ds-1')
