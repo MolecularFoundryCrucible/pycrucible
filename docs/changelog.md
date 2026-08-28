@@ -48,6 +48,7 @@
 
 ### Fixed
 
+- Paginated list operations now request only the number of records needed to satisfy `limit` instead of over-fetching full server pages.
 - Quick-start examples now use current dataset creation return values.
 - Download guides now use current namespaced methods and overwrite options.
 - `files.download()` crashed with a raw exception on a non-GCS file instead of a clear error.

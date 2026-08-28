@@ -52,11 +52,19 @@ class BaseResource:
 
         Returns:
             list: Raw item dicts, up to limit items (or all items if limit is None)
+
+        Raises:
+            ValueError: If limit is negative
         """
         from concurrent.futures import ThreadPoolExecutor
         from ..constants import API_PAGE_MAX
 
-        page_size = API_PAGE_MAX
+        if limit is not None and limit < 0:
+            raise ValueError("limit must be non-negative or None")
+        if limit == 0:
+            return []
+
+        page_size = API_PAGE_MAX if limit is None else min(API_PAGE_MAX, limit)
         first_params = {**params, 'limit': page_size}
         if offset:
             first_params['offset'] = offset
@@ -66,15 +74,19 @@ class BaseResource:
         # Keyset (cursor) pagination — '/datasets' and '/samples'.
         if 'next_cursor' in first:
             cursor = first.get('next_cursor')
-            page_len = len(items)
-            while (cursor and page_len >= page_size
-                   and (limit is None or len(items) < limit)):
+            while cursor and (limit is None or len(items) < limit):
+                request_limit = (
+                    API_PAGE_MAX if limit is None
+                    else min(API_PAGE_MAX, limit - len(items))
+                )
                 resp = self._request('get', endpoint,
-                                     params={**params, 'limit': page_size, 'cursor': cursor})
-                page = resp['items']
+                                     params={**params, 'limit': request_limit,
+                                             'cursor': cursor})
+                page = list(resp['items'])
+                if not page:
+                    break
                 items.extend(page)
                 cursor = resp.get('next_cursor')
-                page_len = len(page)
             return items if limit is None else items[:limit]
 
         # Offset pagination — all other endpoints.
@@ -86,8 +98,9 @@ class BaseResource:
         remaining_offsets = range(offset + page_size, offset + need, API_PAGE_MAX)
 
         def _fetch(off):
+            request_limit = min(API_PAGE_MAX, offset + need - off)
             r = self._request('get', endpoint,
-                              params={**params, 'limit': API_PAGE_MAX, 'offset': off})
+                              params={**params, 'limit': request_limit, 'offset': off})
             return r['items']
 
         with ThreadPoolExecutor(max_workers=min(len(remaining_offsets), 8)) as pool:
