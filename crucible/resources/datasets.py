@@ -167,7 +167,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
 
         Args:
             dataset (Dataset): Dataset object with dataset details. Use `owner` with
-                an ORCID, username, email, or service-account MFID to create for a
+                an ORCID, MFID, username, or email to create for a
                 specific owner. `owner_orcid` is deprecated for creation. Providing
                 both fields is invalid.
             scientific_metadata (dict, optional): Scientific metadata
@@ -216,7 +216,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         if dataset_details.get('owner_orcid') is not None:
             warnings.warn(
                 "Dataset.owner_orcid is deprecated for creation; use Dataset.owner "
-                "with an ORCID, username, email, or service-account MFID instead.",
+                "with an ORCID, MFID, username, or email instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -274,6 +274,9 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
 
         'owner_orcid' and 'project_id' are no longer accepted here (422) -
         use transfer_ownership() / reassign_project() instead.
+        Instrument reassignment is not available through generic PATCH. Omit
+        'instrument_id' and 'instrument_name' unless resubmitting their current
+        values for compatibility.
 
         Args:
             dataset_mfid (str): Dataset MFID

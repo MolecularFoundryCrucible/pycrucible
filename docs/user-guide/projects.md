@@ -6,7 +6,7 @@
 | `organization` | Free-text institution or group name (e.g. `"LBNL"`, `"Stanford"`) | create, update |
 | `title` | Human-readable project title | create, update |
 | `status` | Project status (e.g. `"active"`) | create, update |
-| `project_lead` | Project lead identified by ORCID, username, or email | create |
+| `project_lead` | Project lead identified by ORCID, MFID, username, or email | create |
 | `lead` | Public-safe resolved project lead record without email | server-assigned |
 | `creation_time` | When the record was created | server-assigned |
 | `modification_time` | When the record was last modified | server-assigned |

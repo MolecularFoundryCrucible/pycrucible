@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 3.2.0
+
 ### Added
 
 - Dataset, sample, and project lists accept repeated user and project access selectors.
@@ -26,6 +28,12 @@
 
 ### Changed
 
+- The built-in production endpoint now targets API v3; explicit v1/v2 overrides display a migration warning, and `config unset api_url` restores the package default.
+- Instrument retrieval expands typed public owner records by default; instrument lists support owner expansion and lifecycle-status filtering.
+- Instrument creation defaults ownership to the authenticated identity, while ownership changes use `transfer_ownership()` and `instrument transfer-ownership` instead of update fields.
+- Human users may be created without an ORCID, receiving a server-assigned MFID that user and owner displays treat as a canonical user ID rather than an ORCID.
+- User operations that require a canonical identity use `user_unique_id`; the previous `orcid` keyword remains temporarily supported with a deprecation warning.
+- Health checks and `crucible status` accept deployment provenance from the nested API readiness response while remaining compatible with the legacy flat response during rollout.
 - Singleton dataset and sample retrieval expands typed public owner records by default; `owner_orcid` creation inputs are deprecated in favor of flexible `owner` identifiers.
 - Project membership mutations resolve usernames and emails before using canonical user identifiers; the old `orcid` keyword remains temporarily supported.
 - Generic access-group mutation helpers and CLI commands are deprecated in favor of typed resource, project, and instrument operations.
@@ -49,12 +57,14 @@
 - `sample update` no longer accepts `--project`/`--owner`; use `sample reassign-project`/`transfer-ownership` instead.
 - `dataset update`/`sample update --set` no longer accept `project_id`/`owner_orcid`; use the new reassign/transfer commands instead.
 - Generic access grants accept roles up to `admin`; ownership changes use `transfer-ownership`.
-- Dataset update fields now match the API schema: `instrument_id` and `data_format` are editable, while the unsupported `description` field is removed.
+- Dataset update fields now match the supported mutation contract: `data_format` is editable, while unsupported `description` and frozen instrument-assignment fields are excluded.
 - Dataset, sample, and project operations expose only the access-control, ownership, and project-assignment capabilities supported by their API contracts.
 - Project member add, role-update, and removal methods consistently return `list[ProjectMember]`.
 
 ### Fixed
 
+- CLI tables display usernames and project or instrument slugs up to their full 25-character limit.
+- Instrument CLI get/list output formats expanded owners correctly and `instrument list --include-metadata --json` exposes requested metadata.
 - Project and instrument lookup remains compatible with legacy slugs outside the current creation limits.
 - Access-control operations now use the API's canonical principal and permission fields.
 - Paginated list operations now request only the number of records needed to satisfy `limit` instead of over-fetching full server pages.

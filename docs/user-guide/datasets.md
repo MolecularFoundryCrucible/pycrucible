@@ -6,18 +6,20 @@
 | `project_id` | Project this dataset belongs to | create; later changes use `reassign_project()` |
 | `measurement` | Industry-standard experiment type (e.g. `"Raman Spectroscopy"`) | create, update |
 | `data_type` | Institution-specific data organization descriptor (e.g. `"ScopeFoundry H5 file"`) | create, update |
-| `instrument_name` | Name of the instrument as registered in Crucible | create, update |
-| `instrument_id` | Instrument identifier | create, update |
+| `instrument_name` | Name of the instrument as registered in Crucible | create |
+| `instrument_id` | Instrument identifier | create |
 | `data_format` | File type or extension (e.g. `"h5"`, `"dat"`) | create, update |
 | `session_name` | Optional tag grouping datasets collected in the same session | create, update |
 | `timestamp` | When the data was collected (ISO 8601 format) | create, update |
 | `public` | Whether the dataset is publicly accessible (default: `False`) | create, update |
 | `owner_orcid` | Canonical owner identifier returned by the API; deprecated as a creation input | read; deprecated for create |
-| `owner` | Flexible owner identifier on create; public-safe user record on singleton reads | create with an ORCID, username, email, or service-account MFID; expanded by default on `get()` |
+| `owner` | Flexible owner identifier on create; public-safe user record on singleton reads | create with an ORCID, MFID, username, or email; expanded by default on `get()` |
 | `unique_id` | System-assigned MFID identifier | server-assigned |
 | `size` | Total file size in bytes | server-assigned |
 | `creation_time` | When the record was created | server-assigned |
 | `modification_time` | When the record was last modified | server-assigned |
+
+Instrument assignment is fixed at creation for now. Generic dataset updates may resubmit the current `instrument_id` or `instrument_name` for compatibility, but changing or clearing either value returns HTTP 409 until a dedicated reassignment operation is available.
 
 ### Relationships
 

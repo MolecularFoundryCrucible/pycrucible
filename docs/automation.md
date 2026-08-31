@@ -39,8 +39,9 @@ secret manager:
 
 ```bash
 export CRUCIBLE_API_KEY="..."
-export CRUCIBLE_API_URL="https://crucible.lbl.gov/api/v2"
 ```
+
+Nano uses its packaged production API URL by default, allowing client upgrades to adopt the matching production API version. Set `CRUCIBLE_API_URL` only for staging or another non-default deployment.
 
 Do not commit API keys, place them in notebooks, include them in prompts, or print the full client configuration. Use `crucible whoami` to verify identity without displaying the key.
 

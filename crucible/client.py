@@ -11,6 +11,7 @@ import requests
 import json
 import logging
 from requests.adapters import HTTPAdapter
+from urllib.parse import urlparse
 from urllib3.util.retry import Retry
 from typing import Optional, List, Dict, Any, Union
 from .models import Dataset, Project
@@ -28,11 +29,11 @@ class CrucibleClient:
         Initialize the Crucible API client.
 
         Args:
-            api_url: Base URL for the Crucible API (loads from config if not provided)
+            api_url: Base URL for the Crucible API (loads from config or the package default if not provided)
             api_key: API key for authentication (loads from config if not provided)
 
         Raises:
-            ValueError: If api_url or api_key not provided and not found in config
+            ValueError: If api_key is not provided and not found in config
         """
         # Load from config if not provided
         from .config import config as _config
@@ -50,13 +51,19 @@ class CrucibleClient:
         self.api_url = api_url.rstrip('/')
         self.api_key = api_key
 
-        if '/api/v1' in self.api_url:
+        api_path = urlparse(self.api_url).path.rstrip('/')
+        legacy_version = next(
+            (version for version in ('v1', 'v2') if api_path.endswith(f'/api/{version}')),
+            None,
+        )
+        if legacy_version:
             import warnings
             from .config.config import Config as _Cfg
             warnings.warn(
-                f"You are connected to Crucible API v1 which is deprecated. "
-                f"Update with: crucible config set api_url {_Cfg.DEFAULT_API_URL}",
-                DeprecationWarning,
+                f"You are connected to Crucible API {legacy_version} which is deprecated. "
+                f"Use {_Cfg.DEFAULT_API_URL} or remove the configured override with: "
+                f"crucible config unset api_url",
+                FutureWarning,
                 stacklevel=2,
             )
 
@@ -162,9 +169,12 @@ class CrucibleClient:
         """Check API and database health without requiring authentication.
 
         Returns:
-            Dict: {"status": "ok"|"degraded", "db": "ok"|"error",
-                   "db_ms": float|None, "version": str|None}
-                  Raises requests.exceptions.ConnectionError if the host is unreachable.
+            Dict: Readiness status with nested ``build`` and ``database``
+                provenance. During API rollout, older servers may return the
+                legacy flat ``db``, ``db_ms``, and ``version`` fields.
+
+        Raises:
+            requests.exceptions.ConnectionError: If the host is unreachable.
         """
         import requests as _requests
         url = f"{self.api_url}/health/ready"
@@ -243,6 +253,7 @@ class CrucibleClient:
             return self.instruments.get(
                 instrument_mfid=resource_mfid,
                 include_metadata=include_metadata,
+                include_owner=include_owner,
             )
         else:
             raise ValueError(f"Unknown or unsupported resource type: {resource_type}")

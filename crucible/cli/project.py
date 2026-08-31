@@ -194,7 +194,7 @@ Examples:
         default=None,
         metavar='USER',
         dest='project_lead',
-        help='Project lead ORCID, username, or email. If not provided, will prompt interactively.'
+        help='Project lead ORCID, MFID, username, or email. If not provided, will prompt interactively.'
     )
 
     parser.add_argument(
@@ -254,7 +254,7 @@ def _register_add_user(subparsers):
     parser = subparsers.add_parser(
         'add-user',
         help='Add a user to a project',
-        description='Add a user to a project by ORCID, username, or email (requires admin permissions)',
+        description='Add a user to a project by ORCID, MFID, username, or email (requires admin permissions)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -274,7 +274,7 @@ Examples:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
 
     parser.add_argument('--user', '-u', metavar='USER', default=None,
-                        help='ORCID, username, or email of the user')
+                        help='ORCID, MFID, username, or email of the user')
     parser.add_argument('--role', metavar='ROLE', default=None,
                         help='Role to grant (default: contributor)')
 
@@ -319,7 +319,7 @@ def _register_remove_user(subparsers):
     parser = subparsers.add_parser(
         'remove-user',
         help='Remove a user from a project',
-        description='Remove a user from a project by ORCID, username, or email (requires admin permissions)',
+        description='Remove a user from a project by ORCID, MFID, username, or email (requires admin permissions)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -335,7 +335,7 @@ Examples:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
 
     parser.add_argument('--user', '-u', metavar='USER', default=None,
-                        help='ORCID, username, or email of the user')
+                        help='ORCID, MFID, username, or email of the user')
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--orcid',    metavar='ORCID',    help='(deprecated, use --user)')
@@ -373,7 +373,7 @@ def _execute_list(args):
                 for p in projects
             ]
             term.table(rows, ['ID', 'Title', 'Organization', 'Lead'],
-                       max_widths=[20, 30, 20, 25])
+                       max_widths=[25, 30, 20, 25])
 
     except Exception as e:
         from .helpers import fail
@@ -419,7 +419,7 @@ def _show_project(project, include_metadata=False):
         term.header(f"Members ({len(members)})")
         rows = [(m.get('username') or '-', term.fmt_name(m, default='-', fallback_username=False),
                  m.get('role') or '-') for m in members]
-        term.table(rows, ['Username', 'Name', 'Role'], max_widths=[20, 25, 12])
+        term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
 
 
 def _execute_get(args):
@@ -488,7 +488,7 @@ def _execute_create(args):
     # Prompt for project lead
     if project_lead is None:
         while True:
-            project_lead = input("Project lead ORCID, username, or email: ").strip()
+            project_lead = input("Project lead ORCID, MFID, username, or email: ").strip()
             if project_lead:
                 break
             else:
@@ -552,7 +552,7 @@ def _execute_list_users(args):
                 username = u.username or '-'
                 role     = u.role or '-'
                 rows.append((username, name, role))
-            term.table(rows, ['Username', 'Name', 'Role'], max_widths=[20, 25, 12])
+            term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
 
     except Exception as e:
         from .helpers import fail
@@ -749,7 +749,7 @@ Examples:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
     parser.add_argument(
         'user_unique_id', metavar='USER_ID',
-        help="Member's canonical ORCID or service-account MFID",
+        help="Member's canonical ORCID or user MFID",
     )
     parser.add_argument('role', metavar='ROLE', help='New role to grant')
     parser.set_defaults(func=_execute_update_user_role)
@@ -769,7 +769,7 @@ def _execute_update_user_role(args):
         )
         rows = [(u.username or '-', term.fmt_name(u.model_dump(), default='-', fallback_username=False),
                  u.role or '-') for u in users]
-        term.table(rows, ['Username', 'Name', 'Role'], max_widths=[20, 25, 12])
+        term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
     except Exception as e:
         fail("updating user role", e, args)
 
@@ -792,7 +792,7 @@ Examples:
     )
     if ARGCOMPLETE_AVAILABLE:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
-    parser.add_argument('new_owner', metavar='NEW_OWNER', help='ORCID, username, or email of the new owner')
+    parser.add_argument('new_owner', metavar='NEW_OWNER', help='ORCID, MFID, username, or email of the new owner')
     parser.add_argument('--confirm', action='store_true', help='Execute the transfer (default: preview only)')
     parser.set_defaults(func=_execute_transfer_ownership)
 
@@ -877,7 +877,7 @@ def _execute_list_join_requests(args):
             return
         term.table(_table_rows(records, client=client),
                   ['ID', 'Group', 'Status', 'Requester', 'Requested'],
-                  max_widths=[6, 20, 10, 20, 12])
+                  max_widths=[6, 25, 10, 25, 12])
     except Exception as e:
         from .helpers import fail
         fail("", e, args)
@@ -1005,7 +1005,7 @@ def _execute_search(args):
             return
         rows = [(r.get('project_id', '-'), r.get('title') or '-',
                  r.get('organization') or '-') for r in results]
-        term.table(rows, ['ID', 'Title', 'Organization'], max_widths=[20, 30, 20])
+        term.table(rows, ['ID', 'Title', 'Organization'], max_widths=[25, 30, 20])
     except Exception as e:
         from .helpers import fail
         fail("", e, args)

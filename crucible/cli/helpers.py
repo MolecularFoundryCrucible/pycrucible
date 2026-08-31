@@ -62,10 +62,10 @@ def parse_sa_ref(value: str) -> dict:
     return {'username': value}
 
 
-def resolve_orcid(client, value: str) -> str:
-    """Resolve a user identifier (ORCID, username, or email) to an ORCID.
+def resolve_user_id(client, value: str) -> str:
+    """Resolve a user reference to its canonical ORCID or MFID.
 
-    Returns the value unchanged if it's already an ORCID (no API call).
+    Returns a canonical ORCID or MFID unchanged without an API call.
     Raises ValueError if the identifier doesn't resolve to a user.
     """
     reference_kind, normalized = classify_user_reference(value)

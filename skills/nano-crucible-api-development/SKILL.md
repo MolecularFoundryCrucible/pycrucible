@@ -28,7 +28,7 @@ When adding a new resource namespace, export the operations class from `crucible
 - Name a parameter `dataset_mfid`, `sample_mfid`, `project_mfid`, `instrument_mfid`, or `resource_mfid` when it accepts only an MFID.
 - Reserve `project_id` and `instrument_id` for their unique, human-readable API identifiers. Dataset and sample names are display values, not identifiers.
 - Use `project_ref`, `instrument_ref`, or `user_ref` only when the client deliberately accepts multiple identifier formats and dispatches them.
-- Use `user_unique_id` for an ORCID-or-service-account-MFID parameter because not every canonical user identifier is an MFID.
+- Use `user_unique_id` for an ORCID-or-MFID parameter because a canonical human identifier may now have either shape; an MFID does not imply a service account.
 - When replacing an ambiguous public keyword such as `dsid`, preserve it temporarily as an explicit deprecated alias. Positional compatibility should remain intact where practical.
 - Keep canonical and exact-filter request methods private. Extract shared request behavior only when validation, request shape, response handling, and error semantics are genuinely identical across resources.
 - Dataset and sample route positions, including nested relationship, file, keyword, thumbnail, graph, and download routes, accept MFIDs only. Name their client parameters with `_mfid` even when the server's Python route variable still says `dataset_id`, `sample_id`, or `dsid`.

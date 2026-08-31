@@ -9,7 +9,7 @@ Provides organized access to instrument-related API endpoints.
 import logging
 from typing import Optional, List, Dict
 from .base import BaseResource
-from .capabilities import AccessControlMixin
+from .capabilities import AccessControlMixin, OwnershipMixin
 from ..constants import DEFAULT_LIMIT
 from ..utils.identifiers import (
     IdentifierNotFoundError,
@@ -23,20 +23,30 @@ from ..utils.identifiers import (
 logger = logging.getLogger(__name__)
 
 
-class InstrumentOperations(AccessControlMixin, BaseResource):
+class InstrumentOperations(OwnershipMixin, AccessControlMixin, BaseResource):
     """Instrument-related API operations.
 
     Access via: client.instruments.get(), client.instruments.list(), etc.
     """
 
+    @staticmethod
+    def _parse(raw: Dict) -> Dict:
+        """Validate an API response through the Instrument model."""
+        from ..models import Instrument
+        return Instrument.model_validate(raw).model_dump()
+
     def list(self, include_metadata: bool = False, limit: int = DEFAULT_LIMIT,
-             offset: int = 0) -> List[Dict]:
-        """List all available instruments.
+             offset: int = 0, include_owner: bool = False,
+             status: Optional[str] = None) -> List[Dict]:
+        """List instruments, defaulting to the active lifecycle state.
 
         Args:
             include_metadata (bool): Include scientific metadata in results
             limit (int): Maximum number of results to return
             offset (int): Starting position in the full result set (default: 0)
+            include_owner (bool): Resolve owner_orcid into a public-safe user object
+            status (str, optional): Filter by active, maintenance, or decommissioned.
+                                    When omitted, the API defaults to active.
 
         Returns:
             List[Dict]: Instrument objects with specifications and metadata
@@ -44,11 +54,18 @@ class InstrumentOperations(AccessControlMixin, BaseResource):
         params = {}
         if include_metadata:
             params['include_metadata'] = True
-        return self._paginate('/instruments', params, limit, offset)
+        if include_owner:
+            params['include_owner'] = True
+        if status is not None:
+            allowed = {'active', 'maintenance', 'decommissioned'}
+            if status not in allowed:
+                raise ValueError(f"status must be one of: {', '.join(sorted(allowed))}")
+            params['status'] = status
+        return [self._parse(item) for item in self._paginate('/instruments', params, limit, offset)]
 
     def get(self, instrument_ref: Optional[str] = None,
             instrument_id: Optional[str] = None,
-            include_metadata: bool = False,
+            include_metadata: bool = False, include_owner: bool = True,
             *, instrument_mfid: Optional[str] = None,
             instrument_name: Optional[str] = None) -> Dict:
         """Get an instrument by canonical MFID or human-readable slug.
@@ -61,6 +78,7 @@ class InstrumentOperations(AccessControlMixin, BaseResource):
             instrument_ref (str, optional): Instrument MFID or slug
             instrument_id (str, optional): Explicit instrument slug
             include_metadata (bool): Whether to include scientific metadata
+            include_owner (bool): Resolve owner_orcid into a public-safe user object (default: True)
             instrument_mfid (str, optional): Explicit instrument MFID
             instrument_name (str, optional): Deprecated display-name lookup
 
@@ -86,7 +104,8 @@ class InstrumentOperations(AccessControlMixin, BaseResource):
                 DeprecationWarning,
                 stacklevel=2,
             )
-            return self._get_by_name(instrument_name, include_metadata=include_metadata)
+            return self._get_by_name(instrument_name, include_metadata=include_metadata,
+                                     include_owner=include_owner)
         if instrument_id is not None:
             if is_mfid(instrument_id):
                 import warnings
@@ -95,53 +114,70 @@ class InstrumentOperations(AccessControlMixin, BaseResource):
                     DeprecationWarning,
                     stacklevel=2,
                 )
-                return self._get_by_mfid(instrument_id, include_metadata=include_metadata)
-            return self._get_by_instrument_id(instrument_id, include_metadata=include_metadata)
+                return self._get_by_mfid(instrument_id, include_metadata=include_metadata,
+                                         include_owner=include_owner)
+            return self._get_by_instrument_id(instrument_id, include_metadata=include_metadata,
+                                              include_owner=include_owner)
         if instrument_mfid is not None:
-            return self._get_by_mfid(instrument_mfid, include_metadata=include_metadata)
+            return self._get_by_mfid(instrument_mfid, include_metadata=include_metadata,
+                                     include_owner=include_owner)
 
         reference_kind = classify_slug_reference(instrument_ref, 'instrument')
         if reference_kind == 'mfid':
-            return self._get_by_mfid(instrument_ref, include_metadata=include_metadata)
-        return self._get_by_instrument_id(instrument_ref, include_metadata=include_metadata)
+            return self._get_by_mfid(instrument_ref, include_metadata=include_metadata,
+                                     include_owner=include_owner)
+        return self._get_by_instrument_id(instrument_ref, include_metadata=include_metadata,
+                                          include_owner=include_owner)
 
     def _get_by_mfid(self, instrument_mfid: str,
-                     include_metadata: bool = False) -> Dict:
+                     include_metadata: bool = False,
+                     include_owner: bool = True) -> Dict:
         """Get an instrument through its canonical single-resource route."""
         if not is_mfid(instrument_mfid):
             raise ValueError("instrument_mfid must be an exact 26-character MFID.")
-        params = {'include_metadata': True} if include_metadata else None
-        raw = self._request('get', f'/instruments/{instrument_mfid}', params=params)
-        return require_canonical_identifier(raw, 'instrument')
+        params = {}
+        if include_metadata:
+            params['include_metadata'] = True
+        if include_owner:
+            params['include_owner'] = True
+        raw = self._request('get', f'/instruments/{instrument_mfid}', params=params or None)
+        if raw is None:
+            return None
+        return self._parse(require_canonical_identifier(raw, 'instrument'))
 
     def _get_by_instrument_id(self, instrument_id: str,
-                              include_metadata: bool = False) -> Dict:
+                              include_metadata: bool = False,
+                              include_owner: bool = True) -> Dict:
         """Resolve an exact instrument slug through the collection route."""
         if not isinstance(instrument_id, str) or not instrument_id:
             raise ValueError("instrument_id must be a non-empty string.")
         params = {'instrument_id': instrument_id, 'limit': 2}
         if include_metadata:
             params['include_metadata'] = True
+        if include_owner:
+            params['include_owner'] = True
         raw = self._request('get', '/instruments', params=params)
-        return collapse_exact_lookup(raw, 'instrument', instrument_id)
+        return self._parse(collapse_exact_lookup(raw, 'instrument', instrument_id))
 
     def _get_by_name(self, instrument_name: str,
-                     include_metadata: bool = False) -> Dict:
+                     include_metadata: bool = False,
+                     include_owner: bool = True) -> Dict:
         """Compatibility lookup for a non-unique instrument display name."""
         params = {'instrument_name': instrument_name, 'limit': 2}
         if include_metadata:
             params['include_metadata'] = True
+        if include_owner:
+            params['include_owner'] = True
         raw = self._request('get', '/instruments', params=params)
-        return collapse_exact_lookup(raw, 'instrument', instrument_name)
+        return self._parse(collapse_exact_lookup(raw, 'instrument', instrument_name))
 
     def create(self, instrument, scientific_metadata: Optional[Dict] = None) -> Dict:
         """Create a new instrument, returning the existing one if it already exists.
 
-        **Requires admin permissions.**
-
         Args:
             instrument: Instrument model or dict with instrument details.
-                        Required fields: instrument_id, instrument_name, owner, location.
+                        Required fields: instrument_id, instrument_name, and location.
+                        Owner defaults to the authenticated identity.
             scientific_metadata (Dict, optional): Scientific metadata to attach after creation.
 
         Returns:
@@ -163,6 +199,17 @@ class InstrumentOperations(AccessControlMixin, BaseResource):
                 "distinct from its auto-assigned MFID)."
             )
         validate_slug(payload['instrument_id'], 'instrument')
+        if payload.get('owner') is not None and payload.get('owner_orcid') is not None:
+            raise ValueError("Pass either 'owner' or 'owner_orcid', not both.")
+        if payload.get('owner_orcid') is not None:
+            warnings.warn(
+                "Instrument.owner_orcid is deprecated for creation; use Instrument.owner "
+                "with an ORCID, MFID, username, or email instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        if payload.get('owner') is not None and not isinstance(payload['owner'], str):
+            raise ValueError("Instrument.owner must be a string identifier when creating an instrument.")
 
         try:
             existing = self._get_by_instrument_id(payload['instrument_id'])
@@ -178,25 +225,30 @@ class InstrumentOperations(AccessControlMixin, BaseResource):
         result = self._request('post', '/instruments', json=payload)
         if scientific_metadata:
             self.update_scientific_metadata(result['unique_id'], scientific_metadata)
-        return result
+        return self._parse(result)
 
     def update(self, unique_id: str, **kwargs) -> Dict:
         """Partially update an instrument record.
 
-        **Requires admin permissions.**
+        **Requires editor permission.**
 
         Args:
             unique_id (str): Instrument unique identifier (MFID)
-            **kwargs: Fields to update. Accepted: instrument_id, instrument_name, owner,
+            **kwargs: Fields to update. Accepted: instrument_id, instrument_name,
                       location, manufacturer, model, instrument_type, description,
                       other_id, other_id_source.
 
         Returns:
             Dict: Updated instrument object
         """
+        if 'owner' in kwargs or 'owner_orcid' in kwargs:
+            raise ValueError(
+                "Instrument ownership cannot be changed with update(); "
+                "use transfer_ownership() instead."
+            )
         if kwargs.get('instrument_id') is not None:
             validate_slug(kwargs['instrument_id'], 'instrument')
-        return self._request('patch', f'/instruments/{unique_id}', json=kwargs)
+        return self._parse(self._request('patch', f'/instruments/{unique_id}', json=kwargs))
 
     def bind_service_account(self, instrument_mfid: str, sa_unique_id: str) -> List['ProjectMember']:
         """Bind a service account as an operator of an instrument.
@@ -230,7 +282,8 @@ class InstrumentOperations(AccessControlMixin, BaseResource):
         raw = self._request('delete', f'/instruments/{instrument_mfid}/service_accounts/{sa_unique_id}')
         return [ProjectMember.model_validate(m) for m in raw]
 
-    def search(self, q: str, limit: int = 20) -> List[Dict]:
+    def search(self, q: str, limit: int = 20,
+               include_owner: bool = False) -> List[Dict]:
         """Fuzzy search across instruments. Available to all authenticated users.
 
         Matches against instrument_name, instrument_type, and manufacturer
@@ -239,12 +292,17 @@ class InstrumentOperations(AccessControlMixin, BaseResource):
         Args:
             q: Search term (min 3 chars). Typo-tolerant.
             limit: Max results (default 20, max 50).
+            include_owner: Resolve owner_orcid into a public-safe user object.
 
         Returns:
             List[Dict]: Matching instrument records, ranked by relevance.
         """
-        result = self._request('get', '/instruments/search', params={'q': q, 'limit': limit})
-        return result.get('items', result) if isinstance(result, dict) else result
+        params = {'q': q, 'limit': limit}
+        if include_owner:
+            params['include_owner'] = True
+        result = self._request('get', '/instruments/search', params=params)
+        items = result.get('items', result) if isinstance(result, dict) else result
+        return [self._parse(item) for item in items]
 
     def get_or_create(self, instrument_name: str, location: Optional[str] = None,
                      instrument_owner: Optional[str] = None) -> Dict:

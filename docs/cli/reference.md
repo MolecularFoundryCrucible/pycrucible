@@ -54,7 +54,7 @@ crucible dataset create -i data.csv -pid my-project \
     --metadata '{"temperature_K": 300}' --keywords "XRD,powder"
 ```
 
-Fields normally updated through `dataset update --set` include `dataset_name`, `measurement`, `data_type`, `session_name`, `instrument_name`, `instrument_id`, `data_format`, `timestamp`, and `public`. Use `reassign-project` and `transfer-ownership` for project and owner changes.
+Fields normally updated through `dataset update --set` include `dataset_name`, `measurement`, `data_type`, `session_name`, `data_format`, `timestamp`, and `public`. Use `reassign-project` and `transfer-ownership` for project and owner changes. Instrument reassignment remains unavailable and is not exposed as ordinary metadata editing.
 
 ## Sample commands
 
@@ -114,6 +114,7 @@ The `access grant` commands accept `viewer`, `contributor`, `editor`, or `admin`
 | `instrument get INSTRUMENT` | Show an instrument by MFID or instrument slug |
 | `instrument create` | Register an instrument |
 | `instrument update MFID` | Update an instrument record or scientific metadata |
+| `instrument transfer-ownership MFID USER` | Transfer instrument ownership |
 | `instrument edit MFID` | Edit instrument fields interactively |
 | `instrument search QUERY` | Search names, types, and manufacturers |
 | `instrument search-metadata QUERY` | Search scientific metadata; `search-md` is an alias |
@@ -124,7 +125,7 @@ Most user-management commands require administrator permissions.
 
 | Command | Description |
 |---|---|
-| `user get USER` | Show a user by ORCID, username, or email |
+| `user get USER` | Show a user by ORCID, MFID, username, or email |
 | `user search QUERY` | Search names and usernames |
 | `user list` | List users |
 | `user create` | Create a user |
@@ -136,6 +137,9 @@ Most user-management commands require administrator permissions.
 | `user add-access-group USER GROUP` | Deprecated; use the typed project or instrument membership command |
 | `user remove-access-group USER GROUP` | Deprecated; use the typed project or instrument membership command |
 | `user list-projects USER` | List a user's projects |
+
+Human users require a username and may optionally supply an ORCID during creation.
+When the ORCID is omitted, the API assigns a canonical MFID.
 
 ## File commands
 
@@ -238,6 +242,7 @@ The deletion-request workflow is separate from direct permanent deletion. Review
 | `config show` | Show the current configuration |
 | `config get KEY` | Print one configuration value |
 | `config set KEY VALUE` | Set one configuration value |
+| `config unset KEY` | Remove a config-file override and return to the environment or package default |
 | `config path` | Show the configuration-file path |
 | `config edit` | Edit the configuration file |
 | `cache show` | Show cache location and disk usage |

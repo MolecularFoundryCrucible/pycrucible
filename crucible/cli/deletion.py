@@ -269,7 +269,7 @@ def _execute_list_deleted(args):
             for r in records
         ]
         term.table(rows, ['ID', 'Resource ID', 'Type', 'Name', 'Deleted At', 'Requester'],
-                   max_widths=[6, 26, 10, 20, 12, 22])
+                   max_widths=[6, 26, 10, 20, 12, 25])
 
     except Exception as e:
         from .helpers import fail
@@ -356,7 +356,7 @@ def _execute_list(args):
         ]
         term.table(rows,
                    ['ID', 'Resource ID', 'Type', 'Name', 'Status', 'Requester', 'Requested'],
-                   max_widths=[6, 26, 10, 15, 10, 20, 10])
+                   max_widths=[6, 26, 10, 15, 10, 25, 10])
     except Exception as e:
         from .helpers import fail
         fail("listing deletion requests", e, args)
