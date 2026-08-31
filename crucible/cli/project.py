@@ -6,9 +6,11 @@ Project subcommand for Crucible CLI.
 Provides project-related operations: list, get, create.
 """
 
+import argparse
 import sys
 import logging
 import json
+import warnings
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,21 @@ try:
     ARGCOMPLETE_AVAILABLE = True
 except ImportError:
     ARGCOMPLETE_AVAILABLE = False
+
+
+class _DeprecatedMembersAction(argparse.Action):
+    """Set include_members while warning about the former CLI spelling."""
+
+    def __init__(self, option_strings, dest, **kwargs):
+        super().__init__(option_strings, dest, nargs=0, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        warnings.warn(
+            "--members is deprecated; use --include-members instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        setattr(namespace, self.dest, True)
 
 
 def register_subcommand(subparsers):
@@ -112,10 +129,17 @@ def _register_get(subparsers):
     )
 
     parser.add_argument(
-        '--members',
+        '--include-members',
         action='store_true',
         dest='include_members',
-        help='Include the project member list (members/admins only)'
+        help='Include the project member list (project members/platform admins only)'
+    )
+
+    parser.add_argument(
+        '--members',
+        action=_DeprecatedMembersAction,
+        dest='include_members',
+        help='Deprecated alias for --include-members'
     )
 
     parser.add_argument(

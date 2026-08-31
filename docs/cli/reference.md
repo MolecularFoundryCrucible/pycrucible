@@ -87,7 +87,7 @@ Fields normally updated through `sample update` include `sample_name`, `sample_t
 | Command | Description |
 |---|---|
 | `project list` | List accessible projects |
-| `project get PROJECT` | Show a project by MFID or project slug, optionally with its members |
+| `project get PROJECT [--include-members]` | Show a project by MFID or project slug, optionally with its members |
 | `project create` | Create a project |
 | `project update ID` | Update a project record or scientific metadata |
 | `project edit ID` | Edit project fields interactively |
@@ -272,5 +272,6 @@ Configuration values can come from environment variables, the platform-specific 
 | `user get-access-groups` | `user list-access-groups` |
 | `user get-projects` | `user list-projects` |
 | `project get-users` | `project list-users` |
+| `project get PROJECT --members` | `project get PROJECT --include-members` |
 
 Deprecated forms remain available for compatibility but emit a warning. New documentation and scripts should use the current forms.

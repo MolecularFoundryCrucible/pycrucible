@@ -21,7 +21,7 @@
 - New `project update-user-role` command and `add-user --role` flag.
 - `project list-users` now shows each member's role.
 - `instrument create` requires a new `--instrument-id` flag (a unique slug, separate from its ID and name).
-- `project get --members` shows the project's member list and roles.
+- `project get --include-members` shows the project's member list and roles; `--members` remains as a deprecated alias.
 - `project create`/`client.projects.create()` accept a flexible `project_lead` field as an alternative to the explicit ORCID/email/username fields.
 
 ### Changed
