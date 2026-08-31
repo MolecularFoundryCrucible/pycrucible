@@ -159,7 +159,8 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
                scientific_metadata: Optional[Dict] = None) -> Dict:
         """Create a new project.
 
-        **Requires admin permissions.**
+        Any authenticated user may create a project. The selected lead must be
+        an existing user.
 
         Args:
             project: A Project model instance or a dict with project_id,
