@@ -274,6 +274,9 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
 
         'owner_orcid' and 'project_id' are no longer accepted here (422) -
         use transfer_ownership() / reassign_project() instead.
+        Instrument reassignment is not available through generic PATCH. Omit
+        'instrument_id' and 'instrument_name' unless resubmitting their current
+        values for compatibility.
 
         Args:
             dataset_mfid (str): Dataset MFID

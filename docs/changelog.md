@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 3.2.0
+
 ### Added
 
 - Dataset, sample, and project lists accept repeated user and project access selectors.
@@ -54,7 +56,7 @@
 - `sample update` no longer accepts `--project`/`--owner`; use `sample reassign-project`/`transfer-ownership` instead.
 - `dataset update`/`sample update --set` no longer accept `project_id`/`owner_orcid`; use the new reassign/transfer commands instead.
 - Generic access grants accept roles up to `admin`; ownership changes use `transfer-ownership`.
-- Dataset update fields now match the API schema: `instrument_id` and `data_format` are editable, while the unsupported `description` field is removed.
+- Dataset update fields now match the supported mutation contract: `data_format` is editable, while unsupported `description` and frozen instrument-assignment fields are excluded.
 - Dataset, sample, and project operations expose only the access-control, ownership, and project-assignment capabilities supported by their API contracts.
 - Project member add, role-update, and removal methods consistently return `list[ProjectMember]`.
 

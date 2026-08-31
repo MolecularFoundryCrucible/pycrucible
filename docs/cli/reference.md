@@ -54,7 +54,7 @@ crucible dataset create -i data.csv -pid my-project \
     --metadata '{"temperature_K": 300}' --keywords "XRD,powder"
 ```
 
-Fields normally updated through `dataset update --set` include `dataset_name`, `measurement`, `data_type`, `session_name`, `instrument_name`, `instrument_id`, `data_format`, `timestamp`, and `public`. Use `reassign-project` and `transfer-ownership` for project and owner changes.
+Fields normally updated through `dataset update --set` include `dataset_name`, `measurement`, `data_type`, `session_name`, `data_format`, `timestamp`, and `public`. Use `reassign-project` and `transfer-ownership` for project and owner changes. Instrument reassignment remains unavailable and is not exposed as ordinary metadata editing.
 
 ## Sample commands
 

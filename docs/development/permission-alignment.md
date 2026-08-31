@@ -65,11 +65,11 @@ Status: `Implemented`
 
 ### Issue
 
-The client CLI field registry does not match the server's `DatasetUpdate` schema:
+The client CLI field registry did not match the server's supported dataset mutation contract:
 
 - `description` is exposed as editable but is rejected by the server.
 - `data_format` is accepted by the server but marked non-editable by the client.
-- `instrument_id` is accepted by the server but missing from the dataset CLI field registry.
+- `instrument_id` and `instrument_name` remain accepted only so older clients may resubmit their current values. Changing or clearing either field returns HTTP 409 while dedicated instrument reassignment is deferred.
 
 This can make a documented or interactive client operation fail with 422 while hiding valid update fields.
 
@@ -77,7 +77,7 @@ The API schema comparison also confirms that `description` is absent from `Datas
 
 The client `Dataset` model also relies on permissive extra-field handling for declared API fields:
 
-- `instrument_id`, present in create, update, and read schemas.
+- `instrument_id`, present in create and read schemas and retained in the update schema only for compatibility validation.
 - `owner`, used as a flexible creation identifier and as the resolved owner object in `DatasetResponse`.
 
 The dual-purpose `owner` field is tracked under issue 4 because its request and response types require a broader model decision.
@@ -90,7 +90,7 @@ Make the client registry match the deployed update contract exactly:
 
 - Remove `description` from editable dataset fields unless the API deliberately adds it.
 - Mark `data_format` as editable.
-- Add `instrument_id` as an editable field while retaining `instrument_name` for compatibility.
+- Keep `instrument_id` and `instrument_name` visible in dataset output but exclude both from ordinary CLI update and edit surfaces.
 - Declare `instrument_id` on the client `Dataset` model so the supported field does not depend on extra-field handling.
 - Remove deprecated `source_folder` from the API dataset create and read schemas and from dataset revision-record serialization. Treat removal of the underlying database column as separate migration work.
 - Use one explicit client-side update-field definition for CLI validation, edit prompts, help text, and documentation.
@@ -99,7 +99,7 @@ Runtime OpenAPI discovery is not recommended because CLI behavior should remain 
 
 ### Decision
 
-Remove dataset `description` from the CLI, make `data_format` editable, add editable and explicitly modeled `instrument_id`, retain `instrument_name` for compatibility, and keep the CLI registry aligned with the API update schema. Do not add `source_folder` to the client model. Remove it from the API dataset create and read contract because file locations now belong to associated-file records. Address strict extra-field handling under issue 4.
+Remove dataset `description` from the CLI, make `data_format` editable, and explicitly model `instrument_id` for creation and reads. Keep `instrument_id` and `instrument_name` out of ordinary CLI update and edit surfaces because changing or clearing instrument assignment returns HTTP 409. Preserve Python-level compatibility for callers that resubmit the current instrument values. Do not add `source_folder` to the client model. Remove it from the API dataset create and read contract because file locations now belong to associated-file records. Address strict extra-field handling under issue 4.
 
 ## 3. Normalize project member mutation responses
 
@@ -200,9 +200,9 @@ ACL, ownership-transfer, and project-reassignment methods currently live on `Bas
 
 Split cross-resource behavior into capability mixins:
 
-- `AccessControlOperations` for resource types supporting ACL and public access.
-- `OwnershipOperations` for datasets, samples, and projects. Instrument ownership remains deferred.
-- `ProjectAssignmentOperations` for datasets and samples only.
+- `AccessControlMixin` for resource types supporting ACL and public access.
+- `OwnershipMixin` for datasets, samples, projects, and instruments.
+- `ProjectAssignmentMixin` for datasets and samples only.
 
 Compose only the appropriate mixins into each operations class. Keep pagination, transport delegation, and scientific metadata behavior in the base class where they are genuinely shared.
 
@@ -212,7 +212,7 @@ Define thin forwarding methods directly on each supported resource class. This i
 
 ### Decision
 
-Introduce small, stateless capability mixins for access control, ownership transfer, and project assignment. Compose access control into datasets, samples, projects, and instruments; compose project assignment only into datasets and samples; and compose ownership into datasets, samples, and projects. Defer instrument ownership composition until the instrument API semantics are settled. Preserve existing valid method locations and remove accidental methods from unsupported namespaces.
+Introduce small, stateless capability mixins for access control, ownership transfer, and project assignment. Compose access control and ownership into datasets, samples, projects, and instruments; compose project assignment only into datasets and samples. Preserve existing valid method locations and remove accidental methods from unsupported namespaces.
 
 ## 7. Correct the API contract document
 
@@ -250,7 +250,7 @@ The client API reference omits most new permission methods, and several user gui
 - The project guide says `project_id` is creation-only and does not cover ownership transfer, member roles, or member visibility.
 - Sample creation examples use the removed keyword-based calling convention and an incorrect response identifier.
 - Project member examples treat `ProjectMember` models as dictionaries.
-- Instrument permission and ownership behavior remains unfinished and should not be advertised to users yet.
+- Instrument permission and ownership behavior must be documented only after its API, Python, and CLI contracts are implemented together.
 
 ### Best solution
 
@@ -260,27 +260,27 @@ After the preceding behavior decisions are implemented, update documentation fro
 - Correct model field tables and creation/update examples.
 - Explain preview and confirmation semantics for ownership transfer and project reassignment.
 - Keep CLI command inventory in `docs/cli/reference.md` and link to it rather than duplicating command tables.
-- Exclude unfinished instrument permission and ownership features from user-facing API, CLI, and guide documentation until the instrument API is settled and implemented end to end.
+- Document instrument owner expansion, default ownership, service-account operators, and preview-first ownership transfer now that they are implemented end to end.
 
 Documentation should follow implementation decisions so it does not need repeated rewrites while the contract remains unsettled.
 
 ### Decision
 
-Update client documentation after the corresponding implemented behavior is stable. Cover completed dataset, sample, and project permission workflows, correct stale model tables and examples, keep the canonical CLI inventory in `docs/cli/reference.md`, and avoid documenting unfinished instrument permission or ownership features.
+Update client documentation after the corresponding implemented behavior is stable. Cover completed dataset, sample, project, and instrument permission workflows, correct stale model tables and examples, and keep the canonical CLI inventory in `docs/cli/reference.md`.
 
 ## 9. Close focused verification gaps
 
-Status: `Deferred`
+Status: `Verified`
 
 ### Issue
 
-The existing focused mocked permission tests do not currently verify several identified boundaries:
+The original focused mocked permission tests left several identified boundaries unverified:
 
 - Generic ACL handling of `owner`.
-- Dataset CLI update-field parity.
+- Dataset CLI update-field parity, including frozen instrument assignment.
 - Parsed project removal responses across all identifier forms.
 - Flexible owner and project-lead payloads and mutual exclusion.
-- Instrument ownership transfer CLI wiring.
+- Instrument owner expansion and ownership-transfer CLI wiring.
 - Absence of invalid methods from unsupported resource namespaces.
 
 ### Best solution
@@ -289,15 +289,15 @@ Add or update focused mocked tests as each approved behavior is implemented. Kee
 
 ### Decision
 
-Focused mocked coverage now exercises canonical ACL fields and payloads, effective dataset access, identifier dispatch, typed access selectors, project member parsing, and canonical membership targets. Instrument ownership remains deferred, and broader CLI field-parity and capability-absence coverage remains future work. Do not run live integration tests without explicit authorization.
+Focused mocked coverage now exercises canonical ACL fields and payloads, effective dataset access, identifier dispatch, typed access selectors, project member parsing, canonical membership targets, owner expansion, and instrument ownership CLI wiring. The separately authorized staging harness completed 32 baseline checks and 35 multi-identity permission checks against API commit `af4a24b946e401c919a8766b88bb19180983e14d` and schema revision `a9f3c2e7b614`. The follow-up verified ACL roles through admin, owner-grant rejection, ownership transfer and restoration, authorization-filtered graphs, service-account access, deletion thresholds and duplicate rejection, and frozen instrument reassignment. Broader test expansion remains optional rather than a release gate. Do not run live integration tests without explicit authorization.
 
 ## 10. Complete the staged client rollout
 
-Status: `Implemented` in Nano; release gated on the API rollout
+Status: `Verified` on staging; production release gated on the API rollout
 
 ### Issue
 
-The staging API already uses canonical ACL fields and the effective-access response, while repeated typed access selectors and universal public-safe email redaction belong to the next API deployment candidate. Older API versions silently ignore unknown collection query parameters, so a client cannot safely detect unsupported typed selectors from a successful response.
+The staging API now exposes canonical ACL fields, effective-access responses, repeated typed access selectors, exact project member expansion, public-safe email redaction, owner expansion, and deployment provenance. Older API versions silently ignore unknown collection query parameters, so a client cannot safely detect unsupported typed selectors from a successful response.
 
 ### Decision
 
@@ -310,4 +310,4 @@ The staging API already uses canonical ACL fields and the effective-access respo
 - Apply current slug validation only to create and rename operations so existing out-of-range project and instrument slugs remain readable.
 - Treat graph and relationship results as permission-filtered authorized views.
 
-Deploy and verify the API candidate in staging, record its commit and deterministic OpenAPI artifact, deploy the API to production, and only then release the Nano version that sends typed selectors. This ordering prevents older servers from silently ignoring selector parameters and returning the wrong authorized collection.
+Staging verification is complete against the API commit and schema revision recorded under issue 9. Deploy the corresponding API contract to production before publishing Nano 3.2.0, which sends typed selectors. This ordering prevents older servers from silently ignoring selector parameters and returning the wrong authorized collection.
