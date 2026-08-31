@@ -1177,8 +1177,7 @@ class CrucibleShell:
             if self.completer is not None:
                 self.completer._service_accounts = new_service_accounts or []
 
-        # Reload client and full state after config set / config edit
-        if len(words) >= 2 and words[0] == 'config' and words[1] in ('set', 'edit'):
+        if len(words) >= 2 and words[0] == 'config' and words[1] in ('set', 'unset', 'edit'):
             from crucible.config import config as _cfg
             from crucible.client import CrucibleClient
             try:

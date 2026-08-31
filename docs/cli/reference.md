@@ -242,6 +242,7 @@ The deletion-request workflow is separate from direct permanent deletion. Review
 | `config show` | Show the current configuration |
 | `config get KEY` | Print one configuration value |
 | `config set KEY VALUE` | Set one configuration value |
+| `config unset KEY` | Remove a config-file override and return to the environment or package default |
 | `config path` | Show the configuration-file path |
 | `config edit` | Edit the configuration file |
 | `cache show` | Show cache location and disk usage |

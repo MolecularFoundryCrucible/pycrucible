@@ -47,6 +47,7 @@ You can review or change settings at any time:
 ```bash
 crucible config show       # view current settings
 crucible config set KEY VALUE
+crucible config unset KEY  # remove an override
 crucible config edit       # open in your editor
 ```
 
@@ -75,6 +76,8 @@ export CRUCIBLE_API_KEY="your-api-key"
 ```
 
 Set `CRUCIBLE_API_URL` only when targeting staging or another non-default deployment. Environment variables take priority over the config file when both are present.
+
+If an older config explicitly selects API v1 or v2, Nano displays a migration warning. Run `crucible config unset api_url` to inherit the API v3 endpoint packaged with Nano, or set the override to the desired deployment explicitly.
 
 ---
 

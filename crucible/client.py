@@ -61,8 +61,9 @@ class CrucibleClient:
             from .config.config import Config as _Cfg
             warnings.warn(
                 f"You are connected to Crucible API {legacy_version} which is deprecated. "
-                f"Update with: crucible config set api_url {_Cfg.DEFAULT_API_URL}",
-                DeprecationWarning,
+                f"Use {_Cfg.DEFAULT_API_URL} or remove the configured override with: "
+                f"crucible config unset api_url",
+                FutureWarning,
                 stacklevel=2,
             )
 
