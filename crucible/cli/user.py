@@ -121,7 +121,7 @@ def _execute_search(args):
             name  = term.fmt_name(u, default='-', fallback_username=False)
             user_id = term.user_id_link(u.get('unique_id')) or '-'
             rows.append((username, name, user_id))
-        term.table(rows, ['Username', 'Name', 'ID'], max_widths=[20, 25, 26])
+        term.table(rows, ['Username', 'Name', 'ID'], max_widths=[25, 25, 26])
 
     except Exception as e:
         from .helpers import fail
@@ -580,7 +580,7 @@ def _execute_list(args):
             user_id  = term.user_id_link(user.get('unique_id')) or '-'
             username = user.get('username') or '-'
             rows.append((username, name, user_id))
-        term.table(rows, ['Username', 'Name', 'ID'], max_widths=[20, 25, 26])
+        term.table(rows, ['Username', 'Name', 'ID'], max_widths=[25, 25, 26])
 
     except Exception as e:
         from .helpers import fail
@@ -758,7 +758,7 @@ def _execute_list_projects(args):
             )
             for p in projects
         ]
-        term.table(rows, ['ID', 'Title', 'Organization'], max_widths=[20, 30, 20])
+        term.table(rows, ['ID', 'Title', 'Organization'], max_widths=[25, 30, 20])
 
     except ValueError as e:
         logger.error(str(e))

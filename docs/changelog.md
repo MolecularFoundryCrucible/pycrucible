@@ -60,6 +60,7 @@
 
 ### Fixed
 
+- CLI tables display usernames and project or instrument slugs up to their full 25-character limit.
 - Instrument CLI get/list output formats expanded owners correctly and `instrument list --include-metadata --json` exposes requested metadata.
 - Project and instrument lookup remains compatible with legacy slugs outside the current creation limits.
 - Access-control operations now use the API's canonical principal and permission fields.

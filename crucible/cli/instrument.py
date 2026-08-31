@@ -326,7 +326,7 @@ def _execute_list(args):
                 for i in instruments
             ]
             term.table(rows, ['Name', 'ID', 'MFID', 'Owner', 'Status'],
-                       max_widths=[16, 14, 26, 18, 12])
+                       max_widths=[16, 25, 26, 25, 12])
 
     except Exception as e:
         from .helpers import fail
@@ -551,7 +551,7 @@ def _execute_bind_sa(args):
         logger.info(f"✓ Service account {args.sa_id} bound to instrument {args.instrument_mfid}")
         rows = [(m.username or '-', term.fmt_name(m.model_dump(), default='-', fallback_username=False),
                  m.unique_id or '-', m.role or '-') for m in members]
-        term.table(rows, ['Username', 'Name', 'ID', 'Role'], max_widths=[20, 25, 30, 12])
+        term.table(rows, ['Username', 'Name', 'ID', 'Role'], max_widths=[25, 25, 30, 12])
     except Exception as e:
         fail("binding service account", e, args)
 
@@ -588,7 +588,7 @@ def _execute_unbind_sa(args):
         logger.info(f"✓ Service account {args.sa_id} unbound from instrument {args.instrument_mfid}")
         rows = [(m.username or '-', term.fmt_name(m.model_dump(), default='-', fallback_username=False),
                  m.unique_id or '-', m.role or '-') for m in members]
-        term.table(rows, ['Username', 'Name', 'ID', 'Role'], max_widths=[20, 25, 30, 12])
+        term.table(rows, ['Username', 'Name', 'ID', 'Role'], max_widths=[25, 25, 30, 12])
     except Exception as e:
         fail("unbinding service account", e, args)
 

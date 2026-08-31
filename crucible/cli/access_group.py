@@ -138,7 +138,7 @@ def _execute_list(args):
             return
         term.table(_table_rows(records, client=client),
                   ['ID', 'Group', 'Status', 'Requester', 'Requested'],
-                  max_widths=[6, 20, 10, 20, 12])
+                  max_widths=[6, 25, 10, 25, 12])
     except Exception as e:
         from .helpers import fail
         fail("", e, args)
@@ -176,7 +176,7 @@ def _execute_mine(args):
             return
         term.table(_table_rows(records, client=client),
                   ['ID', 'Group', 'Status', 'Requester', 'Requested'],
-                  max_widths=[6, 20, 10, 20, 12])
+                  max_widths=[6, 25, 10, 25, 12])
     except Exception as e:
         from .helpers import fail
         fail("", e, args)

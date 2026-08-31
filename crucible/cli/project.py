@@ -373,7 +373,7 @@ def _execute_list(args):
                 for p in projects
             ]
             term.table(rows, ['ID', 'Title', 'Organization', 'Lead'],
-                       max_widths=[20, 30, 20, 25])
+                       max_widths=[25, 30, 20, 25])
 
     except Exception as e:
         from .helpers import fail
@@ -419,7 +419,7 @@ def _show_project(project, include_metadata=False):
         term.header(f"Members ({len(members)})")
         rows = [(m.get('username') or '-', term.fmt_name(m, default='-', fallback_username=False),
                  m.get('role') or '-') for m in members]
-        term.table(rows, ['Username', 'Name', 'Role'], max_widths=[20, 25, 12])
+        term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
 
 
 def _execute_get(args):
@@ -552,7 +552,7 @@ def _execute_list_users(args):
                 username = u.username or '-'
                 role     = u.role or '-'
                 rows.append((username, name, role))
-            term.table(rows, ['Username', 'Name', 'Role'], max_widths=[20, 25, 12])
+            term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
 
     except Exception as e:
         from .helpers import fail
@@ -769,7 +769,7 @@ def _execute_update_user_role(args):
         )
         rows = [(u.username or '-', term.fmt_name(u.model_dump(), default='-', fallback_username=False),
                  u.role or '-') for u in users]
-        term.table(rows, ['Username', 'Name', 'Role'], max_widths=[20, 25, 12])
+        term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
     except Exception as e:
         fail("updating user role", e, args)
 
@@ -877,7 +877,7 @@ def _execute_list_join_requests(args):
             return
         term.table(_table_rows(records, client=client),
                   ['ID', 'Group', 'Status', 'Requester', 'Requested'],
-                  max_widths=[6, 20, 10, 20, 12])
+                  max_widths=[6, 25, 10, 25, 12])
     except Exception as e:
         from .helpers import fail
         fail("", e, args)
@@ -1005,7 +1005,7 @@ def _execute_search(args):
             return
         rows = [(r.get('project_id', '-'), r.get('title') or '-',
                  r.get('organization') or '-') for r in results]
-        term.table(rows, ['ID', 'Title', 'Organization'], max_widths=[20, 30, 20])
+        term.table(rows, ['ID', 'Title', 'Organization'], max_widths=[25, 30, 20])
     except Exception as e:
         from .helpers import fail
         fail("", e, args)
