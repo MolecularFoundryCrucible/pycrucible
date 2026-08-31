@@ -454,7 +454,7 @@ Examples:
 """
     )
     parser.add_argument('sample_id', metavar='SAMPLE_MFID', help='Sample MFID')
-    parser.add_argument('new_owner', metavar='NEW_OWNER', help='ORCID, username, or email of the new owner')
+    parser.add_argument('new_owner', metavar='NEW_OWNER', help='ORCID, MFID, username, or email of the new owner')
     parser.add_argument('--confirm', action='store_true', help='Execute the transfer (default: preview only)')
     parser.set_defaults(func=_execute_transfer_ownership)
 

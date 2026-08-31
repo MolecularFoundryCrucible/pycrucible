@@ -26,6 +26,10 @@
 
 ### Changed
 
+- Instrument retrieval expands typed public owner records by default; instrument lists support owner expansion and lifecycle-status filtering.
+- Instrument creation defaults ownership to the authenticated identity, while ownership changes use `transfer_ownership()` and `instrument transfer-ownership` instead of update fields.
+- Human users may be created without an ORCID, receiving a server-assigned MFID that user and owner displays treat as a canonical user ID rather than an ORCID.
+- User operations that require a canonical identity use `user_unique_id`; the previous `orcid` keyword remains temporarily supported with a deprecation warning.
 - Health checks and `crucible status` accept deployment provenance from the nested API readiness response while remaining compatible with the legacy flat response during rollout.
 - Singleton dataset and sample retrieval expands typed public owner records by default; `owner_orcid` creation inputs are deprecated in favor of flexible `owner` identifiers.
 - Project membership mutations resolve usernames and emails before using canonical user identifiers; the old `orcid` keyword remains temporarily supported.
@@ -56,6 +60,7 @@
 
 ### Fixed
 
+- Instrument CLI get/list output formats expanded owners correctly and `instrument list --include-metadata --json` exposes requested metadata.
 - Project and instrument lookup remains compatible with legacy slugs outside the current creation limits.
 - Access-control operations now use the API's canonical principal and permission fields.
 - Paginated list operations now request only the number of records needed to satisfy `limit` instead of over-fetching full server pages.

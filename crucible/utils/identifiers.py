@@ -71,7 +71,7 @@ def classify_user_reference(value: str) -> Tuple[str, str]:
     if 3 <= len(username) <= 24 and USERNAME_PATTERN.fullmatch(username):
         return 'username', username
     raise ValueError(
-        "Invalid user reference. Pass an ORCID, service-account MFID, email, "
+        "Invalid user reference. Pass an ORCID, user MFID, email, "
         "or a valid 3-to-24-character username."
     )
 

@@ -40,7 +40,7 @@ def _register_access(subparsers, resource_ops_name, id_metavar):
     grant_parser = access_subparsers.add_parser('grant', help='Grant access to a principal')
     grant_parser.add_argument('resource_id', metavar=id_metavar)
     grant_parser.add_argument('kind', choices=['users', 'projects'], help='Principal kind')
-    grant_parser.add_argument('principal', help="Principal identifier (user's ORCID or a project ID)")
+    grant_parser.add_argument('principal', help="Principal identifier (user reference or project ID)")
     grant_parser.add_argument(
         'permission',
         choices=['viewer', 'contributor', 'editor', 'admin'],
@@ -51,7 +51,7 @@ def _register_access(subparsers, resource_ops_name, id_metavar):
     revoke_parser = access_subparsers.add_parser('revoke', help='Revoke access from a principal')
     revoke_parser.add_argument('resource_id', metavar=id_metavar)
     revoke_parser.add_argument('kind', choices=['users', 'projects'], help='Principal kind')
-    revoke_parser.add_argument('principal', help="Principal identifier (user's ORCID or a project ID)")
+    revoke_parser.add_argument('principal', help="Principal identifier (user reference or project ID)")
     revoke_parser.set_defaults(func=_execute_revoke, _resource_ops_name=resource_ops_name)
 
 

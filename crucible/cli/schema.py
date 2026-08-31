@@ -61,11 +61,12 @@ INSTRUMENT_FIELDS: List[FieldDef] = [
     FieldDef('instrument_type',            'Type',          editable=True,  verbose=False),
     FieldDef('manufacturer',               'Manufacturer',  editable=True,  verbose=False),
     FieldDef('model',                      'Model',         editable=True,  verbose=False),
-    FieldDef('owner',                      'Owner',         editable=True,  verbose=False),
+    FieldDef('owner_orcid',                'Owner ID',      editable=False, verbose=True),
     FieldDef('location',                   'Location',      editable=True,  verbose=False),
     FieldDef('description',                'Description',   editable=True,  verbose=False),
     FieldDef('other_id',                   'Other ID',      editable=False, verbose=True),
     FieldDef('other_id_source',            'Other ID Src',  editable=False, verbose=True),
+    FieldDef('status',                     'Status',        editable=False, verbose=False),
     FieldDef('creation_time',              'Created',       editable=False, verbose=True),
     FieldDef('modification_time',          'Modified',      editable=False, verbose=True),
 ]

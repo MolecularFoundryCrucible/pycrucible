@@ -9,7 +9,7 @@
 | `timestamp` | Date associated with the sample (ISO 8601 format) | create, update |
 | `public` | Whether the sample is publicly accessible (default: `False`) | create, update |
 | `owner_orcid` | Canonical owner identifier returned by the API; deprecated as a creation input | read; deprecated for create |
-| `owner` | Flexible owner identifier on create; public-safe user record on singleton reads | create with an ORCID, username, email, or service-account MFID; expanded by default on `get()` |
+| `owner` | Flexible owner identifier on create; public-safe user record on singleton reads | create with an ORCID, MFID, username, or email; expanded by default on `get()` |
 | `unique_id` | System-assigned MFID identifier | server-assigned |
 | `creation_time` | When the record was created | server-assigned |
 | `modification_time` | When the record was last modified | server-assigned |

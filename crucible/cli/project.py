@@ -194,7 +194,7 @@ Examples:
         default=None,
         metavar='USER',
         dest='project_lead',
-        help='Project lead ORCID, username, or email. If not provided, will prompt interactively.'
+        help='Project lead ORCID, MFID, username, or email. If not provided, will prompt interactively.'
     )
 
     parser.add_argument(
@@ -254,7 +254,7 @@ def _register_add_user(subparsers):
     parser = subparsers.add_parser(
         'add-user',
         help='Add a user to a project',
-        description='Add a user to a project by ORCID, username, or email (requires admin permissions)',
+        description='Add a user to a project by ORCID, MFID, username, or email (requires admin permissions)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -274,7 +274,7 @@ Examples:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
 
     parser.add_argument('--user', '-u', metavar='USER', default=None,
-                        help='ORCID, username, or email of the user')
+                        help='ORCID, MFID, username, or email of the user')
     parser.add_argument('--role', metavar='ROLE', default=None,
                         help='Role to grant (default: contributor)')
 
@@ -319,7 +319,7 @@ def _register_remove_user(subparsers):
     parser = subparsers.add_parser(
         'remove-user',
         help='Remove a user from a project',
-        description='Remove a user from a project by ORCID, username, or email (requires admin permissions)',
+        description='Remove a user from a project by ORCID, MFID, username, or email (requires admin permissions)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -335,7 +335,7 @@ Examples:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
 
     parser.add_argument('--user', '-u', metavar='USER', default=None,
-                        help='ORCID, username, or email of the user')
+                        help='ORCID, MFID, username, or email of the user')
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--orcid',    metavar='ORCID',    help='(deprecated, use --user)')
@@ -488,7 +488,7 @@ def _execute_create(args):
     # Prompt for project lead
     if project_lead is None:
         while True:
-            project_lead = input("Project lead ORCID, username, or email: ").strip()
+            project_lead = input("Project lead ORCID, MFID, username, or email: ").strip()
             if project_lead:
                 break
             else:
@@ -749,7 +749,7 @@ Examples:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
     parser.add_argument(
         'user_unique_id', metavar='USER_ID',
-        help="Member's canonical ORCID or service-account MFID",
+        help="Member's canonical ORCID or user MFID",
     )
     parser.add_argument('role', metavar='ROLE', help='New role to grant')
     parser.set_defaults(func=_execute_update_user_role)
@@ -792,7 +792,7 @@ Examples:
     )
     if ARGCOMPLETE_AVAILABLE:
         project_id_arg.completer = argcomplete.completers.SuppressCompleter()
-    parser.add_argument('new_owner', metavar='NEW_OWNER', help='ORCID, username, or email of the new owner')
+    parser.add_argument('new_owner', metavar='NEW_OWNER', help='ORCID, MFID, username, or email of the new owner')
     parser.add_argument('--confirm', action='store_true', help='Execute the transfer (default: preview only)')
     parser.set_defaults(func=_execute_transfer_ownership)
 

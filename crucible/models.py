@@ -70,7 +70,8 @@ class Instrument(CrucibleResource):
     instrument_name: Optional[str] = None
     manufacturer: Optional[str] = None
     model: Optional[str] = None
-    owner: Optional[str] = None
+    owner_orcid: Optional[str] = None
+    owner: Optional[Union[str, PublicUser]] = None
     location: Optional[str] = None
     description: Optional[str] = None
     instrument_type: Optional[str] = None

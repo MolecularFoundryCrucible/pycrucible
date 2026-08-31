@@ -154,7 +154,7 @@ First make the existing public models explicit without breaking current callers:
 - Add the API response `unique_id` to `Project` and `status` to `Instrument`.
 - Validate that callers do not provide both flexible and legacy identifier fields before sending the request, producing a clear local error.
 - Keep flexible dataset and sample owners in the Python API only for now, without adding parser or CLI plumbing.
-- Make `project create --lead` send `project_lead` directly and describe it as accepting ORCID, username, or email.
+- Make `project create --lead` send `project_lead` directly and describe it as accepting ORCID, MFID, username, or email.
 
 Retain `extra="allow"` for the current combined models to preserve forward compatibility and avoid expanding this permission work into a request/response model redesign. Separating strict request models from forward-compatible response models remains a possible later improvement.
 
@@ -168,23 +168,25 @@ Keep `extra="allow"` while explicitly declaring the known public fields. Add fle
 
 ## 5. Add instrument ownership transfer to the CLI
 
-Status: `Partial`
+Status: `Implemented`
 
 ### Issue
 
-The ownership-transfer endpoint supports instruments, but the client deliberately does not expose instrument ownership transfer while its semantics remain unsettled. Dataset, sample, and project commands already expose the workflow.
+The ownership-transfer endpoint supports instruments, but the client did not expose instrument ownership transfer while the API contract was unsettled.
+Dataset, sample, and project commands already exposed the workflow.
 
-Instrument records also have an `owner` string used as descriptive facility or organization data. The ownership-transfer route changes the owner-level ACL but does not update this free-text field. The CLI and documentation must distinguish permission ownership from the descriptive instrument owner value.
+The API now defines the instrument `owner_orcid` field as the canonical owner identity and the optional expanded `owner` field as its public-safe user record.
+Ordinary instrument PATCH requests do not accept either ownership field.
 
 ### Best solution
 
-Add `instrument transfer-ownership INSTRUMENT_MFID NEW_OWNER [--confirm]` with the same preview-first behavior and output as the other resources. State that it transfers permission ownership and does not rewrite the instrument's descriptive `owner` field.
+Add `instrument transfer-ownership INSTRUMENT_MFID NEW_OWNER [--confirm]` with the same preview-first behavior and output as the other resources.
 
 Use the existing command pattern for the initial implementation. A shared ownership-command registrar can be considered later, but is not required for this permission alignment.
 
 ### Decision
 
-Defer the CLI command until the instrument API clearly defines the relationship between permission ownership and the descriptive `Instrument.owner` field. Make no client or CLI change for this item yet.
+Expose `OwnershipMixin` on `InstrumentOperations`, add the preview-first CLI command, and remove owner from ordinary update and edit fields.
 
 ## 6. Scope resource operations to valid namespaces
 

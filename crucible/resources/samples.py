@@ -183,7 +183,7 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
 
         Args:
             sample (Sample): Sample model instance with the desired fields. Use
-                `owner` with an ORCID, username, email, or service-account MFID to
+                `owner` with an ORCID, MFID, username, or email to
                 create for a specific owner. `owner_orcid` is deprecated for
                 creation. Providing both fields is invalid.
             scientific_metadata (dict, optional): Scientific metadata to attach after creation.
@@ -223,7 +223,7 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         if sample_info.get('owner_orcid') is not None:
             warnings.warn(
                 "Sample.owner_orcid is deprecated for creation; use Sample.owner "
-                "with an ORCID, username, email, or service-account MFID instead.",
+                "with an ORCID, MFID, username, or email instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )

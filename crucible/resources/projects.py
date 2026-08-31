@@ -289,7 +289,7 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
 
         Args:
             project_id (str): Unique project identifier
-            user_unique_id (str, optional): Person ORCID or service-account MFID
+            user_unique_id (str, optional): Canonical user ORCID or MFID
             email (str, optional): User's email address
             username (str, optional): User's username
 
@@ -313,7 +313,7 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
         Email and username inputs are resolved before the canonical membership request.
 
         Args:
-            user_unique_id (str, optional): Person ORCID or service-account MFID
+            user_unique_id (str, optional): Canonical user ORCID or MFID
             project_id (str): Unique project identifier
             email (str, optional): User's email address
             username (str, optional): User's username
@@ -340,7 +340,7 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
 
         Args:
             project_id (str): Unique project identifier
-            user_unique_id (str): Person ORCID or service-account MFID
+            user_unique_id (str): Canonical user ORCID or MFID
             role (str): New role to grant
 
         Returns:

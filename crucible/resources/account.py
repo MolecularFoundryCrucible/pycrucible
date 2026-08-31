@@ -39,7 +39,7 @@ class AccountOperations(BaseResource):
         """Return the authenticated caller's own user profile.
 
         Returns:
-            Dict: UserRead — includes username, first_name, last_name, email, orcid
+            Dict: UserRead with unique_id, username, first_name, last_name, and email
         """
         return self._request('get', '/account/profile')
 
@@ -48,12 +48,13 @@ class AccountOperations(BaseResource):
 
         Accepted fields: first_name, last_name, email, username.
         Pass username=None to clear the username.
-        Note: is_service_account is admin-only — use client.users.update() instead.
+        Account type cannot be changed through profile updates.
 
         Returns:
             Dict: Updated UserRead profile
         """
-        kwargs.pop('is_service_account', None)
+        if 'is_service_account' in kwargs:
+            raise ValueError("is_service_account cannot be changed through account profile updates.")
         return self._request('patch', '/account/profile', json=kwargs)
 
     def api_key(self) -> str:

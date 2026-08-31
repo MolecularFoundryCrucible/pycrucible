@@ -246,6 +246,7 @@ class CrucibleClient:
             return self.instruments.get(
                 instrument_mfid=resource_mfid,
                 include_metadata=include_metadata,
+                include_owner=include_owner,
             )
         else:
             raise ValueError(f"Unknown or unsupported resource type: {resource_type}")

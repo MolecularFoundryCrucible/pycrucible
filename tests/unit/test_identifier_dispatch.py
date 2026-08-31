@@ -131,7 +131,7 @@ class TestInstrumentDispatch:
         ops._request.assert_called_once_with(
             'get',
             '/instruments',
-            params={'instrument_id': 'beamline-1', 'limit': 2},
+            params={'instrument_id': 'beamline-1', 'limit': 2, 'include_owner': True},
         )
 
     def test_explicit_mfid_keyword_uses_canonical_route(self):
@@ -140,7 +140,8 @@ class TestInstrumentDispatch:
 
         ops.get(instrument_mfid=MFID)
 
-        ops._request.assert_called_once_with('get', f'/instruments/{MFID}', params=None)
+        ops._request.assert_called_once_with(
+            'get', f'/instruments/{MFID}', params={'include_owner': True})
 
     def test_legacy_mfid_as_instrument_id_warns_and_remains_compatible(self):
         ops = make_ops(InstrumentOperations)
@@ -149,7 +150,8 @@ class TestInstrumentDispatch:
         with pytest.warns(DeprecationWarning, match='instrument_mfid'):
             ops.get(instrument_id=MFID)
 
-        ops._request.assert_called_once_with('get', f'/instruments/{MFID}', params=None)
+        ops._request.assert_called_once_with(
+            'get', f'/instruments/{MFID}', params={'include_owner': True})
 
 
 class TestUserDispatch:
