@@ -7,7 +7,7 @@ from crucible import CrucibleClient
 
 client = CrucibleClient()
 # or with explicit credentials:
-client = CrucibleClient(api_url="https://crucible.lbl.gov/api/v2", api_key="your-key")
+client = CrucibleClient(api_key="your-key")
 ```
 
 ## Resource namespaces

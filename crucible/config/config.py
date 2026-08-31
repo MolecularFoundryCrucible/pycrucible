@@ -123,7 +123,7 @@ class Config:
         return key
 
     # Default API URL for this release. Bumped on major API version changes.
-    DEFAULT_API_URL = 'https://crucible.lbl.gov/api/v2'
+    DEFAULT_API_URL = 'https://crucible.lbl.gov/api/v3'
 
     @property
     def api_url(self):
@@ -321,7 +321,7 @@ def get_api_url():
     Priority order:
     1. CRUCIBLE_API_URL environment variable
     2. api_url from ~/.config/nano-crucible/config.ini
-    3. Default: https://crucible.lbl.gov/api/v2
+    3. Default: https://crucible.lbl.gov/api/v3
 
     Returns:
         str: The API URL

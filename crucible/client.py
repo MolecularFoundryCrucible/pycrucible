@@ -11,6 +11,7 @@ import requests
 import json
 import logging
 from requests.adapters import HTTPAdapter
+from urllib.parse import urlparse
 from urllib3.util.retry import Retry
 from typing import Optional, List, Dict, Any, Union
 from .models import Dataset, Project
@@ -28,11 +29,11 @@ class CrucibleClient:
         Initialize the Crucible API client.
 
         Args:
-            api_url: Base URL for the Crucible API (loads from config if not provided)
+            api_url: Base URL for the Crucible API (loads from config or the package default if not provided)
             api_key: API key for authentication (loads from config if not provided)
 
         Raises:
-            ValueError: If api_url or api_key not provided and not found in config
+            ValueError: If api_key is not provided and not found in config
         """
         # Load from config if not provided
         from .config import config as _config
@@ -50,11 +51,16 @@ class CrucibleClient:
         self.api_url = api_url.rstrip('/')
         self.api_key = api_key
 
-        if '/api/v1' in self.api_url:
+        api_path = urlparse(self.api_url).path.rstrip('/')
+        legacy_version = next(
+            (version for version in ('v1', 'v2') if api_path.endswith(f'/api/{version}')),
+            None,
+        )
+        if legacy_version:
             import warnings
             from .config.config import Config as _Cfg
             warnings.warn(
-                f"You are connected to Crucible API v1 which is deprecated. "
+                f"You are connected to Crucible API {legacy_version} which is deprecated. "
                 f"Update with: crucible config set api_url {_Cfg.DEFAULT_API_URL}",
                 DeprecationWarning,
                 stacklevel=2,

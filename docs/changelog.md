@@ -28,6 +28,7 @@
 
 ### Changed
 
+- The built-in production endpoint now targets API v3; explicit environment and config overrides remain unchanged.
 - Instrument retrieval expands typed public owner records by default; instrument lists support owner expansion and lifecycle-status filtering.
 - Instrument creation defaults ownership to the authenticated identity, while ownership changes use `transfer_ownership()` and `instrument transfer-ownership` instead of update fields.
 - Human users may be created without an ORCID, receiving a server-assigned MFID that user and owner displays treat as a canonical user ID rather than an ORCID.

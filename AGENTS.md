@@ -10,7 +10,7 @@ This file is the canonical repository guidance for any coding agent. Tool-specif
 - Import package: `crucible`
 - CLI entry point: `crucible.cli:main`
 - Supported Python: 3.8 and newer
-- Default API: `https://crucible.lbl.gov/api/v2`
+- Default API: `https://crucible.lbl.gov/api/v3`
 - Documentation: MkDocs Material, configured in `mkdocs.yml`
 
 The companion server and ingestion repositories are useful references when they are available, but they are separate projects. Do not edit them as part of a client task unless the user explicitly expands the scope.

@@ -205,7 +205,7 @@ def cmd_init(args):
 
     # Get API key
     print("\n1. Crucible API Key (required)")
-    print("   Get your key from: https://crucible.lbl.gov/api/v2/user_apikey")
+    print("   Get your key from: https://crucible.lbl.gov/api/v3/user_apikey")
     api_key = input("   API Key: ").strip()
     if not api_key:
         print("Error: API key is required")
