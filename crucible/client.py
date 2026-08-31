@@ -209,7 +209,7 @@ class CrucibleClient:
                                           If not provided, will be auto-detected.
             include_metadata (bool): Include scientific metadata
             include_links (bool): Include immediate parent/child/associated links
-            include_owner (bool): Resolve owner_orcid into a full user object
+            include_owner (bool): Resolve owner_orcid into a public-safe user object
 
         Returns:
             Dict: Resource data

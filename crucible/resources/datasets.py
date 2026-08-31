@@ -56,7 +56,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             dataset_mfid (str): Dataset MFID
             include_metadata (bool): Whether to include scientific metadata
             include_links (bool): Whether to include immediate parent/child/associated links
-            include_owner (bool): Whether to resolve owner_orcid into a full user object
+            include_owner (bool): Whether to resolve owner_orcid into a public-safe user object
 
         Returns:
             Dict: Dataset object with optional metadata and links
@@ -107,7 +107,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
                           for the sample sub-listing.
             include_metadata (bool): Include scientific metadata in results
             include_links (bool): Include linked resources (parents, children, associated) per dataset
-            include_owner (bool): Resolve owner_orcid into a full user object per dataset
+            include_owner (bool): Resolve owner_orcid into a public-safe user object per dataset
             accessible_to_user: User reference or references whose effective access
                                 must include every result
             accessible_to_project: Project reference or references whose direct access
@@ -166,11 +166,10 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         """Create a new dataset record with scientific metadata and keywords.
 
         Args:
-            dataset (Dataset): Dataset object with dataset details. In addition to
-                owner_orcid, the API also accepts a flexible `owner` field (ORCID,
-                username, email, or service account MFID) - set it as an extra
-                field on the Dataset object, e.g. Dataset(..., owner='jdoe').
-                Providing both owner and owner_orcid is a 400.
+            dataset (Dataset): Dataset object with dataset details. Use `owner` with
+                an ORCID, username, email, or service-account MFID to create for a
+                specific owner. `owner_orcid` is deprecated for creation. Providing
+                both fields is invalid.
             scientific_metadata (dict, optional): Scientific metadata
             keywords (list, optional): Keywords to associate with dataset
             files (list, optional): Files to attach. Each item is either a local
@@ -214,6 +213,15 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
 
         if dataset_details.get('owner') is not None and dataset_details.get('owner_orcid') is not None:
             raise ValueError("Pass either 'owner' or 'owner_orcid', not both.")
+        if dataset_details.get('owner_orcid') is not None:
+            warnings.warn(
+                "Dataset.owner_orcid is deprecated for creation; use Dataset.owner "
+                "with an ORCID, username, email, or service-account MFID instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        if dataset_details.get('owner') is not None and not isinstance(dataset_details['owner'], str):
+            raise ValueError("Dataset.owner must be a string identifier when creating a dataset.")
 
         if not dataset_details.get('unique_id'):
             dataset_details['unique_id'] = mfid.mfid()[0]

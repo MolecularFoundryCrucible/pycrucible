@@ -42,7 +42,7 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             sample_mfid (str): Sample MFID
             include_links (bool): Whether to include immediate parent/child/associated links
             include_metadata (bool): Whether to include scientific metadata
-            include_owner (bool): Whether to resolve owner_orcid into a full user object
+            include_owner (bool): Whether to resolve owner_orcid into a public-safe user object
 
         Returns:
             Dict: Sample information with optional links and metadata
@@ -90,7 +90,7 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             parent_mfid (str, optional): Get child samples from this parent MFID
             include_metadata (bool): Include scientific metadata in results
             include_links (bool): Include linked resources (parents, children, associated) per sample
-            include_owner (bool): Resolve owner_orcid into a full user object per sample
+            include_owner (bool): Resolve owner_orcid into a public-safe user object per sample
             limit (int): Maximum total results to return (default: 100). Larger
                          requests are handled transparently by following the
                          server's keyset cursor. Pass None to fetch all matches.
@@ -182,11 +182,10 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         """Create a new sample record.
 
         Args:
-            sample (Sample): Sample model instance with the desired fields. In
-                addition to owner_orcid, the API also accepts a flexible `owner`
-                field (ORCID, username, email, or service account MFID) - set it
-                as an extra field on the Sample object, e.g. Sample(..., owner='jdoe').
-                Providing both owner and owner_orcid is a 400.
+            sample (Sample): Sample model instance with the desired fields. Use
+                `owner` with an ORCID, username, email, or service-account MFID to
+                create for a specific owner. `owner_orcid` is deprecated for
+                creation. Providing both fields is invalid.
             scientific_metadata (dict, optional): Scientific metadata to attach after creation.
             parents (list, optional): Parent samples to link ({unique_id: ...}).
             children (list, optional): Child samples to link ({unique_id: ...}).
@@ -221,6 +220,15 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
 
         if sample_info.get('owner') is not None and sample_info.get('owner_orcid') is not None:
             raise ValueError("Pass either 'owner' or 'owner_orcid', not both.")
+        if sample_info.get('owner_orcid') is not None:
+            warnings.warn(
+                "Sample.owner_orcid is deprecated for creation; use Sample.owner "
+                "with an ORCID, username, email, or service-account MFID instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        if sample_info.get('owner') is not None and not isinstance(sample_info['owner'], str):
+            raise ValueError("Sample.owner must be a string identifier when creating a sample.")
 
         new_samp = self._request('post', "/samples", json=sample_info)
         sample_mfid = new_samp['unique_id']

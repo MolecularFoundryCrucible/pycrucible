@@ -26,6 +26,7 @@
 
 ### Changed
 
+- Dataset and sample owner responses use a typed public user record; `owner_orcid` creation inputs are deprecated in favor of flexible `owner` identifiers.
 - Project membership mutations resolve usernames and emails before using canonical user identifiers; the old `orcid` keyword remains temporarily supported.
 - Generic access-group mutation helpers and CLI commands are deprecated in favor of typed resource, project, and instrument operations.
 - Exact user lookups show email to self and platform administrators and omit the email row when it is not disclosed; other user, project-lead, member, and operator views remain public-safe.
@@ -86,7 +87,7 @@
 - Fix `deletion approve`/`deletion reject`: batch commands now exit 1 if any request fails.
 - Fix `dataset add-access-group`: removed the decorative `--read` flag (read access is always granted; `--write` adds write).
 - `search_metadata()`: response unwrapped from the paginated envelope; default limit now 20; results include `resource_type`, `name`, `owner_orcid`, timestamps, `rank`.
-- `include_owner=True` on `datasets`/`samples` `get()`/`list()` and `client.get()` resolves the owner into a full user object.
+- `include_owner=True` on `datasets`/`samples` `get()`/`list()` and `client.get()` resolves the owner into a public-safe user object.
 - `client.files.delete()` and `crucible file delete` to delete a file by MFID.
 - `samples.create()` now takes a `Sample` model as its first argument, consistent with `datasets.create()`.
 - `crucible project list-users` shows usernames and correctly reads `unique_id` as the ORCID.

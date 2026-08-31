@@ -8,8 +8,8 @@
 | `description` | Free-text description of the sample | create, update |
 | `timestamp` | Date associated with the sample (ISO 8601 format) | create, update |
 | `public` | Whether the sample is publicly accessible (default: `False`) | create, update |
-| `owner_orcid` | Sample owner ORCID; defaults to the authenticated user | create only; later changes use `transfer_ownership()` |
-| `owner` | Flexible owner identifier or resolved owner record | create only as an ORCID, username, email, or service-account MFID |
+| `owner_orcid` | Canonical owner identifier returned by the API; deprecated as a creation input | read; deprecated for create |
+| `owner` | Flexible owner identifier on create; public-safe user record when requested on read | create with an ORCID, username, email, or service-account MFID; read with `include_owner=True` |
 | `unique_id` | System-assigned MFID identifier | server-assigned |
 | `creation_time` | When the record was created | server-assigned |
 | `modification_time` | When the record was last modified | server-assigned |
@@ -45,10 +45,16 @@ sample_mfid = sample["unique_id"]
 
 ```python
 sample = client.samples.get("0td7evvtg5wb90005k1j97ak94")
-sample_with_links = client.samples.get("0td7evvtg5wb90005k1j97ak94", include_links=True)
+sample_with_details = client.samples.get(
+    "0td7evvtg5wb90005k1j97ak94",
+    include_links=True,
+    include_owner=True,
+)
 ```
 
 Samples are retrieved only by their canonical 26-character MFID. Sample names are display values, not identifiers.
+
+With `include_owner=True`, `owner` is a public-safe user record containing `unique_id`, `username`, `first_name`, and `last_name`. Otherwise it is `None`. The canonical owner identifier remains available as `owner_orcid`.
 
 ## Listing samples
 

@@ -12,8 +12,8 @@
 | `session_name` | Optional tag grouping datasets collected in the same session | create, update |
 | `timestamp` | When the data was collected (ISO 8601 format) | create, update |
 | `public` | Whether the dataset is publicly accessible (default: `False`) | create, update |
-| `owner_orcid` | Dataset owner ORCID; defaults to the authenticated user | create only; later changes use `transfer_ownership()` |
-| `owner` | Flexible owner identifier or resolved owner record | create only as an ORCID, username, email, or service-account MFID |
+| `owner_orcid` | Canonical owner identifier returned by the API; deprecated as a creation input | read; deprecated for create |
+| `owner` | Flexible owner identifier on create; public-safe user record when requested on read | create with an ORCID, username, email, or service-account MFID; read with `include_owner=True` |
 | `unique_id` | System-assigned MFID identifier | server-assigned |
 | `size` | Total file size in bytes | server-assigned |
 | `creation_time` | When the record was created | server-assigned |
@@ -73,10 +73,17 @@ result = client.datasets.create(
 
 ```python
 ds = client.datasets.get("0tkn2knjast3h0008nyq9zps2c")
-ds_with_metadata = client.datasets.get("0tkn2knjast3h0008nyq9zps2c", include_metadata=True, include_links=True)
+ds_with_details = client.datasets.get(
+    "0tkn2knjast3h0008nyq9zps2c",
+    include_metadata=True,
+    include_links=True,
+    include_owner=True,
+)
 ```
 
 Datasets are retrieved only by their canonical 26-character MFID. Dataset names are display values, not identifiers.
+
+With `include_owner=True`, `owner` is a public-safe user record containing `unique_id`, `username`, `first_name`, and `last_name`. Otherwise it is `None`. The canonical owner identifier remains available as `owner_orcid`.
 
 ## Listing datasets
 

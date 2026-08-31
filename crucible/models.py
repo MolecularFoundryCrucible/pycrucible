@@ -24,11 +24,22 @@ class CrucibleResource(BaseModel):
 
 #%% Models
 
+class PublicUser(BaseModel):
+    """Public-safe user record embedded in resource responses."""
+
+    unique_id: str
+    username: Optional[str] = None
+    first_name: str
+    last_name: str
+
+    model_config = ConfigDict(from_attributes=True, extra='allow')
+
+
 class Sample(CrucibleResource):
     sample_name: Optional[str] = None
     sample_type: Optional[str] = None
     owner_orcid: Optional[str] = None
-    owner: Optional[Union[str, Dict]] = None
+    owner: Optional[Union[str, PublicUser]] = None
     project_id: Optional[str] = None
     description: Optional[str] = None
     timestamp: Optional[str] = None
@@ -40,7 +51,7 @@ class Sample(CrucibleResource):
 class Dataset(CrucibleResource):
     dataset_name: Optional[str] = None
     owner_orcid: Optional[str] = None
-    owner: Optional[Union[str, Dict]] = None
+    owner: Optional[Union[str, PublicUser]] = None
     project_id: Optional[str] = None
     instrument_name: Optional[str] = None
     instrument_id: Optional[str] = None
