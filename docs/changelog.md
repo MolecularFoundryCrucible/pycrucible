@@ -26,6 +26,7 @@
 
 ### Changed
 
+- Health checks and `crucible status` accept deployment provenance from the nested API readiness response while remaining compatible with the legacy flat response during rollout.
 - Singleton dataset and sample retrieval expands typed public owner records by default; `owner_orcid` creation inputs are deprecated in favor of flexible `owner` identifiers.
 - Project membership mutations resolve usernames and emails before using canonical user identifiers; the old `orcid` keyword remains temporarily supported.
 - Generic access-group mutation helpers and CLI commands are deprecated in favor of typed resource, project, and instrument operations.

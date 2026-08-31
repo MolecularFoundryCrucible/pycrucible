@@ -162,9 +162,12 @@ class CrucibleClient:
         """Check API and database health without requiring authentication.
 
         Returns:
-            Dict: {"status": "ok"|"degraded", "db": "ok"|"error",
-                   "db_ms": float|None, "version": str|None}
-                  Raises requests.exceptions.ConnectionError if the host is unreachable.
+            Dict: Readiness status with nested ``build`` and ``database``
+                provenance. During API rollout, older servers may return the
+                legacy flat ``db``, ``db_ms``, and ``version`` fields.
+
+        Raises:
+            requests.exceptions.ConnectionError: If the host is unreachable.
         """
         import requests as _requests
         url = f"{self.api_url}/health/ready"
