@@ -199,7 +199,7 @@ class CrucibleClient:
     @_deprecated_parameter('resource_id', 'resource_mfid')
     def get(self, resource_mfid: str, resource_type: str = None,
             include_metadata: bool = False, include_links: bool = False,
-            include_owner: bool = False) -> Dict:
+            include_owner: bool = True) -> Dict:
         """
         Get a resource by ID with automatic type detection.
 
@@ -209,7 +209,7 @@ class CrucibleClient:
                                           If not provided, will be auto-detected.
             include_metadata (bool): Include scientific metadata
             include_links (bool): Include immediate parent/child/associated links
-            include_owner (bool): Resolve owner_orcid into a public-safe user object
+            include_owner (bool): Resolve owner_orcid into a public-safe user object (default: True)
 
         Returns:
             Dict: Resource data

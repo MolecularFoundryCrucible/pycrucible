@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from crucible.client import CrucibleClient
 from crucible.models import Dataset, PublicUser, Sample
 from crucible.resources.datasets import DatasetOperations
 from crucible.resources.samples import SampleOperations
@@ -43,11 +44,11 @@ def test_owner_response_uses_public_user_model(model):
     ('operations_class', 'resource_name'),
     [(DatasetOperations, 'datasets'), (SampleOperations, 'samples')],
 )
-def test_get_requests_and_preserves_public_owner(operations_class, resource_name):
+def test_get_requests_and_preserves_public_owner_by_default(operations_class, resource_name):
     response = {'unique_id': MFID, 'owner_orcid': ORCID, 'owner': PUBLIC_OWNER}
     operations = make_ops(operations_class, response)
 
-    result = operations.get(MFID, include_owner=True)
+    result = operations.get(MFID)
 
     operations._request.assert_called_once_with(
         'get',
@@ -55,6 +56,44 @@ def test_get_requests_and_preserves_public_owner(operations_class, resource_name
         params={'include_owner': True},
     )
     assert result['owner'] == PUBLIC_OWNER
+
+
+@pytest.mark.parametrize(
+    ('operations_class', 'resource_name'),
+    [(DatasetOperations, 'datasets'), (SampleOperations, 'samples')],
+)
+def test_get_can_suppress_owner_expansion(operations_class, resource_name):
+    operations = make_ops(operations_class, {'unique_id': MFID, 'owner_orcid': ORCID})
+
+    operations.get(MFID, include_owner=False)
+
+    operations._request.assert_called_once_with(
+        'get',
+        f'/{resource_name}/{MFID}',
+        params=None,
+    )
+
+
+def test_generic_get_requests_owner_by_default():
+    client = CrucibleClient(api_url='https://example.invalid', api_key='test')
+    client._request = MagicMock(return_value={'unique_id': MFID, 'resource_type': 'dataset'})
+
+    client.get(MFID)
+
+    client._request.assert_called_once_with(
+        'get',
+        f'/resources/{MFID}',
+        params={'include_owner': True},
+    )
+
+
+def test_generic_get_can_suppress_owner_expansion():
+    client = CrucibleClient(api_url='https://example.invalid', api_key='test')
+    client._request = MagicMock(return_value={'unique_id': MFID, 'resource_type': 'dataset'})
+
+    client.get(MFID, include_owner=False)
+
+    client._request.assert_called_once_with('get', f'/resources/{MFID}', params=None)
 
 
 def test_dataset_create_warns_for_owner_orcid_and_preserves_payload():

@@ -203,7 +203,8 @@ class TestMfidOnlyResources:
             ops.get(**{legacy_keyword: MFID})
 
         resource = 'datasets' if operations_class is DatasetOperations else 'samples'
-        ops._request.assert_called_once_with('get', f'/{resource}/{MFID}', params=None)
+        ops._request.assert_called_once_with(
+            'get', f'/{resource}/{MFID}', params={'include_owner': True})
 
 
 class TestDeprecatedParameterCompatibility:

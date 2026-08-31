@@ -49,14 +49,14 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
 
     @_deprecated_parameter('dsid', 'dataset_mfid')
     def get(self, dataset_mfid: str, include_metadata: bool = False,
-            include_links: bool = False, include_owner: bool = False) -> Dict:
+            include_links: bool = False, include_owner: bool = True) -> Dict:
         """Get a dataset by its canonical MFID.
 
         Args:
             dataset_mfid (str): Dataset MFID
             include_metadata (bool): Whether to include scientific metadata
             include_links (bool): Whether to include immediate parent/child/associated links
-            include_owner (bool): Whether to resolve owner_orcid into a public-safe user object
+            include_owner (bool): Resolve owner_orcid into a public-safe user object (default: True)
 
         Returns:
             Dict: Dataset object with optional metadata and links
@@ -70,7 +70,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
 
     def _get_by_mfid(self, dataset_mfid: str, include_metadata: bool = False,
                      include_links: bool = False,
-                     include_owner: bool = False) -> Dict:
+                     include_owner: bool = True) -> Dict:
         """Get a dataset through its canonical single-resource route."""
         if not is_mfid(dataset_mfid):
             raise ValueError("dataset_mfid must be an exact 26-character MFID.")
