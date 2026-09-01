@@ -109,7 +109,9 @@ Use the shared helpers in `cli.helpers` instead of calling `input()` directly fo
 - Required prompts must fail with status 2 when stdin is not interactive. Optional prompts should be skipped, and configured defaults may be used.
 - Keep labels bold, hints and defaults dim, and validation errors red. Do not color user-entered values.
 
-Confirmation prompts are a separate interaction class and are not covered by these field helpers.
+Use `prompt_confirm()` for actions that require a yes-or-no decision. Confirmation must default to no for destructive operations, accept `yes` and `no` in addition to their single-letter forms, explain invalid responses, and fail with status 2 outside an interactive terminal. Commands intended for automation should provide an explicit bypass such as `--yes`.
+
+API operations that support a server-side preview should remain preview-only by default and execute only when the user supplies `--confirm`. Do not add an interactive prompt after a preview response.
 
 ## Errors and warnings
 

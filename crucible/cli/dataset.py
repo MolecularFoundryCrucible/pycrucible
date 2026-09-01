@@ -827,18 +827,21 @@ Examples:
 """
     )
     parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID to delete')
-    parser.add_argument('-y', '--yes', action='store_true', help='Skip confirmation prompt')
+    parser.add_argument('-y', '--yes', action='store_true', help='Confirm deletion without prompting')
     parser.set_defaults(func=_execute_delete)
 
 
 def _execute_delete(args):
     """Execute the 'dataset delete' subcommand."""
     from crucible.client import CrucibleClient
-    if not args.yes:
-        confirm = input(f"Delete dataset {args.dataset_id}? This cannot be undone. [y/N] ").strip().lower()
-        if confirm != 'y':
-            print("Aborted.")
-            return
+    from .helpers import prompt_confirm
+    confirmed = args.yes or prompt_confirm(
+        f"Delete dataset {args.dataset_id}? This cannot be undone.",
+        option='--yes',
+    )
+    if not confirmed:
+        print("Aborted.")
+        return
     try:
         client = CrucibleClient()
         client.datasets.delete(args.dataset_id)

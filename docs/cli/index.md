@@ -73,6 +73,8 @@ When stdin is not interactive, optional prompts are skipped and configured defau
 
 `config init` hides API-key input. It also warns when an active environment variable will override a value saved by the wizard.
 
+Destructive commands default confirmation to no and accept `yes`, `y`, `no`, or `n`. When stdin is not interactive, supply the command's explicit `--yes` option. Ownership transfers and project reassignments use a different safety model: they preview by default and execute only with `--confirm`.
+
 ## Tab completion
 
 Install shell tab-completion once:

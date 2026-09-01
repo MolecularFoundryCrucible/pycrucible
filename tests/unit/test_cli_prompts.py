@@ -6,6 +6,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from crucible.cli import helpers
+from crucible.cli import cache as cache_cli
+from crucible.cli import config as config_cli
+from crucible.cli import dataset as dataset_cli
 from crucible.cli import instrument as instrument_cli
 from crucible.cli import project as project_cli
 from crucible.cli import sample as sample_cli
@@ -113,6 +116,95 @@ def test_choice_prompt_retries_and_normalizes(monkeypatch):
 
     assert helpers.prompt_choice(
         'Role', ('viewer', 'contributor', 'editor', 'admin')) == 'editor'
+
+
+@pytest.mark.parametrize(('response', 'expected'), [
+    ('yes', True),
+    ('Y', True),
+    ('no', False),
+    ('N', False),
+    ('', False),
+])
+def test_confirmation_accepts_expected_responses(monkeypatch, response, expected):
+    enable_interactive_stdin(monkeypatch)
+    monkeypatch.setattr('builtins.input', lambda prompt: response)
+
+    assert helpers.prompt_confirm('Continue?') is expected
+
+
+def test_confirmation_retries_after_invalid_response(monkeypatch, capsys):
+    enable_interactive_stdin(monkeypatch)
+    answers = iter(['maybe', 'yes'])
+    monkeypatch.setattr('builtins.input', lambda prompt: next(answers))
+
+    assert helpers.prompt_confirm('Continue?') is True
+    assert 'Invalid response' in capsys.readouterr().err
+
+
+def test_confirmation_fails_cleanly_without_interactive_stdin(monkeypatch, capsys):
+    monkeypatch.setattr(helpers, '_interactive_stdin', lambda: False)
+
+    with pytest.raises(SystemExit) as raised:
+        helpers.prompt_confirm('Delete?', option='--yes')
+
+    assert raised.value.code == 2
+    error = capsys.readouterr().err
+    assert 'stdin is not interactive' in error
+    assert '--yes' in error
+
+
+def test_cache_clear_cancellation_preserves_dataset(monkeypatch, tmp_path):
+    target = tmp_path / 'datasets' / 'dataset-mfid'
+    target.mkdir(parents=True)
+    monkeypatch.setattr(config, '_data', {**config._data, 'cache_dir': str(tmp_path)})
+    confirm = MagicMock(return_value=False)
+    monkeypatch.setattr(helpers, 'prompt_confirm', confirm)
+
+    cache_cli._execute_clear(SimpleNamespace(
+        dataset='dataset-mfid',
+        older_than=None,
+        yes=False,
+    ))
+
+    assert target.exists()
+    confirm.assert_called_once()
+    assert confirm.call_args.kwargs['option'] == '--yes'
+
+
+def test_dataset_delete_yes_bypasses_prompt(monkeypatch):
+    client = SimpleNamespace(datasets=SimpleNamespace(delete=MagicMock()))
+    monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
+    monkeypatch.setattr(
+        helpers,
+        'prompt_confirm',
+        lambda *args, **kwargs: pytest.fail('confirmation should be bypassed'),
+    )
+
+    dataset_cli._execute_delete(SimpleNamespace(
+        dataset_id='0td7evvtg5wb90005k1j97ak94',
+        yes=True,
+        debug=False,
+    ))
+
+    client.datasets.delete.assert_called_once_with('0td7evvtg5wb90005k1j97ak94')
+
+
+def test_config_init_cancellation_stops_before_secret_prompt(monkeypatch, tmp_path):
+    config_file = tmp_path / 'config.ini'
+    config_file.touch()
+    monkeypatch.setattr(
+        type(config),
+        'config_file_path',
+        property(lambda self: config_file),
+    )
+    monkeypatch.setattr(helpers, 'prompt_confirm', lambda message: False)
+    monkeypatch.setattr(
+        helpers,
+        'prompt_secret',
+        lambda *args, **kwargs: pytest.fail('secret prompt should not run'),
+    )
+
+    config_cli.cmd_init(SimpleNamespace())
 
 
 def test_project_create_reprompts_for_invalid_required_values(monkeypatch):

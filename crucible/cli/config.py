@@ -209,6 +209,7 @@ def cmd_init(args):
     """Interactive configuration wizard."""
     from crucible.config import create_config_file, config
     from .helpers import (
+        prompt_confirm,
         prompt_optional,
         prompt_secret,
         show_warning,
@@ -240,8 +241,7 @@ def cmd_init(args):
     config_file = config.config_file_path
     if config_file.exists():
         print(f"Configuration file already exists: {config_file}")
-        response = input("Overwrite it? [y/N]: ").strip().lower()
-        if response not in ['y', 'yes']:
+        if not prompt_confirm("Overwrite the existing configuration?"):
             print("Cancelled.")
             return
 

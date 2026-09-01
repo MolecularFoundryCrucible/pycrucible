@@ -239,6 +239,29 @@ def prompt_choice(label: str, choices, default=_NO_DEFAULT, option: str = None) 
     )
 
 
+def prompt_confirm(message: str, *, default: bool = False, option: str = None) -> bool:
+    from . import term
+
+    if not _interactive_stdin():
+        _prompt_unavailable('confirmation', option)
+
+    hint = '[Y/n]' if default else '[y/N]'
+    prompt = f"{term.yellow(message)} {term.dim(hint)} "
+    while True:
+        try:
+            response = input(prompt).strip().lower()
+        except EOFError:
+            _prompt_unavailable('confirmation', option)
+        if not response:
+            return default
+        if response in ('y', 'yes'):
+            return True
+        if response in ('n', 'no'):
+            return False
+        print(term.red('Invalid response', stream=sys.stderr), file=sys.stderr)
+        print("Enter 'yes' or 'no'.", file=sys.stderr)
+
+
 def prompt_username(label: str = 'Username') -> str:
     from ..utils.identifiers import validate_username
 

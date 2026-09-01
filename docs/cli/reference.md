@@ -255,6 +255,8 @@ The deletion-request workflow is separate from direct permanent deletion. Review
 
 Configuration values can come from environment variables, the platform-specific config file, or defaults. Avoid displaying `api_key` in shared terminals or logs.
 
+`dataset delete` and `cache clear` prompt before removing data. Use `--yes` only when the operation has already been explicitly approved, such as in a controlled noninteractive workflow.
+
 ## General utility commands
 
 | Command | Description |
