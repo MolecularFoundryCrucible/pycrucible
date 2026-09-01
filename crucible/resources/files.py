@@ -12,6 +12,7 @@ from typing import Optional, List, Dict
 
 from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
+from ..models import IngestionRequest
 
 logger = logging.getLogger(__name__)
 
@@ -124,37 +125,45 @@ class FileOperations(BaseResource):
         logger.info(f"Downloaded {name} to {output_path}")
         return output_path
 
-    def request_ingestion(self, file_id: str,
-                          ingestion_class: Optional[str] = None,
-                          wait_for_response: bool = False) -> Dict:
-        """Request ingestion of an uploaded file.
 
-        Args:
-            file_id: File MFID
-            ingestion_class: Ingestion class for the worker (e.g. 'lammps', 'nexus').
-                Defaults to the server-side default if omitted.
-            wait_for_response: Block until ingestion completes.
 
-        Returns:
-            Dict: IngestionRequest record (id, status, ...)
-        """
-        params = {}
-        if ingestion_class:
-            params['ingestion_class'] = ingestion_class
+    def _request_ingestion(self, ingestion_event = IngestionRequest) -> Dict:
 
-        logger.info(f"Requesting ingestion for file {file_id}"
-                    + (f" (class={ingestion_class})" if ingestion_class else ""))
+        log_message = (f"Requesting ingestion for file {ingestion_event.file_id}"
+                     + f" (class={ingestion_event.ingestion_class})")
+        
+        logger.info(log_message)
+        params = ingestion_event.model_dump()
+        file_id = params.pop('file_id')
 
         ingestion_request = self._request('post', f'/files/{file_id}/ingest',
-                                          params=params or None)
+                                          params=params)
 
         logger.debug(f"Ingestion request created: id={ingestion_request.get('id')}, "
                      f"status={ingestion_request.get('status')}")
+        
+        return ingestion_request
+
+
+    def request_ingestion(self,
+                          file_id: str,
+                          ingestion_class: Optional[str] = None,
+                          wait_for_response: bool = False) -> Dict:
+        
+        '''Request ingestion of an uploaded file or record local parsing details. '''
+        
+        # public facing ingestion request assumes cloud request
+        event = IngestionRequest(file_id = file_id,
+                                 ingestion_class = ingestion_class,
+                                 status = 'requested')
+        
+        ingestion_request = self._request_ingestion(event)
 
         if wait_for_response and ingestion_request:
             self._client._wait_for_request_completion(ingestion_request['id'])
 
         return ingestion_request
+
 
     def delete(self, file_id: str) -> None:
         """Delete a file record by its MFID.
@@ -163,6 +172,7 @@ class FileOperations(BaseResource):
             file_id: File MFID (AssociatedFile mfid)
         """
         self._request('delete', f'/files/{file_id}')
+
 
     def update(self, file_id: str, **updates) -> Dict:
         """Update fields on a file record.
@@ -175,6 +185,7 @@ class FileOperations(BaseResource):
             Dict: Updated file record.
         """
         return self._parse(self._request('patch', f'/files/{file_id}', json=updates))
+
 
     def get_download_link(self, file_id: str) -> str:
         """Get a signed download URL for a single file.

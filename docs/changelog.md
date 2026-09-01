@@ -4,6 +4,7 @@
 
 ### Added
 
+- `add_file(skip_ingestion=True)` uploads a file without requesting ingestion.
 - New `file request-ingestion` CLI command to (re)request ingestion for a cataloged file.
 - New `client.datasets.add_remote_file()` and `client.files.update()` to catalog files that live outside GCS (Globus, NERSC, a shared filesystem) without uploading them.
 - `dataset create --no-upload`/`--backend`/`--access-note` to catalog files by path instead of uploading them.

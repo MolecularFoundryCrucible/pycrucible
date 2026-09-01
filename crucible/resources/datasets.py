@@ -134,7 +134,8 @@ class DatasetOperations(BaseResource):
                files_to_upload: Optional[List[str]] = None,
                ingestor: Optional[str] = None,
                verbose: bool = False,
-               wait_for_ingestion_response: bool = False) -> Dict:
+               wait_for_ingestion_response: bool = False,
+               skip_ingestion: bool = False) -> Dict:
         """Create a new dataset record with scientific metadata and keywords.
 
         Args:
@@ -208,8 +209,11 @@ class DatasetOperations(BaseResource):
             if isinstance(file, AssociatedFile):
                 file_results.append(self.add_remote_file(dsid, file))
             elif upload_files:
-                file_results.append(self.add_file(dsid, file, ingestion_class=ingestor,
-                                                  wait_for_ingestion_response=wait_for_ingestion_response))
+                file_results.append(self.add_file(dsid,
+                                                  file, 
+                                                  ingestion_class=ingestor,
+                                                  wait_for_ingestion_response=wait_for_ingestion_response,
+                                                  skip_ingestion = skip_ingestion))
             else:
                 resolved = Path(file).resolve()
                 remote = AssociatedFile(
@@ -220,8 +224,10 @@ class DatasetOperations(BaseResource):
                 )
                 file_results.append(self.add_remote_file(dsid, remote))
 
-        result = {"created_record": new_ds_record, "scientific_metadata_record": scimd,
-                 "dsid": dsid, "files": file_results}
+        result = {"created_record": new_ds_record,
+                  "scientific_metadata_record": scimd,
+                  "dsid": dsid,
+                  "files": file_results}
         return result
 
     def update(self, dsid: str, **updates) -> Dict:
@@ -438,12 +444,15 @@ class DatasetOperations(BaseResource):
 
     #%% Upload Methods
 
-    def add_file(self, dsid: str, file_path: str,
-                            ingestion_class: Optional[str] = None,
-                            wait_for_ingestion_response: bool = False,
-                            multipart: bool = True,
-                            chunk_size_mb: Optional[int] = None,
-                            max_workers: Optional[int] = None) -> Dict:
+    def add_file(self, 
+                 dsid: str,
+                 file_path: str,
+                 ingestion_class: Optional[str] = None,
+                 wait_for_ingestion_response: bool = False,
+                 multipart: bool = True,
+                 chunk_size_mb: Optional[int] = None,
+                 max_workers: Optional[int] = None,
+                 skip_ingestion: bool = False) -> Dict:
         """Upload a file to a dataset and request ingestion.
 
         Args:
@@ -451,11 +460,14 @@ class DatasetOperations(BaseResource):
             file_path: Local path to the file
             ingestion_class: Ingestion class for the worker (e.g. 'lammps', 'nexus').
                 Defaults to the server-side default if omitted.
-            wait_for_ingestion_response: Block until ingestion completes.
+            wait_for_ingestion_response: Block until ingestion completes. Ignored if
+                skip_ingestion is True.
             multipart: Use parallel multipart upload (default: True). Set to False to
                 use the sequential resumable upload (slower but simpler).
             chunk_size_mb: Override chunk size in MiB (uses config/default if None).
             max_workers: Override number of upload threads (uses config/default if None).
+            skip_ingestion: Upload the file without requesting ingestion. Request it
+                later with client.files.request_ingestion(mfid). 
 
         Returns:
             Dict: {'associated_file': AssociatedFileRead, 'ingestion_request': IngestionRequest}
@@ -474,6 +486,10 @@ class DatasetOperations(BaseResource):
 
         if was_existing:
             logger.info(f"{stored_filename} already exists in dataset {dsid}, skipping ingestion")
+            return {'associated_file': file_record, 'ingestion_request': None}
+
+        if skip_ingestion:
+            logger.info(f"Uploaded {stored_filename} to dataset {dsid}, ingestion not requested")
             return {'associated_file': file_record, 'ingestion_request': None}
 
         ingestion_request = self._client.files.request_ingestion(
@@ -514,20 +530,6 @@ class DatasetOperations(BaseResource):
         if storage_path:
             return self._client.files.update(created['mfid'], storage_path=storage_path)
         return created
-
-    @_deprecated("client.datasets.add_file")
-    def add_file_to_dataset(self, dsid: str, file_path: str,
-                            ingestion_class: Optional[str] = None,
-                            wait_for_ingestion_response: bool = False,
-                            multipart: bool = True,
-                            chunk_size_mb: Optional[int] = None,
-                            max_workers: Optional[int] = None) -> Dict:
-        return self.add_file(dsid=dsid, file_path=file_path,
-                             ingestion_class=ingestion_class,
-                             wait_for_ingestion_response=wait_for_ingestion_response,
-                             multipart=multipart,
-                             chunk_size_mb=chunk_size_mb,
-                             max_workers=max_workers)
 
 
     #%% Download Methods
