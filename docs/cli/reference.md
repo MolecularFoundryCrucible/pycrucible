@@ -141,6 +141,7 @@ Most user-management commands require administrator permissions.
 
 Human users require a username and may optionally supply an ORCID during creation.
 When the ORCID is omitted, the API assigns a canonical MFID.
+Usernames are normalized to lowercase and must be 3 to 24 characters, start with a letter, contain only letters, digits, underscores, or hyphens, and contain no leading, trailing, or consecutive separators. Interactive creation validates each entry and prompts again when it is invalid.
 
 ## File commands
 
@@ -167,6 +168,7 @@ File commands operate on individual file MFIDs. Dataset-scoped file operations r
 ## Service-account commands
 
 `sa` is an alias for `service-account`. These commands require administrator permissions.
+Service-account creation uses the same username rules and interactive validation as human-user creation.
 
 | Command | Description |
 |---|---|

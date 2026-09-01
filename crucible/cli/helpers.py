@@ -124,6 +124,18 @@ def show_warning(message) -> None:
     print(str(message), file=sys.stderr)
 
 
+def prompt_username(prompt: str = 'Username: ') -> str:
+    from . import term
+    from ..utils.identifiers import validate_username
+
+    while True:
+        try:
+            return validate_username(input(prompt))
+        except ValueError as error:
+            print(term.red('Invalid username', stream=sys.stderr), file=sys.stderr)
+            print(str(error), file=sys.stderr)
+
+
 def install_warning_formatter() -> None:
     import warnings
 

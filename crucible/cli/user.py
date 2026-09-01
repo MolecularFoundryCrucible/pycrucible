@@ -156,7 +156,7 @@ Examples:
     parser.add_argument('-f', '--first-name',  dest='first_name', metavar='NAME',     help='First name. If not provided, will prompt interactively.')
     parser.add_argument('-l', '--last-name',   dest='last_name',  metavar='NAME',     help='Last name. If not provided, will prompt interactively.')
     parser.add_argument('--email',                 metavar='EMAIL',    help='Email address (optional)')
-    parser.add_argument('-u', '--username',         metavar='USERNAME', help='Username (required, 3-24 chars: lowercase letters/digits/hyphens/underscores)')
+    parser.add_argument('-u', '--username', metavar='USERNAME', help='Username (required, 3-24 chars, starts with a letter; lowercase letters, digits, hyphens, and underscores)')
     parser.add_argument('-p', '--projects',         metavar='IDS',      help='Comma-separated project IDs (optional)')
 
     parser.set_defaults(func=_execute_create)
@@ -288,11 +288,8 @@ def _execute_create(args):
                 logger.error("Last name is required.")
 
     if username is None:
-        while True:
-            username = input("Username: ").strip()
-            if username:
-                break
-            logger.error("Username is required.")
+        from .helpers import prompt_username
+        username = prompt_username()
 
     # Optional fields — only prompt in interactive mode
     if interactive:
@@ -319,6 +316,9 @@ def _execute_create(args):
 
     try:
         from crucible.models import User
+        from ..utils.identifiers import validate_username
+
+        username = validate_username(username)
         client = CrucibleClient()
 
         user = User(

@@ -17,6 +17,7 @@ from crucible.utils.identifiers import (
     classify_slug_reference,
     classify_user_reference,
     collapse_exact_lookup,
+    validate_username,
 )
 
 
@@ -56,6 +57,17 @@ class TestClassification:
     )
     def test_user_dispatch(self, value, expected):
         assert classify_user_reference(value) == expected
+
+    def test_username_validation_normalizes_case_and_whitespace(self):
+        assert validate_username('  Alice_User  ') == 'alice_user'
+
+    @pytest.mark.parametrize(
+        'value',
+        ['', 'ab', 'a' * 25, '1alice', '_alice', 'alice_', 'alice--user', 'alice user'],
+    )
+    def test_username_validation_rejects_invalid_values(self, value):
+        with pytest.raises(ValueError, match='Username must be 3 to 24 characters'):
+            validate_username(value)
 
 
 class TestExactLookupCollapse:

@@ -109,7 +109,7 @@ Examples:
 """,
     )
     parser.add_argument('--username', '-u', default=None, metavar='USERNAME',
-                        help='Unique username (lowercase, letters/digits/hyphens/underscores). '
+                        help='Unique username (3-24 chars, starts with a letter; lowercase letters, digits, hyphens, and underscores). '
                              'Prompted interactively if omitted.')
     parser.add_argument('--unique-id', metavar='MFID',
                         help='Optional MFID — server generates one if omitted')
@@ -117,8 +117,9 @@ Examples:
 
 
 def _execute_create(args):
-    import re
     from crucible.client import CrucibleClient
+    from .helpers import prompt_username
+    from ..utils.identifiers import validate_username
 
     username = getattr(args, 'username', None)
     unique_id = getattr(args, 'unique_id', None)
@@ -127,13 +128,7 @@ def _execute_create(args):
         print()
         print("  Creating a new service account.")
         print()
-        while not username:
-            username = input("  Username: ").strip()
-            if not username:
-                print("  Username is required.")
-            elif not re.match(r'^[a-z0-9_-]+$', username):
-                print("  Invalid format (lowercase, digits, hyphens, underscores only).")
-                username = None
+        username = prompt_username("  Username: ")
 
         uid_input = input("  MFID (optional, press Enter to skip): ").strip()
         if uid_input:
@@ -141,6 +136,7 @@ def _execute_create(args):
         print()
 
     try:
+        username = validate_username(username)
         client = CrucibleClient()
         result = client.service_accounts.create(username=username, unique_id=unique_id)
         _show_sa(result, key=result.get('api_key'))
