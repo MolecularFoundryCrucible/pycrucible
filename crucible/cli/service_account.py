@@ -7,6 +7,7 @@ Accessible as both 'crucible service-account' and 'crucible sa'.
 All operations require admin permissions.
 """
 
+import json
 import sys
 import logging
 from . import term
@@ -64,8 +65,7 @@ def _resolve_sa(client, unique_id=None, username=None, ambiguous=False):
     if sa is None and ambiguous and unique_id:
         sa = client.service_accounts.get(username=unique_id)
     if sa is None:
-        logger.error("Service account not found")
-        sys.exit(1)
+        raise ValueError("Service account not found.")
     return sa
 
 
@@ -93,8 +93,7 @@ def _resolve_sa_ref(args):
         ref = parse_sa_ref(sa_ref)
         return ref.get('unique_id'), ref.get('username'), 'unique_id' in ref
 
-    logger.error("Provide a service account identifier: crucible sa get SA")
-    sys.exit(1)
+    raise ValueError("Provide a service account identifier: crucible sa get SA")
 
 
 def _register_create(subparsers):
@@ -196,6 +195,8 @@ Examples:
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--unique-id', '-o', metavar='MFID',    help='(deprecated, use positional SA)')
     group.add_argument('--username',  '-u', metavar='USERNAME', help='(deprecated, use positional SA)')
+    parser.add_argument('--json', action='store_true', default=False,
+                        help='Output as JSON object')
     parser.set_defaults(func=_execute_get)
 
 
@@ -205,12 +206,15 @@ def _execute_get(args):
         unique_id, username, ambiguous = _resolve_sa_ref(args)
         client = CrucibleClient()
         sa = _resolve_sa(client, unique_id=unique_id, username=username, ambiguous=ambiguous)
-        _show_sa(sa)
+        if getattr(args, 'json', False):
+            print(json.dumps(sa, indent=2, default=str))
+        else:
+            _show_sa(sa)
     except SystemExit:
         raise
     except Exception as e:
         from .helpers import fail
-        fail("", e)
+        fail("", e, args)
 
 
 def _register_list(subparsers):
@@ -220,6 +224,8 @@ def _register_list(subparsers):
         formatter_class=term.ColorHelpFormatter,
     )
     parser.add_argument('--limit', type=int, default=100, metavar='N')
+    parser.add_argument('--json', action='store_true', default=False,
+                        help='Output as JSON array')
     parser.set_defaults(func=_execute_list)
 
 
@@ -228,6 +234,9 @@ def _execute_list(args):
     try:
         client = CrucibleClient()
         accounts = client.service_accounts.list(limit=args.limit)
+        if getattr(args, 'json', False):
+            print(json.dumps(accounts, indent=2, default=str))
+            return
         term.header(f"Service Accounts ({len(accounts)})")
         if not accounts:
             print(f"  {term.dim('None found.')}")
@@ -238,7 +247,7 @@ def _execute_list(args):
         term.table(rows, ['Username', 'MFID'], max_widths=[30, 30])
     except Exception as e:
         from .helpers import fail
-        fail("", e)
+        fail("", e, args)
 
 
 def _register_edit(subparsers):

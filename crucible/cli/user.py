@@ -97,17 +97,23 @@ Examples:
 """,
     )
     parser.add_argument('query', metavar='TERM', help='Search term')
+    parser.add_argument('--json', action='store_true', default=False,
+                        help='Output as JSON array')
     parser.set_defaults(func=_execute_search)
 
 
 def _execute_search(args):
     """Execute 'user search'."""
     if len(args.query) < 3:
-        logger.error("Search term must be at least 3 characters")
-        sys.exit(1)
+        from .helpers import fail
+        fail("searching users", ValueError("Search term must be at least 3 characters."), args)
     from crucible.client import CrucibleClient
     try:
         users = CrucibleClient().users.search(args.query)
+
+        if getattr(args, 'json', False):
+            print(json.dumps(users, indent=2, default=str))
+            return
 
         term.header(f"Users matching '{args.query}' ({len(users)})")
         if not users:
@@ -190,6 +196,9 @@ Examples:
 
     parser.add_argument('-u', '--username', metavar='USERNAME', default=None,
                         help='Filter by exact username')
+
+    parser.add_argument('--json', action='store_true', default=False,
+                        help='Output as JSON array')
 
     parser.set_defaults(func=_execute_list)
 
@@ -565,6 +574,10 @@ def _execute_list(args):
         username_filter = getattr(args, 'username', None)
         kwargs = {'username': username_filter} if username_filter else {}
         users = client.users.list(limit=args.limit, **kwargs)
+
+        if getattr(args, 'json', False):
+            print(json.dumps(users, indent=2, default=str))
+            return
 
         term.header(f"Users ({len(users)})")
 

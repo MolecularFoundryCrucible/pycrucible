@@ -86,6 +86,12 @@ Common patterns:
 
 Username columns must allow the full 24-character limit before truncating. Project ID, instrument ID, and project-backed access-group columns must allow the full 25-character limit.
 
+## JSON output
+
+Add `--json` only when a command has a defined machine-readable result. Collection and search commands emit a JSON array, singleton commands emit a JSON object, and empty collections emit `[]`.
+
+Serialize the raw client result before any terminal headers, links, relative timestamps, placeholders, user-resolution helpers, or display-only restructuring. Write successful JSON to stdout and pass `args` to `helpers.fail()` so errors are emitted as structured JSON on stderr. Do not mix informational logs or human-readable success messages into JSON output.
+
 ---
 
 ## ANSI Color Conventions

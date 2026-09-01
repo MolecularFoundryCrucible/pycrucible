@@ -1440,19 +1440,24 @@ Examples:
                         help='Scope to a specific project')
     parser.add_argument('--limit', '-l', type=int, default=20, metavar='N',
                         help='Maximum results (default: 20, max: 50)')
+    parser.add_argument('--json', action='store_true', default=False,
+                        help='Output as JSON array')
     parser.set_defaults(func=_execute_search)
 
 
 def _execute_search(args):
     if len(args.query) < 3:
-        logger.error("Search term must be at least 3 characters")
-        sys.exit(1)
+        from .helpers import fail
+        fail("searching datasets", ValueError("Search term must be at least 3 characters."), args)
     from crucible.client import CrucibleClient
     try:
         client     = CrucibleClient()
         project_id = args.project_id or _config.current_project or None
         results    = client.datasets.search(args.query, project_id=project_id,
                                             limit=args.limit)
+        if getattr(args, 'json', False):
+            print(json.dumps(results, indent=2, default=str))
+            return
         term.header(f"Datasets matching '{args.query}' ({len(results)})")
         if not results:
             print(f"  {term.dim('No results found.')}")
@@ -1489,6 +1494,8 @@ Examples:
         parser.add_argument('query', metavar='QUERY', help='Search query string')
         parser.add_argument('--limit', '-l', type=int, default=50, metavar='N',
                             help='Maximum results (default: 50)')
+        parser.add_argument('--json', action='store_true', default=False,
+                            help='Output as JSON array')
         parser.set_defaults(func=_execute_search_metadata)
 
 
@@ -1497,6 +1504,9 @@ def _execute_search_metadata(args):
     try:
         client  = CrucibleClient()
         results = client.datasets.search_metadata(args.query, limit=args.limit)
+        if getattr(args, 'json', False):
+            print(json.dumps(results, indent=2, default=str))
+            return
         term.header(f"Metadata search: {args.query} ({len(results)})")
         if not results:
             print(f"  {term.dim('No results found.')}")

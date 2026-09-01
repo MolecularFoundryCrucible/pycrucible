@@ -67,6 +67,8 @@ Failed while creating instrument.
 
 Commands supporting `--json` emit structured errors to stderr when JSON output is selected. `--debug` additionally prints HTTP diagnostics and a traceback. Warnings use the same terminal presentation without Python source locations, while direct Python use of `CrucibleClient` retains standard Python warning behavior.
 
+For machine-readable workflows, supported collection and search commands emit JSON arrays, singleton commands emit JSON objects, and empty collections emit `[]`. JSON contains raw client values without terminal links, relative timestamps, or placeholder text. See the [command reference](reference.md) for the current supported command set.
+
 ## Interactive prompts
 
 Creation commands prompt for missing required fields when run in an interactive terminal. Required, optional, and defaulted values are identified consistently. Invalid values show an explanation and prompt again instead of being discarded or submitted to the API.
