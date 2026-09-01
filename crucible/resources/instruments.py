@@ -189,7 +189,22 @@ class InstrumentOperations(OwnershipMixin, AccessControlMixin, BaseResource):
         import warnings
         from ..models import Instrument
         if isinstance(instrument, Instrument):
-            payload = instrument.model_dump(exclude_none=True, exclude={'id', 'unique_id'})
+            payload = instrument.model_dump(
+                include={
+                    'instrument_id',
+                    'instrument_name',
+                    'manufacturer',
+                    'model',
+                    'owner_orcid',
+                    'owner',
+                    'location',
+                    'description',
+                    'instrument_type',
+                    'other_id',
+                    'other_id_source',
+                },
+                exclude_none=True,
+            )
         else:
             payload = dict(instrument)
 

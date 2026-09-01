@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Instrument creation no longer sends inherited response-only fields rejected by API v3.
+
 ## 3.2.0
 
 ### Added

@@ -126,6 +126,26 @@ def test_create_warns_for_legacy_owner_orcid():
     assert operations._request.call_args.kwargs['json']['owner_orcid'] == USER_MFID
 
 
+def test_create_omits_inherited_response_fields():
+    operations = make_ops()
+    operations._request = MagicMock(side_effect=[
+        {'total': 0, 'items': []},
+        {'unique_id': MFID, 'instrument_id': 'team-i'},
+    ])
+
+    operations.create(Instrument(
+        instrument_id='team-i',
+        instrument_name='TEAM I',
+        location='72-150',
+    ))
+
+    assert operations._request.call_args.kwargs['json'] == {
+        'instrument_id': 'team-i',
+        'instrument_name': 'TEAM I',
+        'location': '72-150',
+    }
+
+
 def test_mfid_backed_owner_is_not_linked_to_orcid(monkeypatch):
     monkeypatch.setattr(term, '_tty', lambda: True)
     rendered = term.fmt_owner({
