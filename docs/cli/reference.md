@@ -105,6 +105,8 @@ Fields normally updated through `sample update` include `sample_name`, `sample_t
 | `project publish ID` | Make a project publicly viewable |
 | `project unpublish ID` | Remove public access from a project |
 
+`project add-user` requires editor or above and accepts `viewer`, `contributor`, `editor`, or `admin`. Grants cannot exceed the caller's role. Use `project update-user-role` to change an existing member and `project transfer-ownership` to change ownership.
+
 The `access grant` commands accept `viewer`, `contributor`, `editor`, or `admin`. Use the resource's `transfer-ownership` command to change ownership.
 
 ## Instrument commands

@@ -5,8 +5,10 @@ crucible-api/docs/permission_system_api_changes.md), not yet universally
 deployed - see tests/unit/ vs tests/integration/ split in CLAUDE.md.
 """
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
+import requests
 
 from crucible.models import (
     AccessGrant,
@@ -256,6 +258,61 @@ class TestProjectAddUserRole:
         project_ops._request.assert_called_once_with(
             'post', '/projects/proj-1/users/0000-0001', params={})
 
+    def test_email_resolves_before_canonical_membership_request(self, project_ops):
+        project_ops._client.users.get.return_value = {
+            'unique_id': '0000-0001',
+            'username': 'alice',
+        }
+        project_ops._request = MagicMock(return_value=[])
+
+        project_ops.add_user(email='alice@example.org', project_id='proj-1')
+
+        project_ops._client.users.get.assert_called_once_with(email='alice@example.org')
+        project_ops._request.assert_called_once_with(
+            'post', '/projects/proj-1/users/0000-0001', params={})
+
+    def test_service_account_mfid_uses_canonical_membership_request(self, project_ops):
+        service_account_mfid = '0tkvpezyz1zzf00076nahf85j4'
+        project_ops._request = MagicMock(return_value=[])
+
+        project_ops.add_user(user_unique_id=service_account_mfid, project_id='proj-1')
+
+        project_ops._client.users.get.assert_not_called()
+        project_ops._request.assert_called_once_with(
+            'post', f'/projects/proj-1/users/{service_account_mfid}', params={})
+
+    def test_conflicting_identifiers_are_rejected(self, project_ops):
+        project_ops._request = MagicMock()
+
+        with pytest.raises(ValueError, match='exactly one user identifier'):
+            project_ops.add_user(
+                user_unique_id='0000-0001', username='alice', project_id='proj-1')
+
+        project_ops._request.assert_not_called()
+
+    @pytest.mark.parametrize('role', ['owner', 'invalid', 'EDITOR', 3])
+    def test_invalid_role_is_rejected(self, project_ops, role):
+        project_ops._request = MagicMock()
+
+        with pytest.raises(ValueError, match='Project member role must be one of'):
+            project_ops.add_user(
+                user_unique_id='0000-0001', project_id='proj-1', role=role)
+
+        project_ops._request.assert_not_called()
+
+    def test_duplicate_member_conflict_is_preserved(self, project_ops):
+        response = requests.Response()
+        response.status_code = 409
+        response.reason = 'Conflict'
+        response._content = b'{"detail":"User is already a project member"}'
+        project_ops._request = MagicMock(side_effect=requests.HTTPError(
+            '409 Conflict', response=response))
+
+        with pytest.raises(requests.HTTPError) as raised:
+            project_ops.add_user(user_unique_id='0000-0001', project_id='proj-1')
+
+        assert raised.value.response.status_code == 409
+
 
 class TestProjectUpdateUserRole:
     def test_sends_correct_route_and_param(self, project_ops):
@@ -268,6 +325,15 @@ class TestProjectUpdateUserRole:
         project_ops._request.assert_called_once_with(
             'patch', '/projects/proj-1/users/0000-0001', params={'role': 'admin'})
         assert result[0].role == 'admin'
+
+    @pytest.mark.parametrize('role', ['owner', 'invalid', 'ADMIN', 4])
+    def test_invalid_role_is_rejected(self, project_ops, role):
+        project_ops._request = MagicMock()
+
+        with pytest.raises(ValueError, match='Project member role must be one of'):
+            project_ops.update_user_role('proj-1', '0000-0001', role)
+
+        project_ops._request.assert_not_called()
 
 
 class TestProjectGetIncludeMembers:

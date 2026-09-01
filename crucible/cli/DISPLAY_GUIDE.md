@@ -77,7 +77,7 @@ Common patterns:
 | Name + ORCID + Email | `[25, 19, 35]` |
 | Project ID + Title + Organization | `[25, 30, 20]` |
 
-Username, project ID, instrument ID, and project-backed access-group columns must allow the full current 25-character identifier limit before truncating.
+Username columns must allow the full 24-character limit before truncating. Project ID, instrument ID, and project-backed access-group columns must allow the full 25-character limit.
 
 ---
 

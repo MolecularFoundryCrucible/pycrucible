@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 from . import term
 from ..config import config as _config
+from ..constants import PROJECT_MEMBER_ROLES
 
 try:
     import argcomplete
@@ -254,7 +255,7 @@ def _register_add_user(subparsers):
     parser = subparsers.add_parser(
         'add-user',
         help='Add a user to a project',
-        description='Add a user to a project by ORCID, MFID, username, or email (requires admin permissions)',
+        description='Add a user to a project by ORCID, MFID, username, or email (requires editor or above; grants are capped at your role)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -275,7 +276,7 @@ Examples:
 
     parser.add_argument('--user', '-u', metavar='USER', default=None,
                         help='ORCID, MFID, username, or email of the user')
-    parser.add_argument('--role', metavar='ROLE', default=None,
+    parser.add_argument('--role', choices=PROJECT_MEMBER_ROLES, default=None,
                         help='Role to grant (default: contributor)')
 
     group = parser.add_mutually_exclusive_group()
@@ -590,7 +591,6 @@ def _execute_add_user(args):
         sys.exit(1)
 
     try:
-        import requests as _req
         client = CrucibleClient()
         role = getattr(args, 'role', None)
         users = client.projects.add_user(user_unique_id=orcid, project_id=args.project_id,
@@ -606,17 +606,6 @@ def _execute_add_user(args):
 
         logger.info(f"\n✓ {name} added to project {args.project_id} successfully!")
 
-    except _req.exceptions.HTTPError as e:
-        if e.response is not None and e.response.status_code == 404:
-            identifier = orcid or username or email
-            logger.error(f"Not found: check that '{identifier}' has a Crucible account "
-                         f"and that project '{args.project_id}' exists")
-        else:
-            logger.error(f"Error adding user to project: {e}")
-        if getattr(args, "debug", False):
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
     except Exception as e:
         from .helpers import fail
         fail("adding user to project", e, args)
@@ -751,7 +740,8 @@ Examples:
         'user_unique_id', metavar='USER_ID',
         help="Member's canonical ORCID or user MFID",
     )
-    parser.add_argument('role', metavar='ROLE', help='New role to grant')
+    parser.add_argument('role', choices=PROJECT_MEMBER_ROLES,
+                        help='New role to grant')
     parser.set_defaults(func=_execute_update_user_role)
 
 

@@ -10,7 +10,7 @@ import logging
 from typing import Optional, List, Dict, Sequence, Union
 from .base import BaseResource
 from .capabilities import AccessControlMixin, OwnershipMixin
-from ..constants import DEFAULT_LIMIT
+from ..constants import DEFAULT_LIMIT, PROJECT_MEMBER_ROLES
 from ..models import Project, ProjectMember
 from ..utils.deprecation import _deprecated_parameter
 from ..utils.identifiers import (
@@ -258,6 +258,13 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
         """Validate a project member list returned by a mutation endpoint."""
         return [ProjectMember.model_validate(member) for member in raw]
 
+    @staticmethod
+    def _validate_member_role(role: str) -> str:
+        if role not in PROJECT_MEMBER_ROLES:
+            allowed = ', '.join(PROJECT_MEMBER_ROLES)
+            raise ValueError(f"Project member role must be one of: {allowed}.")
+        return role
+
     def _resolve_member_unique_id(self, user_unique_id: Optional[str] = None,
                                   email: Optional[str] = None,
                                   username: Optional[str] = None) -> str:
@@ -323,7 +330,7 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
             List[ProjectMember]: Updated list of project users
         """
         canonical_id = self._resolve_member_unique_id(user_unique_id, email, username)
-        params = {'role': role} if role else {}
+        params = {'role': self._validate_member_role(role)} if role is not None else {}
         raw = self._request(
             'post', f'/projects/{project_id}/users/{canonical_id}', params=params)
         return self._parse_members(raw)
@@ -346,6 +353,7 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
         Returns:
             List[ProjectMember]: Updated list of project users
         """
+        role = self._validate_member_role(role)
         raw = self._request(
             'patch', f'/projects/{project_id}/users/{user_unique_id}',
             params={'role': role})

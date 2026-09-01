@@ -82,7 +82,9 @@ Project lead, member, and operator records are public-safe and do not expose ema
 members = client.projects.add_user(user_unique_id="0000-0002-3456-7890", project_id="MFP12345", role="contributor")
 ```
 
-Member roles are `viewer`, `contributor`, `editor`, and `admin`. Ownership is changed only through `transfer_ownership()`.
+Member roles are the lowercase strings `viewer`, `contributor`, `editor`, and `admin`. Adding a member requires editor or above, and the granted role cannot exceed the caller's role. Ownership is changed only through `transfer_ownership()`.
+
+Adding an existing member at a different role returns 409. Use `update_user_role()` to change existing standing.
 
 ### Change a member role
 
