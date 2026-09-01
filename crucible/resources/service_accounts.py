@@ -58,18 +58,36 @@ class ServiceAccountOperations(BaseResource):
         """
         return self._request('post', f'/service_accounts/{unique_id}/rotate_key')
 
-    def get(self, unique_id: Optional[str] = None,
-            username: Optional[str] = None) -> Optional[Dict]:
-        """Get a service account by unique_id or username.
+    def get(self, service_account_mfid: Optional[str] = None,
+            username: Optional[str] = None,
+            *, unique_id: Optional[str] = None) -> Optional[Dict]:
+        """Get a service account by MFID or username.
 
         Args:
-            unique_id: Service account MFID.
+            service_account_mfid: Service account MFID.
             username: Service account username.
+            unique_id: Deprecated alias for ``service_account_mfid``.
 
         Returns:
             Dict: User record, or None if not found.
         """
-        return self._client.users.get(orcid=unique_id, username=username)
+        provided = [
+            value for value in (service_account_mfid, username, unique_id)
+            if value is not None
+        ]
+        if len(provided) != 1:
+            raise ValueError("Provide exactly one service-account identifier.")
+        if unique_id is not None:
+            import warnings
+            warnings.warn(
+                "The unique_id keyword is deprecated; use service_account_mfid instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            service_account_mfid = unique_id
+        if service_account_mfid is not None:
+            return self._client.users.get(user_unique_id=service_account_mfid)
+        return self._client.users.get(username=username)
 
     def list(self, limit: int = DEFAULT_LIMIT) -> List[Dict]:
         """List all service accounts.

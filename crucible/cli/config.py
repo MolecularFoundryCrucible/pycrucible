@@ -72,6 +72,9 @@ Examples:
     crucible config set api_key YOUR_API_KEY
     crucible config set read_timeout 120
 
+    # Remove an override and return to its default
+    crucible config unset api_url
+
     # Show config file location
     crucible config path
 
@@ -168,6 +171,22 @@ Priority order (highest to lowest):
     )
     set_parser.set_defaults(func=cmd_set)
 
+    unset_parser = subparsers_config.add_parser(
+        'unset',
+        help='Remove a configuration override'
+    )
+    unset_parser.add_argument(
+        'key',
+        choices=['api_key', 'api_url', 'graph_explorer_url', 'current_project',
+                 'cache_dir',
+                 'editor', 'sample_group_by', 'dataset_group_by',
+                 'include_metadata', 'include_links',
+                 'connect_timeout', 'read_timeout', 'default_limit',
+                 'upload_chunk_size_mb', 'upload_max_workers'],
+        help='Configuration key to remove from the config file'
+    )
+    unset_parser.set_defaults(func=cmd_unset)
+
     # path - Show config file location
     path_parser = subparsers_config.add_parser(
         'path',
@@ -205,7 +224,7 @@ def cmd_init(args):
 
     # Get API key
     print("\n1. Crucible API Key (required)")
-    print("   Get your key from: https://crucible.lbl.gov/api/v2/user_apikey")
+    print("   Get your key from: https://crucible.lbl.gov/api/v3/user_apikey")
     api_key = input("   API Key: ").strip()
     if not api_key:
         print("Error: API key is required")
@@ -408,6 +427,51 @@ def cmd_set(args):
     section, config_file = set_config_value(key, value)
     print(f"✓ Set {key} = {value}  (in [{section}])")
     print(f"✓ Saved to {config_file}")
+
+
+def unset_config_value(key):
+    """Remove a config-file value and reload configuration."""
+    from configupdater import ConfigUpdater
+    from crucible.config import config
+    from crucible.config.config import Config
+
+    mapping = Config._CONFIG_MAP[key]
+    section = mapping['section']
+    ini_key = mapping['ini']
+    config_file = config.config_file_path
+    removed = False
+
+    if config_file.exists():
+        updater = ConfigUpdater()
+        updater.read(str(config_file))
+
+        sections = [section]
+        if section != 'crucible':
+            sections.append('crucible')
+
+        for candidate in sections:
+            if updater.has_section(candidate) and updater.has_option(candidate, ini_key):
+                updater.remove_option(candidate, ini_key)
+                removed = True
+
+        if removed:
+            config_file.write_text(str(updater))
+
+    config.reload()
+    return removed, config_file, mapping['env']
+
+
+def cmd_unset(args):
+    """Remove a configuration override."""
+    removed, config_file, env_key = unset_config_value(args.key)
+
+    if removed:
+        print(f"Unset {args.key} in {config_file}")
+    else:
+        print(f"{args.key} is not set in {config_file}")
+
+    if os.environ.get(env_key) is not None:
+        print(f"{env_key} remains active and takes precedence")
 
 
 def cmd_path(args):

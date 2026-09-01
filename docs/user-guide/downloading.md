@@ -2,71 +2,79 @@
 
 ## Download a dataset
 
-`client.download()` saves the API record as `record.json` and, for datasets, downloads all associated files:
+`client.datasets.download()` saves the API record as `record.json` and downloads the dataset's associated files:
 
 ```python
 # Download everything into a local directory
-client.download("ds-abc123", output_dir="./downloads")
+dataset_mfid = "0tkn2knjast3h0008nyq9zps2c"
+client.datasets.download(dataset_mfid, output_dir="./downloads")
 ```
 
-This creates `./downloads/ds-abc123/record.json` plus all files.
+This creates `./downloads/0tkn2knjast3h0008nyq9zps2c/record.json` plus all files.
 
 ### Filtering files
 
 ```python
 # Download only .dat files
-client.datasets.download("ds-abc123", output_dir="./downloads", include="*.dat")
+client.datasets.download(dataset_mfid, output_dir="./downloads", include=["*.dat"])
 
 # Download everything except thumbnails
-client.datasets.download("ds-abc123", output_dir="./downloads", exclude="*.png")
+client.datasets.download(dataset_mfid, output_dir="./downloads", exclude=["*.png"])
 ```
 
 ### Overwriting existing files
 
-By default, files that already exist locally are skipped. Pass `overwrite=True` to replace them:
+By default, files that already exist locally are replaced. Set `overwrite_existing=False` to keep them:
 
 ```python
-client.datasets.download("ds-abc123", output_dir="./downloads", overwrite=True)
+client.datasets.download(
+    dataset_mfid,
+    output_dir="./downloads",
+    overwrite_existing=False,
+)
 ```
 
 ## Download a sample record
 
-For samples, `client.download()` saves the API record and a list of linked datasets:
+For samples, `client.samples.download()` saves the API record as `record.json`:
 
 ```python
-client.download("sm-abc123", output_dir="./downloads")
+sample_mfid = "0td7evvtg5wb90005k1j97ak94"
+client.samples.download(sample_mfid, output_dir="./downloads")
 ```
 
 ## Get pre-signed download URLs
 
-If you need direct download links (e.g., to share with collaborators or use in a script), get pre-signed URLs valid for approximately one hour:
+If you need temporary signed download URLs for a script, request the mapping of file MFIDs to URLs:
 
 ```python
-links = client.datasets.get_download_links("ds-abc123")
-for link in links:
-    print(link["filename"], link["url"])
+links = client.datasets.get_download_links(dataset_mfid)
+for file_mfid, url in links.items():
+    print(file_mfid, url)
 ```
+
+Signed URLs grant temporary access. Avoid logging or sharing them beyond their intended recipient.
 
 ## CLI
 
 ```bash
 # Download a dataset or sample by ID (type auto-detected)
-crucible download DATASET_ID
+crucible download DATASET_MFID
 
 # Specify output directory
-crucible download DATASET_ID --output-dir ./my-data
+crucible download DATASET_MFID --output-dir ./my-data
 
 # Filter by filename pattern
-crucible download DATASET_ID --include "*.dm4"
+crucible download DATASET_MFID --include "*.dm4"
 
 # Skip downloading files (record.json only)
-crucible download DATASET_ID --no-files
+crucible download DATASET_MFID --no-files
 
-# Overwrite existing files
-crucible download DATASET_ID --overwrite
+# Keep existing files instead of replacing them
+crucible download DATASET_MFID --no-overwrite
 
 # List files without downloading
-crucible dataset list-files DATASET_ID
+crucible dataset list-files DATASET_MFID
 ```
 
 ## Caching
@@ -76,6 +84,6 @@ The CLI caches downloaded files so repeated downloads don't re-fetch from the se
 ```bash
 crucible cache show                        # view cache size and top files
 crucible cache clear --older-than 30       # remove entries not accessed in 30 days
-crucible cache clear --dataset DATASET_ID  # remove a specific dataset
+crucible cache clear --dataset DATASET_MFID  # remove a specific dataset
 crucible cache clear -y                    # wipe the entire cache
 ```

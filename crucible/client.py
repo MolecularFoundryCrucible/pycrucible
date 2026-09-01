@@ -11,11 +11,13 @@ import requests
 import json
 import logging
 from requests.adapters import HTTPAdapter
+from urllib.parse import urlparse
 from urllib3.util.retry import Retry
 from typing import Optional, List, Dict, Any, Union
 from .models import Dataset, Project
 from .constants import DEFAULT_LIMIT
-from .utils.deprecation import _deprecated, _removed
+from .utils.deprecation import _deprecated, _deprecated_parameter, _removed
+from .utils.identifiers import is_mfid, require_canonical_identifier
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +29,11 @@ class CrucibleClient:
         Initialize the Crucible API client.
 
         Args:
-            api_url: Base URL for the Crucible API (loads from config if not provided)
+            api_url: Base URL for the Crucible API (loads from config or the package default if not provided)
             api_key: API key for authentication (loads from config if not provided)
 
         Raises:
-            ValueError: If api_url or api_key not provided and not found in config
+            ValueError: If api_key is not provided and not found in config
         """
         # Load from config if not provided
         from .config import config as _config
@@ -49,13 +51,19 @@ class CrucibleClient:
         self.api_url = api_url.rstrip('/')
         self.api_key = api_key
 
-        if '/api/v1' in self.api_url:
+        api_path = urlparse(self.api_url).path.rstrip('/')
+        legacy_version = next(
+            (version for version in ('v1', 'v2') if api_path.endswith(f'/api/{version}')),
+            None,
+        )
+        if legacy_version:
             import warnings
             from .config.config import Config as _Cfg
             warnings.warn(
-                f"You are connected to Crucible API v1 which is deprecated. "
-                f"Update with: crucible config set api_url {_Cfg.DEFAULT_API_URL}",
-                DeprecationWarning,
+                f"You are connected to Crucible API {legacy_version} which is deprecated. "
+                f"Use {_Cfg.DEFAULT_API_URL} or remove the configured override with: "
+                f"crucible config unset api_url",
+                FutureWarning,
                 stacklevel=2,
             )
 
@@ -161,9 +169,12 @@ class CrucibleClient:
         """Check API and database health without requiring authentication.
 
         Returns:
-            Dict: {"status": "ok"|"degraded", "db": "ok"|"error",
-                   "db_ms": float|None, "version": str|None}
-                  Raises requests.exceptions.ConnectionError if the host is unreachable.
+            Dict: Readiness status with nested ``build`` and ``database``
+                provenance. During API rollout, older servers may return the
+                legacy flat ``db``, ``db_ms``, and ``version`` fields.
+
+        Raises:
+            requests.exceptions.ConnectionError: If the host is unreachable.
         """
         import requests as _requests
         url = f"{self.api_url}/health/ready"
@@ -179,32 +190,36 @@ class CrucibleClient:
         """
         return self.account.whoami()
 
-    def get_resource_type(self, resource_id: str) -> str:
+    @_deprecated_parameter('resource_id', 'resource_mfid')
+    def get_resource_type(self, resource_mfid: str) -> str:
         """
         Determine the type of a resource.
 
         Args:
-            resource_id (str): The unique identifier (mfid) of the resource
+            resource_mfid (str): Resource MFID
 
         Returns:
             str: resource_type
         """
-        response = self._request('get', f"/resources/{resource_id}")
+        if not is_mfid(resource_mfid):
+            raise ValueError("resource_mfid must be an exact 26-character MFID.")
+        response = self._request('get', f"/resources/{resource_mfid}")
         return response['resource_type']
 
-    def get(self, resource_id: str, resource_type: str = None,
+    @_deprecated_parameter('resource_id', 'resource_mfid')
+    def get(self, resource_mfid: str, resource_type: str = None,
             include_metadata: bool = False, include_links: bool = False,
-            include_owner: bool = False) -> Dict:
+            include_owner: bool = True) -> Dict:
         """
         Get a resource by ID with automatic type detection.
 
         Args:
-            resource_id (str): The unique identifier (mfid) of the resource
+            resource_mfid (str): Resource MFID
             resource_type (str, optional): Resource type ('sample', 'dataset', 'instrument').
                                           If not provided, will be auto-detected.
             include_metadata (bool): Include scientific metadata
             include_links (bool): Include immediate parent/child/associated links
-            include_owner (bool): Resolve owner_orcid into a full user object
+            include_owner (bool): Resolve owner_orcid into a public-safe user object (default: True)
 
         Returns:
             Dict: Resource data
@@ -212,6 +227,8 @@ class CrucibleClient:
         Raises:
             ValueError: If resource type is unknown or not supported
         """
+        if not is_mfid(resource_mfid):
+            raise ValueError("resource_mfid must be an exact 26-character MFID.")
         if resource_type is None:
             params = {}
             if include_links:
@@ -220,23 +237,29 @@ class CrucibleClient:
                 params['include_metadata'] = True
             if include_owner:
                 params['include_owner'] = True
-            return self._request('get', f"/resources/{resource_id}", params=params or None)
+            raw = self._request(
+                'get', f"/resources/{resource_mfid}", params=params or None)
+            return require_canonical_identifier(raw, 'resource')
 
         if resource_type == "sample":
-            return self.samples.get(resource_id, include_links=include_links,
+            return self.samples.get(resource_mfid, include_links=include_links,
                                     include_metadata=include_metadata,
                                     include_owner=include_owner)
         elif resource_type == "dataset":
-            return self.datasets.get(resource_id, include_metadata=include_metadata,
+            return self.datasets.get(resource_mfid, include_metadata=include_metadata,
                                      include_links=include_links,
                                      include_owner=include_owner)
         elif resource_type == "instrument":
-            return self.instruments.get(instrument_id=resource_id,
-                                        include_metadata=include_metadata)
+            return self.instruments.get(
+                instrument_mfid=resource_mfid,
+                include_metadata=include_metadata,
+                include_owner=include_owner,
+            )
         else:
             raise ValueError(f"Unknown or unsupported resource type: {resource_type}")
 
-    def get_links(self, resource_id: str) -> list:
+    @_deprecated_parameter('resource_id', 'resource_mfid')
+    def get_links(self, resource_mfid: str) -> list:
         """Return immediate links for any resource (dataset or sample).
 
         Hits GET /resources/{id}/links and returns a flat list of link dicts:
@@ -244,15 +267,17 @@ class CrucibleClient:
               "name": "...", "relationship": "parent|child|associated"}, ...]
 
         Args:
-            resource_id (str): Dataset or sample unique identifier
+            resource_mfid (str): Dataset or sample MFID
 
         Returns:
             list: Link objects, or empty list if none
         """
-        result = self._request('get', f"/resources/{resource_id}/links")
+        result = self._request('get', f"/resources/{resource_mfid}/links")
         return result or []
 
-    def link(self, parent_id: str, child_id: str) -> Dict:
+    @_deprecated_parameter('parent_id', 'parent_mfid')
+    @_deprecated_parameter('child_id', 'child_mfid')
+    def link(self, parent_mfid: str, child_mfid: str) -> Dict:
         """
         Link two resources with automatic type detection.
 
@@ -262,8 +287,8 @@ class CrucibleClient:
         - Dataset + sample: Links sample to dataset
 
         Args:
-            parent_id (str): Parent resource unique identifier
-            child_id (str): Child resource unique identifier
+            parent_mfid (str): Parent resource MFID
+            child_mfid (str): Child resource MFID
 
         Returns:
             Dict: Information about the created link
@@ -273,35 +298,35 @@ class CrucibleClient:
 
         Example:
             >>> # Link two datasets
-            >>> client.link('parent_dataset_id', 'child_dataset_id')
+            >>> client.link(parent_mfid, child_mfid)
 
             >>> # Link two samples
-            >>> client.link('parent_sample_id', 'child_sample_id')
+            >>> client.link(parent_mfid, child_mfid)
 
             >>> # Link sample to dataset
-            >>> client.link('dataset_id', 'sample_id')
+            >>> client.link(dataset_mfid, sample_mfid)
         """
-        parent_type = self.get_resource_type(parent_id)
-        child_type = self.get_resource_type(child_id)
+        parent_type = self.get_resource_type(parent_mfid)
+        child_type = self.get_resource_type(child_mfid)
 
         # Both are datasets
         if parent_type == "dataset" and child_type == "dataset":
-            logger.info(f"Linking datasets: {parent_id} (parent) -> {child_id} (child)")
-            return self.datasets.link_parent_child(parent_id, child_id)
+            logger.info(f"Linking datasets: {parent_mfid} (parent) -> {child_mfid} (child)")
+            return self.datasets.link_parent_child(parent_mfid, child_mfid)
 
         # Both are samples
         elif parent_type == "sample" and child_type == "sample":
-            logger.info(f"Linking samples: {parent_id} (parent) -> {child_id} (child)")
-            return self.samples.link(parent_id, child_id)
+            logger.info(f"Linking samples: {parent_mfid} (parent) -> {child_mfid} (child)")
+            return self.samples.link(parent_mfid, child_mfid)
 
         # Mixed: dataset and sample
         elif parent_type == "dataset" and child_type == "sample":
-            logger.info(f"Linking sample {child_id} to dataset {parent_id}")
-            return self.datasets.add_sample(parent_id, child_id)
+            logger.info(f"Linking sample {child_mfid} to dataset {parent_mfid}")
+            return self.datasets.add_sample(parent_mfid, child_mfid)
 
         elif parent_type == "sample" and child_type == "dataset":
-            logger.info(f"Linking sample {parent_id} to dataset {child_id}")
-            return self.datasets.add_sample(child_id, parent_id)
+            logger.info(f"Linking sample {parent_mfid} to dataset {child_mfid}")
+            return self.datasets.add_sample(child_mfid, parent_mfid)
 
         else:
             raise ValueError(
@@ -309,7 +334,9 @@ class CrucibleClient:
                 f"Valid combinations: dataset-dataset, sample-sample, or dataset-sample."
             )
 
-    def unlink(self, id_a: str, id_b: str) -> Dict:
+    @_deprecated_parameter('id_a', 'resource_mfid_a')
+    @_deprecated_parameter('id_b', 'resource_mfid_b')
+    def unlink(self, resource_mfid_a: str, resource_mfid_b: str) -> Dict:
         """Unlink two resources with automatic type detection.
 
         Automatically determines resource types and removes the appropriate link:
@@ -318,8 +345,8 @@ class CrucibleClient:
         - Dataset + sample: Removes dataset-sample link
 
         Args:
-            id_a (str): First resource unique identifier (dataset or sample)
-            id_b (str): Second resource unique identifier (dataset or sample)
+            resource_mfid_a (str): First dataset or sample MFID
+            resource_mfid_b (str): Second dataset or sample MFID
 
         Returns:
             Dict: Deletion confirmation
@@ -327,44 +354,48 @@ class CrucibleClient:
         Raises:
             ValueError: If resource types cannot be determined or combination is invalid.
         """
-        type_a = self.get_resource_type(id_a)
-        type_b = self.get_resource_type(id_b)
+        type_a = self.get_resource_type(resource_mfid_a)
+        type_b = self.get_resource_type(resource_mfid_b)
 
         if type_a == "dataset" and type_b == "sample":
-            logger.info(f"Unlinking sample {id_b} from dataset {id_a}")
-            return self.datasets.remove_sample(id_a, id_b)
+            logger.info(f"Unlinking sample {resource_mfid_b} from dataset {resource_mfid_a}")
+            return self.datasets.remove_sample(resource_mfid_a, resource_mfid_b)
 
         elif type_a == "sample" and type_b == "dataset":
-            logger.info(f"Unlinking sample {id_a} from dataset {id_b}")
-            return self.datasets.remove_sample(id_b, id_a)
+            logger.info(f"Unlinking sample {resource_mfid_a} from dataset {resource_mfid_b}")
+            return self.datasets.remove_sample(resource_mfid_b, resource_mfid_a)
 
         elif type_a == "dataset" and type_b == "dataset":
-            logger.info(f"Unlinking child dataset {id_b} from parent dataset {id_a}")
-            return self.datasets.remove_child(id_a, id_b)
+            logger.info(
+                f"Unlinking child dataset {resource_mfid_b} from parent dataset {resource_mfid_a}")
+            return self.datasets.remove_child(resource_mfid_a, resource_mfid_b)
 
         elif type_a == "sample" and type_b == "sample":
-            logger.info(f"Unlinking child sample {id_b} from parent sample {id_a}")
-            return self.samples.remove_child(id_a, id_b)
+            logger.info(
+                f"Unlinking child sample {resource_mfid_b} from parent sample {resource_mfid_a}")
+            return self.samples.remove_child(resource_mfid_a, resource_mfid_b)
 
         else:
             raise ValueError(
-                f"Cannot unlink resources: {id_a} is {type_a}, {id_b} is {type_b}."
+                f"Cannot unlink resources: {resource_mfid_a} is {type_a}, "
+                f"{resource_mfid_b} is {type_b}."
             )
     
     @_deprecated("client.datasets.download() or client.samples.download()")
-    def download(self, resource_id: str, output_dir: str = 'crucible-downloads',
+    @_deprecated_parameter('resource_id', 'resource_mfid')
+    def download(self, resource_mfid: str, output_dir: str = 'crucible-downloads',
                  no_files: bool = False, no_record: bool = False,
                  overwrite_existing: bool = True,
                  include: Optional[List[str]] = None,
                  exclude: Optional[List[str]] = None) -> List[str]:
         """Deprecated: use client.datasets.download() or client.samples.download() instead."""
-        resource_type = self.get_resource_type(resource_id)
+        resource_type = self.get_resource_type(resource_mfid)
         if resource_type == 'dataset':
-            return self.datasets.download(resource_id, output_dir=output_dir,
+            return self.datasets.download(resource_mfid, output_dir=output_dir,
                                           no_files=no_files, no_record=no_record,
                                           overwrite_existing=overwrite_existing,
                                           include=include, exclude=exclude)
         elif resource_type == 'sample':
-            return self.samples.download(resource_id, output_dir=output_dir)
+            return self.samples.download(resource_mfid, output_dir=output_dir)
         else:
             raise ValueError(f"Cannot download resource of type: {resource_type}")

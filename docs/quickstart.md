@@ -18,74 +18,48 @@ print(client.whoami())
 ```
 
 ---
-## Create a project
+## Choose a project
 
-**Requires admin permissions.**
-
-```python
-from crucible.models import Project
-
-project = client.projects.create(Project(
-    project_id="my-project",
-    organization="LBNL",
-    project_lead_orcid="0000-0001-2345-6789",
-))
-
-print(project["project_id"])
-```
-
----
-
-## Add a friend to your project
-
-**Requires admin permissions.**
+Datasets and samples belong to projects. Use a project ID you can access:
 
 ```python
-# By email
-client.projects.add_user(project_id="my-project", email="friend@lbl.gov")
-
-# Or by ORCID
-client.projects.add_user(project_id="my-project", orcid="0000-0001-2345-6789")
+PROJECT_ID = "my-project"
 ```
+
+Creating projects and managing members requires additional permissions. See the [project management guide](user-guide/projects.md) for those workflows.
 
 ---
 
 
 ## Create a dataset
 
-All fields are optional — you can create a bare dataset record and fill in metadata later:
+Provide the context needed to identify and reuse the dataset:
 
 ```python
 from crucible.models import Dataset
 
-# Minimal: creates an empty record with just a unique_id
-dataset = client.datasets.create(Dataset())
-print(dataset["unique_id"])
-```
-
-Or provide as much context as you have upfront:
-
-```python
-dataset = client.datasets.create(
+result = client.datasets.create(
     dataset=Dataset(
         dataset_name="XRD measurement",
         measurement="X-ray diffraction",
         data_type="X-ray diffraction xy file",
         instrument_name="Rigaku_XRD",
-        project_id="my-project",
+        project_id=PROJECT_ID,
     ),
     files=["xrd_data.xy"],
     scientific_metadata={"wavelength_angstrom": 0.7749, "temperature_K": 300},
     keywords=["XRD", "powder diffraction"],
 )
 
-print(dataset["unique_id"])  # system-assigned dataset ID
+dataset_mfid = result["dataset_mfid"]
+dataset = result["created_record"]
+print(dataset_mfid)
 ```
 
 Retrieve it later:
 
 ```python
-ds = client.datasets.get(dataset["unique_id"])
+ds = client.datasets.get(dataset_mfid)
 print(ds["dataset_name"])
 ```
 
@@ -99,11 +73,11 @@ from crucible.models import Sample
 sample = client.samples.create(Sample(
     sample_name="Silicon wafer A",
     sample_type="substrate",
-    project_id="my-project",
+    project_id=PROJECT_ID,
     description="FZ silicon, 100-orientation, 4-inch wafer",
 ))
 
-print(sample["unique_id"])  # system-assigned sample ID
+print(sample["unique_id"])  # system-assigned sample MFID
 ```
 
 ---
@@ -111,21 +85,17 @@ print(sample["unique_id"])  # system-assigned sample ID
 ## Link a dataset to a sample
 
 ```python
-client.samples.add_dataset(sample["unique_id"], dataset["unique_id"])
+client.samples.add_dataset(sample["unique_id"], dataset_mfid)
 ```
 
-You can also link datasets to each other (e.g., raw → processed):
-
-```python
-client.datasets.link_parent_child(parent_dataset_id=raw_unique_id, child_dataset_id=processed_unique_id)
-```
+See [linking resources](user-guide/linking.md) for dataset processing chains and sample hierarchies.
 
 ---
 
 ## List datasets in a project
 
 ```python
-datasets = client.datasets.list(project_id="my-project", limit=20)
+datasets = client.datasets.list(project_id=PROJECT_ID, limit=20)
 for ds in datasets:
     print(ds["unique_id"], ds["dataset_name"])
 ```
@@ -135,7 +105,7 @@ for ds in datasets:
 ## Download a dataset
 
 ```python
-client.download("DATASET_ID", output_dir="./downloads")
+client.datasets.download(dataset_mfid, output_dir="./downloads")
 ```
 
 ---
@@ -145,12 +115,6 @@ client.download("DATASET_ID", output_dir="./downloads")
 The same operations are available from the terminal:
 
 ```bash
-# Create a project
-crucible project create
-
-# Add a user to your project (user account must already exist)
-crucible project add-user my-project --user USER_EMAIL
-
 # Create a dataset with a file
 crucible dataset create -i xrd_data.xy -n "XRD measurement" -m "X-ray diffraction" -pid my-project
 

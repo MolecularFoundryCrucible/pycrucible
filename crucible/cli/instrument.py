@@ -7,6 +7,7 @@ Provides instrument-related operations: list, get.
 """
 
 import sys
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,11 @@ def register_subcommand(subparsers):
     _register_create(instrument_subparsers)
     _register_update(instrument_subparsers)
     _register_edit(instrument_subparsers)
+    _register_transfer_ownership(instrument_subparsers)
+    _register_bind_sa(instrument_subparsers)
+    _register_unbind_sa(instrument_subparsers)
+    from ._access import register_access_commands
+    register_access_commands(instrument_subparsers, 'instruments', id_metavar='INSTRUMENT_MFID')
 
 
 def _register_list(subparsers):
@@ -56,7 +62,7 @@ def _register_list(subparsers):
     parser = subparsers.add_parser(
         'list',
         help='List instruments',
-        description='List all available instruments'
+        description='List instruments (active by default)'
     )
 
     parser.add_argument(
@@ -74,6 +80,19 @@ def _register_list(subparsers):
         help='Include scientific metadata in results'
     )
 
+    parser.add_argument(
+        '--status',
+        choices=['active', 'maintenance', 'decommissioned'],
+        help='Filter by lifecycle status (default: active)'
+    )
+
+    parser.add_argument(
+        '--json',
+        action='store_true',
+        default=False,
+        help='Output as JSON array'
+    )
+
     parser.set_defaults(func=_execute_list)
 
 
@@ -81,14 +100,14 @@ def _register_get(subparsers):
     """Register the 'instrument get' subcommand."""
     parser = subparsers.add_parser(
         'get',
-        help='Get instrument by name or ID',
-        description='Retrieve instrument information'
+        help='Get instrument by MFID or instrument slug',
+        description='Retrieve an instrument by canonical MFID or exact instrument_id slug'
     )
 
     instrument_arg = parser.add_argument(
         'instrument',
-        metavar='NAME_OR_ID',
-        help='Instrument name or unique ID'
+        metavar='INSTRUMENT',
+        help='Instrument MFID or instrument_id slug'
     )
     # Disable file completion for instrument name/ID
     if ARGCOMPLETE_AVAILABLE:
@@ -97,7 +116,7 @@ def _register_get(subparsers):
     parser.add_argument(
         '--by-id',
         action='store_true',
-        help='Treat argument as instrument ID instead of name'
+        help='Deprecated: treat the argument explicitly as an MFID'
     )
 
     parser.add_argument(
@@ -122,7 +141,7 @@ def _register_create(subparsers):
     parser = subparsers.add_parser(
         'create',
         help='Create a new instrument',
-        description='Register a new instrument in Crucible (requires admin permissions)',
+        description='Register a new instrument in Crucible',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -130,8 +149,8 @@ Examples:
     crucible instrument create
 
     # Command-line mode
-    crucible instrument create -n "titan" --owner "mf" --location "Building 67"
-    crucible instrument create -n "titan" --owner "mf" --location "Building 67" \\
+    crucible instrument create -n "titan" --instrument-id titan --location "Building 67"
+    crucible instrument create -n "titan" --instrument-id titan --owner roncofaber --location "Building 67" \\
         --manufacturer "FEI" --model "Titan 80-300" --type "TEM"
 """
     )
@@ -143,9 +162,15 @@ Examples:
         help='Instrument name. If not provided, will prompt interactively.'
     )
     parser.add_argument(
+        '--instrument-id',
+        dest='instrument_id',
+        metavar='ID',
+        help='Unique instrument slug (required). If not provided, will prompt interactively.'
+    )
+    parser.add_argument(
         '--owner',
         metavar='OWNER',
-        help='Instrument owner. If not provided, will prompt interactively.'
+        help='ORCID, MFID, username, or email of owner (default: authenticated identity)'
     )
     parser.add_argument(
         '--location',
@@ -187,10 +212,11 @@ def _execute_create(args):
     from crucible.client import CrucibleClient
 
     instrument_name = args.instrument_name
+    instrument_id = args.instrument_id
     owner = args.owner
     location = args.location
 
-    interactive = instrument_name is None or owner is None or location is None
+    interactive = instrument_name is None or instrument_id is None or location is None
     if interactive:
         term.header("Create Instrument")
         print("")
@@ -202,12 +228,12 @@ def _execute_create(args):
                 break
             logger.error("Instrument name is required.")
 
-    if owner is None:
+    if instrument_id is None:
         while True:
-            owner = input("Owner: ").strip()
-            if owner:
+            instrument_id = input("Instrument ID (unique slug): ").strip()
+            if instrument_id:
                 break
-            logger.error("Owner is required.")
+            logger.error("Instrument ID is required.")
 
     if location is None:
         while True:
@@ -250,6 +276,7 @@ def _execute_create(args):
 
         instrument = Instrument(
             instrument_name=instrument_name,
+            instrument_id=instrument_id,
             owner=owner,
             location=location,
             manufacturer=manufacturer,
@@ -273,8 +300,16 @@ def _execute_list(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        instruments = client.instruments.list(limit=args.limit,
-                                              include_metadata=getattr(args, 'include_metadata', False) or _config.include_metadata)
+        instruments = client.instruments.list(
+            limit=args.limit,
+            include_metadata=getattr(args, 'include_metadata', False) or _config.include_metadata,
+            include_owner=True,
+            status=getattr(args, 'status', None),
+        )
+
+        if getattr(args, 'json', False):
+            print(json.dumps(instruments, indent=2, default=str))
+            return
 
         term.header(f"Instruments ({len(instruments)})")
         if not instruments:
@@ -283,14 +318,15 @@ def _execute_list(args):
             rows = [
                 (
                     i.get('instrument_name') or '-',
+                    i.get('instrument_id') or '-',
                     i.get('unique_id') or '-',
-                    i.get('owner') or '-',
-                    i.get('location') or '-',
+                    term.fmt_owner(i) or '-',
+                    i.get('status') or '-',
                 )
                 for i in instruments
             ]
-            term.table(rows, ['Name', 'MFID', 'Owner', 'Location'],
-                       max_widths=[20, 26, 15, 25])
+            term.table(rows, ['Name', 'ID', 'MFID', 'Owner', 'Status'],
+                       max_widths=[16, 25, 26, 25, 12])
 
     except Exception as e:
         from .helpers import fail
@@ -305,18 +341,20 @@ def _show_instrument(instrument, include_metadata=False):
     term.header("Instrument")
     uid = instrument.get('unique_id')
     _p("Name",         instrument.get('instrument_name'))
+    _p("ID",           instrument.get('instrument_id'))
     _p("MFID",         term.cyan(uid) if uid else None)
     _p("Type",         instrument.get('instrument_type'))
     _p("Manufacturer", instrument.get('manufacturer'))
     _p("Model",        instrument.get('model'))
-    _p("Owner",        instrument.get('owner'))
+    _p("Owner",        term.fmt_owner(instrument))
+    _p("Status",       instrument.get('status'))
     _p("Location",     instrument.get('location'))
     _p("Description",  instrument.get('description'))
     if instrument.get('other_id'):
         _p("Other ID",     f"{instrument['other_id']}  ({instrument.get('other_id_source', '')})")
     if verbose:
-        _p("Created",      instrument.get('creation_time'))
-        _p("Modified",     instrument.get('modification_time'))
+        _p("Created",      term.fmt_ts(instrument.get('creation_time')))
+        _p("Modified",     term.fmt_ts(instrument.get('modification_time')))
         from .helpers import show_scientific_metadata
         show_scientific_metadata(instrument.get('scientific_metadata'))
 
@@ -329,11 +367,21 @@ def _execute_get(args):
         client = CrucibleClient()
 
         if args.by_id:
-            instrument = client.instruments.get(instrument_id=args.instrument,
-                                                include_metadata=include_metadata)
+            import warnings
+            warnings.warn(
+                "--by-id is deprecated because MFID/slug dispatch is automatic.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            instrument = client.instruments.get(
+                instrument_mfid=args.instrument,
+                include_metadata=include_metadata,
+            )
         else:
-            instrument = client.instruments.get(instrument_name=args.instrument,
-                                                include_metadata=include_metadata)
+            instrument = client.instruments.get(
+                args.instrument,
+                include_metadata=include_metadata,
+            )
 
         if instrument is None:
             logger.error(f"Instrument not found: {args.instrument}")
@@ -355,12 +403,12 @@ def _register_update(subparsers):
     parser = subparsers.add_parser(
         'update',
         help='Update an instrument record or scientific metadata',
-        description='Partially update an instrument record (requires admin permissions)',
+        description='Partially update an instrument record (requires editor permission)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
     crucible instrument update MFID001 --location "Building 67, Room 101"
-    crucible instrument update MFID001 --owner "mf" --model "Titan 80-300"
+    crucible instrument update MFID001 --model "Titan 80-300"
     crucible instrument update MFID001 --metadata '{"voltage_kv": 300, "cs_mm": 1.2}'
     crucible instrument update MFID001 --metadata metadata.json
     crucible instrument update MFID001 --metadata metadata.json --overwrite
@@ -372,7 +420,6 @@ Examples:
     if ARGCOMPLETE_AVAILABLE:
         uid_arg.completer = argcomplete.completers.SuppressCompleter()
     parser.add_argument('--name',         dest='instrument_name',  metavar='NAME',  help='Instrument name')
-    parser.add_argument('--owner',        dest='owner',            metavar='OWNER', help='Instrument owner')
     parser.add_argument('--location',     dest='location',         metavar='LOC',   help='Instrument location')
     parser.add_argument('--manufacturer', dest='manufacturer',     metavar='MFR',   help='Manufacturer')
     parser.add_argument('--model',        dest='model',            metavar='MODEL', help='Model')
@@ -391,7 +438,6 @@ def _execute_update(args):
 
     fields = {k: v for k, v in {
         'instrument_name': args.instrument_name,
-        'owner':           args.owner,
         'location':        args.location,
         'manufacturer':    args.manufacturer,
         'model':           args.model,
@@ -402,7 +448,7 @@ def _execute_update(args):
     has_metadata = bool(getattr(args, 'metadata', None))
 
     if not fields and not has_metadata:
-        logger.error("No fields to update. Provide at least one of: --name, --owner, --location, --manufacturer, --model, --type, --description, --metadata")
+        logger.error("No fields to update. Provide at least one of: --name, --location, --manufacturer, --model, --type, --description, --metadata")
         sys.exit(1)
 
     metadata_dict = None
@@ -431,6 +477,120 @@ def _execute_update(args):
     except Exception as e:
         from .helpers import fail
         fail("updating instrument", e, args)
+
+
+def _register_transfer_ownership(subparsers):
+    """Register the 'instrument transfer-ownership' subcommand."""
+    parser = subparsers.add_parser(
+        'transfer-ownership',
+        help='Transfer ownership of an instrument',
+        description='Preview or execute an ownership transfer (requires --confirm to execute)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible instrument transfer-ownership INSTRUMENT_MFID newowner@example.com
+    crucible instrument transfer-ownership INSTRUMENT_MFID newowner@example.com --confirm
+"""
+    )
+    parser.add_argument('instrument_mfid', metavar='INSTRUMENT_MFID', help='Instrument MFID')
+    parser.add_argument(
+        'new_owner', metavar='NEW_OWNER',
+        help='ORCID, MFID, username, or email of the new owner',
+    )
+    parser.add_argument(
+        '--confirm', action='store_true',
+        help='Execute the transfer (default: preview only)',
+    )
+    parser.set_defaults(func=_execute_transfer_ownership)
+
+
+def _execute_transfer_ownership(args):
+    """Execute the 'instrument transfer-ownership' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, show_transfer_ownership
+
+    try:
+        client = CrucibleClient()
+        result = client.instruments.transfer_ownership(
+            args.instrument_mfid, args.new_owner, confirm=args.confirm,
+        )
+        show_transfer_ownership(result, args.confirm)
+    except Exception as e:
+        fail("transferring instrument ownership", e, args)
+
+
+def _register_bind_sa(subparsers):
+    """Register the 'instrument bind-sa' subcommand."""
+    parser = subparsers.add_parser(
+        'bind-sa',
+        help='Bind a service account as an instrument operator',
+        description='Grant a service account operator standing on an instrument',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible instrument bind-sa MFID001 sa-unique-id
+"""
+    )
+    uid_arg = parser.add_argument(
+        'instrument_mfid', metavar='MFID', help='Instrument unique ID (MFID)'
+    )
+    if ARGCOMPLETE_AVAILABLE:
+        uid_arg.completer = argcomplete.completers.SuppressCompleter()
+    parser.add_argument('sa_id', metavar='SA_ID', help='Service account unique ID')
+    parser.set_defaults(func=_execute_bind_sa)
+
+
+def _execute_bind_sa(args):
+    """Execute the 'instrument bind-sa' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, sort_members
+
+    try:
+        client = CrucibleClient()
+        members = sort_members(client.instruments.bind_service_account(args.instrument_mfid, args.sa_id))
+        logger.info(f"✓ Service account {args.sa_id} bound to instrument {args.instrument_mfid}")
+        rows = [(m.username or '-', term.fmt_name(m.model_dump(), default='-', fallback_username=False),
+                 m.unique_id or '-', m.role or '-') for m in members]
+        term.table(rows, ['Username', 'Name', 'ID', 'Role'], max_widths=[25, 25, 30, 12])
+    except Exception as e:
+        fail("binding service account", e, args)
+
+
+def _register_unbind_sa(subparsers):
+    """Register the 'instrument unbind-sa' subcommand."""
+    parser = subparsers.add_parser(
+        'unbind-sa',
+        help='Remove a service account as an instrument operator',
+        description='Revoke a service account operator standing on an instrument',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible instrument unbind-sa MFID001 sa-unique-id
+"""
+    )
+    uid_arg = parser.add_argument(
+        'instrument_mfid', metavar='MFID', help='Instrument unique ID (MFID)'
+    )
+    if ARGCOMPLETE_AVAILABLE:
+        uid_arg.completer = argcomplete.completers.SuppressCompleter()
+    parser.add_argument('sa_id', metavar='SA_ID', help='Service account unique ID')
+    parser.set_defaults(func=_execute_unbind_sa)
+
+
+def _execute_unbind_sa(args):
+    """Execute the 'instrument unbind-sa' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, sort_members
+
+    try:
+        client = CrucibleClient()
+        members = sort_members(client.instruments.unbind_service_account(args.instrument_mfid, args.sa_id))
+        logger.info(f"✓ Service account {args.sa_id} unbound from instrument {args.instrument_mfid}")
+        rows = [(m.username or '-', term.fmt_name(m.model_dump(), default='-', fallback_username=False),
+                 m.unique_id or '-', m.role or '-') for m in members]
+        term.table(rows, ['Username', 'Name', 'ID', 'Role'], max_widths=[25, 25, 30, 12])
+    except Exception as e:
+        fail("unbinding service account", e, args)
 
 
 def _instrument_updatable_fields():
@@ -464,7 +624,7 @@ Examples:
 
 def _edit_instrument(uid, client, debug=False):
     """Core edit logic for an instrument - shared with top-level 'crucible edit' command."""
-    instrument = client.instruments.get(instrument_id=uid, include_metadata=True)
+    instrument = client.instruments.get(instrument_mfid=uid, include_metadata=True)
     if instrument is None:
         logger.error(f"Instrument not found: {uid}")
         sys.exit(1)

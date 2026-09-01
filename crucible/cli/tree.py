@@ -36,12 +36,12 @@ def register_subcommand(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible tree mf-abc123
-    crucible tree mf-abc123 --depth 3
-    crucible tree mf-abc123 --all
+    crucible tree 0td7evvtg5wb90005k1j97ak94
+    crucible tree 0td7evvtg5wb90005k1j97ak94 --depth 3
+    crucible tree 0td7evvtg5wb90005k1j97ak94 --all
 """,
     )
-    parser.add_argument('resource_id', metavar='ID',
+    parser.add_argument('resource_id', metavar='MFID',
                         help='MFID of any dataset or sample')
     parser.add_argument('--depth', '-d', type=int, default=None, metavar='N',
                         help='Maximum descendant depth (default: unlimited)')

@@ -13,7 +13,7 @@ def test_instrument_get(client):
     if not instruments:
         pytest.skip("no instruments available")
     iid = instruments[0].get('unique_id')
-    inst = client.instruments.get(instrument_id=iid)
+    inst = client.instruments.get(instrument_mfid=iid)
     assert inst.get('unique_id') == iid
 
 

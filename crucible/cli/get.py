@@ -33,7 +33,7 @@ Examples:
 
     parser.add_argument(
         'resource_id',
-        metavar='ID',
+        metavar='MFID',
         help='Resource MFID (dataset or sample)'
     )
     parser.add_argument(

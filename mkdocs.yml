@@ -1,5 +1,5 @@
 site_name: nano-crucible
-site_description: Python client library and CLI for Crucible — the Molecular Foundry's scientific data management platform
+site_description: Python client library and CLI for Crucible, the Molecular Foundry's scientific data management platform
 site_url: https://MolecularFoundryCrucible.github.io/nano-crucible/
 repo_url: https://github.com/MolecularFoundryCrucible/nano-crucible
 repo_name: MolecularFoundryCrucible/nano-crucible
@@ -65,6 +65,8 @@ nav:
   - Installation: installation.md
   - Quick Start: quickstart.md
   - Core Concepts: concepts.md
+  - Automation & Agents: automation.md
+  - Integrations: integrations.md
   - User Guide:
     - Working with Datasets: user-guide/datasets.md
     - Working with Samples: user-guide/samples.md
@@ -88,4 +90,6 @@ nav:
     - Ingestion: api-reference/ingestion.md
     - Graphs: api-reference/graphs.md
     - Models: api-reference/models.md
+  - Development:
+    - Permission Alignment: development/permission-alignment.md
   - Changelog: changelog.md

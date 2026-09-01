@@ -23,7 +23,7 @@ Or merge new keys into an existing dataset's metadata:
 
 ```python
 client.datasets.update_scientific_metadata(
-    "ds-abc123",
+    "0tkn2knjast3h0008nyq9zps2c",
     metadata={"temperature_K": 300, "pressure_bar": 1.013},
 )
 ```
@@ -32,7 +32,7 @@ To replace all existing metadata entirely, use `replace_scientific_metadata()`:
 
 ```python
 client.datasets.replace_scientific_metadata(
-    "ds-abc123",
+    "0tkn2knjast3h0008nyq9zps2c",
     metadata={"temperature_K": 300, "pressure_bar": 1.013},
 )
 ```
@@ -40,7 +40,7 @@ client.datasets.replace_scientific_metadata(
 ## Retrieving scientific metadata
 
 ```python
-meta = client.datasets.get_scientific_metadata("ds-abc123")
+meta = client.datasets.get_scientific_metadata("0tkn2knjast3h0008nyq9zps2c")
 print(meta)
 # {'temperature_K': 300, 'pressure_bar': 1.013, ...}
 ```
@@ -48,7 +48,7 @@ print(meta)
 For a full dataset record including metadata:
 
 ```python
-ds = client.datasets.get("ds-abc123", include_metadata=True)
+ds = client.datasets.get("0tkn2knjast3h0008nyq9zps2c", include_metadata=True)
 ```
 
 ## Searching by scientific metadata
@@ -65,21 +65,21 @@ The search is ranked and operates across all key names and string values in the 
 
 ```bash
 # Attach or replace scientific metadata from a JSON string
-crucible dataset update DATASET_ID --metadata '{"temperature_K": 300}'
+crucible dataset update DATASET_MFID --metadata '{"temperature_K": 300}'
 
 # Merge new keys into existing metadata (keeps untouched keys)
-crucible dataset update DATASET_ID --metadata '{"pressure_bar": 1.0}'
+crucible dataset update DATASET_MFID --metadata '{"pressure_bar": 1.0}'
 
 # Replace all metadata (overwrites everything)
-crucible dataset update DATASET_ID --metadata '{"new_key": "value"}' --overwrite
+crucible dataset update DATASET_MFID --metadata '{"new_key": "value"}' --overwrite
 
 # Search
 crucible dataset search "temperature" --limit 10
 
 # Get a dataset record including metadata
-crucible dataset get DATASET_ID --include-metadata
+crucible dataset get DATASET_MFID --include-metadata
 # or as JSON:
-crucible dataset get DATASET_ID -o json
+crucible dataset get DATASET_MFID -o json
 ```
 
 ## Tips

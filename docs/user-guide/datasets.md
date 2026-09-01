@@ -3,29 +3,33 @@
 | Field | Description | Settable |
 |---|---|---|
 | `dataset_name` | Human-readable name for the dataset | create, update |
-| `project_id` | Project this dataset belongs to | create, update |
+| `project_id` | Project this dataset belongs to | create; later changes use `reassign_project()` |
 | `measurement` | Industry-standard experiment type (e.g. `"Raman Spectroscopy"`) | create, update |
 | `data_type` | Institution-specific data organization descriptor (e.g. `"ScopeFoundry H5 file"`) | create, update |
-| `instrument_name` | Name of the instrument as registered in Crucible | create, update |
+| `instrument_name` | Name of the instrument as registered in Crucible | create |
+| `instrument_id` | Instrument identifier | create |
 | `data_format` | File type or extension (e.g. `"h5"`, `"dat"`) | create, update |
 | `session_name` | Optional tag grouping datasets collected in the same session | create, update |
 | `timestamp` | When the data was collected (ISO 8601 format) | create, update |
 | `public` | Whether the dataset is publicly accessible (default: `False`) | create, update |
-| `owner_orcid` | Dataset owner — defaults to the authenticated user | create, update |
+| `owner_orcid` | Canonical owner identifier returned by the API; deprecated as a creation input | read; deprecated for create |
+| `owner` | Flexible owner identifier on create; public-safe user record on singleton reads | create with an ORCID, MFID, username, or email; expanded by default on `get()` |
 | `unique_id` | System-assigned MFID identifier | server-assigned |
 | `size` | Total file size in bytes | server-assigned |
 | `creation_time` | When the record was created | server-assigned |
 | `modification_time` | When the record was last modified | server-assigned |
 
+Instrument assignment is fixed at creation for now. Generic dataset updates may resubmit the current `instrument_id` or `instrument_name` for compatibility, but changing or clearing either value returns HTTP 409 until a dedicated reassignment operation is available.
+
 ### Relationships
 
 | Relationship | Key(s) | Description |
 |---|---|---|
-| **Files** | `files` in `create()`; `add_file(dsid, file_path)` to add later | Zero or more files can be attached to a dataset. Each file is uploaded to cloud storage and triggers an ingestion process to parse metadata and generate thumbnails. |
+| **Files** | `files` in `create()`; `add_file(dataset_mfid, file_path)` to add later | Zero or more files can be attached to a dataset. Each file is uploaded to cloud storage and triggers an ingestion process to parse metadata and generate thumbnails. |
 | **Scientific metadata** | `scientific_metadata` in `create()`; `metadata` in `update_scientific_metadata()` / `replace_scientific_metadata()` | A free-form JSON object for experiment-specific parameters. Stored separately from structured fields and searchable across datasets. |
-| **Thumbnails** | `add_thumbnail(dsid, image)` | Small preview images representing the data or results. Generated automatically by ingestors where supported, or uploaded manually. |
-| **Samples** | `sample_id` in `add_sample(dataset_id, sample_id)` | A dataset can be linked to one or more samples, and a sample to one or more datasets — capturing which material was measured. |
-| **Parent/child datasets** | `parent_dataset_id`, `child_dataset_id` in `link_parent_child()` | Datasets can be linked in a directed hierarchy to represent processing pipelines (e.g. raw → calibrated → analyzed). |
+| **Thumbnails** | `add_thumbnail(dataset_mfid, image)` | Small preview images representing the data or results. Generated automatically by ingestors where supported, or uploaded manually. |
+| **Samples** | `sample_mfid` in `add_sample(dataset_mfid, sample_mfid)` | A dataset can be linked to one or more samples, and a sample to one or more datasets, capturing which material was measured. |
+| **Parent/child datasets** | `parent_mfid`, `child_mfid` in `link_parent_child()` | Datasets can be linked in a directed hierarchy to represent processing pipelines, such as raw to calibrated to analyzed. |
 
 # Working with Datasets
 ## Creating a dataset
@@ -47,7 +51,7 @@ result = client.datasets.create(
     keywords=["XRD", "powder"],
 )
 
-dsid = result["dsid"]
+dataset_mfid = result["dataset_mfid"]
 ```
 
 You can upload multiple files in one call:
@@ -61,18 +65,26 @@ result = client.datasets.create(
 !!! note "What happens when you call create()"
     `create()` is a client-side convenience method that chains several API calls:
 
-    1. **POST** `/datasets` — creates the dataset record and returns a `dsid`
-    2. **POST** `/resources/{dsid}/metadata` — adds scientific metadata (if provided)
-    3. **POST** `/datasets/{dsid}/keywords` — adds each keyword individually (if provided)
+    1. **POST** `/datasets` creates the dataset record and returns its `unique_id` MFID.
+    2. **POST** `/resources/{dataset_mfid}/metadata` adds scientific metadata when provided.
+    3. **POST** `/datasets/{dataset_mfid}/keywords` adds each keyword individually when provided.
     4. Uploads each file via GCS and triggers an ingestion request per file (if `files` is provided)
 
 
 ## Retrieving a dataset
 
 ```python
-ds = client.datasets.get("ds-abc123")
-ds_with_metadata = client.datasets.get("ds-abc123", include_metadata=True, include_links=True)
+ds = client.datasets.get("0tkn2knjast3h0008nyq9zps2c")
+ds_with_details = client.datasets.get(
+    "0tkn2knjast3h0008nyq9zps2c",
+    include_metadata=True,
+    include_links=True,
+)
 ```
+
+Datasets are retrieved only by their canonical 26-character MFID. Dataset names are display values, not identifiers.
+
+Singleton retrieval expands `owner` by default as a public-safe user record containing `unique_id`, `username`, `first_name`, and `last_name`. Pass `include_owner=False` to suppress expansion. List operations remain opt-in with `include_owner=True`. The canonical owner identifier remains available as `owner_orcid`.
 
 ## Listing datasets
 
@@ -84,28 +96,58 @@ datasets = client.datasets.list(project_id="my-project", limit=50)
 datasets = client.datasets.list(project_id="my-project", measurement="SEM imaging")
 
 # Filter by keyword
-datasets = client.datasets.list(project_id="my-project", keywords=["gold"])
+datasets = client.datasets.list(project_id="my-project", keyword="gold")
 
 # Datasets linked to a specific sample
-datasets = client.datasets.list(sample_id="sm-xyz789")
+datasets = client.datasets.list(sample_mfid="0td7evvtg5wb90005k1j97ak94")
+
+# Datasets readable by both users and directly accessible to a project
+datasets = client.datasets.list(
+    accessible_to_user=["alice", "bob"],
+    accessible_to_project="my-project",
+)
 ```
+
+Access selectors accept user MFIDs, ORCIDs, usernames, or emails and project MFIDs or project IDs. Multiple selectors use intersection semantics and only narrow resources the authenticated caller may read. Inspecting another user requires platform-administrator access, while inspecting a project requires membership in that project or platform-administrator access.
 
 ## Updating a dataset
 
 ```python
 client.datasets.update(
-    "ds-abc123",
+    "0tkn2knjast3h0008nyq9zps2c",
     dataset_name="XRD run 5 (corrected)",
     measurement="Powder X-ray diffraction",
 )
 ```
+
+Project and ownership changes use preview-first workflows. Pass `confirm=True` only after reviewing the preview:
+
+```python
+project_preview = client.datasets.reassign_project(dataset_mfid, "new-project")
+client.datasets.reassign_project(dataset_mfid, "new-project", confirm=True)
+
+owner_preview = client.datasets.transfer_ownership(dataset_mfid, "new-owner@example.org")
+client.datasets.transfer_ownership(dataset_mfid, "new-owner@example.org", confirm=True)
+```
+
+## Managing access
+
+```python
+grants = client.datasets.list_access(dataset_mfid)
+client.datasets.set_access(dataset_mfid, "users", "0000-0002-1825-0097", "editor")
+client.datasets.revoke_access(dataset_mfid, "users", "0000-0002-1825-0097")
+client.datasets.set_public(dataset_mfid)
+client.datasets.unset_public(dataset_mfid)
+```
+
+Normal access grants accept `viewer`, `contributor`, `editor`, or `admin`. Use `transfer_ownership()` for ownership.
 
 ## Adding files to a dataset
 
 Add files to an existing dataset:
 
 ```python
-client.datasets.add_file("ds-abc123", "additional_file.dat")
+client.datasets.add_file(dataset_mfid, "additional_file.dat")
 ```
 
 ### How the data ingestion process works
@@ -122,7 +164,7 @@ Ingestors will not overwrite the dataset attributes provided at dataset creation
 
 For updates to the scientific metadata, the ingestion process uses the `client.datasets.update_scientific_metadata(overwrite = False)` method. As a result, new key-value pairs parsed during the ingestion process will be appended to the existing `scientific_metadata` and newly parsed values for existing keys will be updated. If you would like to replace the entire scientific_metadata dictionary, it can be done manally with `update_scientific_metadata(overwrite=True)`.
 
-Files are deduplicated by sha256 hash. If you add the same file twice it will not be reuploaded, but ingestion will be re-requested — this operation is **idempotent**.
+Files are deduplicated by sha256 hash. If you add the same file twice it will not be reuploaded, but ingestion will be re-requested. This operation is **idempotent**.
 
 !!! warning
     If two files with the same name but different contents are added to the same dataset, the upload proceeds but **replaces the original file in cloud storage**. A new file record is created with a new `mfid` and hash; the old record remains but its download link points to the new file. We are actively working on updated logic to address this.
@@ -136,7 +178,7 @@ Sometimes a file isn't worth (or isn't possible to) upload to GCS - it lives on 
 ```python
 from crucible.models import AssociatedFile
 
-client.datasets.add_remote_file(dsid, AssociatedFile(
+client.datasets.add_remote_file(dataset_mfid, AssociatedFile(
     filename="raw_data.tar",
     storage_backend="globus",
     storage_path="https://app.globus.org/file-manager?origin_id=...&origin_path=...",
@@ -178,12 +220,12 @@ Scientific metadata stores experiment-specific parameters as a free-form JSON ob
 ```python
 # Merge new keys into existing metadata (PATCH — appends/updates individual keys)
 client.datasets.update_scientific_metadata(
-    "ds-abc123",
+    dataset_mfid,
     metadata={"temperature_K": 300, "pressure_bar": 1.0, "scan_rate_mV_s": 50},
 )
 
 # Retrieve it
-meta = client.datasets.get_scientific_metadata("ds-abc123")
+meta = client.datasets.get_scientific_metadata(dataset_mfid)
 
 # Search across all datasets
 results = client.datasets.search_scientific_metadata("temperature", limit=20)
@@ -193,34 +235,34 @@ results = client.datasets.search_scientific_metadata("temperature", limit=20)
 
 ```python
 # Replace all metadata entirely (POST)
-client.datasets.replace_scientific_metadata("ds-abc123", {"new_key": "value"})
+client.datasets.replace_scientific_metadata(dataset_mfid, {"new_key": "value"})
 ```
 
 ## Keywords
 
 ```python
-client.datasets.add_keyword("ds-abc123", "annealed")
-keywords = client.datasets.get_keywords(dataset_id="ds-abc123")
+client.datasets.add_keyword(dataset_mfid, "annealed")
+keywords = client.datasets.get_keywords(dataset_mfid=dataset_mfid)
 ```
 
 ## Thumbnails
 
 ```python
-client.datasets.add_thumbnail("ds-abc123", "preview.png")
-thumbnails = client.datasets.get_thumbnails("ds-abc123")
+client.datasets.add_thumbnail(dataset_mfid, "preview.png")
+thumbnails = client.datasets.get_thumbnails(dataset_mfid)
 ```
 
 ## Downloading
 
 ```python
 # Download all files for a dataset
-client.datasets.download("ds-abc123", output_dir="./downloads")
+client.datasets.download(dataset_mfid, output_dir="./downloads")
 
 # Download only matching files
-client.datasets.download("ds-abc123", output_dir="./downloads", include="*.dat")
+client.datasets.download(dataset_mfid, output_dir="./downloads", include=["*.dat"])
 
-# Get pre-signed download URLs (valid ~1 hour)
-links = client.datasets.get_download_links("ds-abc123")
+# Get temporary signed download URLs, keyed by file MFID
+links = client.datasets.get_download_links(dataset_mfid)
 ```
 
 ## Parent-child relationships between datasets
@@ -229,20 +271,21 @@ Link datasets to represent a processing pipeline:
 
 ```python
 # raw → processed
-client.datasets.link_parent_child(parent_dataset_id=raw_dsid, child_dataset_id=processed_dsid)
+client.datasets.link_parent_child(
+    parent_mfid=raw_dataset_mfid,
+    child_mfid=processed_dataset_mfid,
+)
 
 # List relationships
-parents = client.datasets.list_parents("ds-processed")
-children = client.datasets.list_children("ds-raw")
+parents = client.datasets.list_parents(processed_dataset_mfid)
+children = client.datasets.list_children(raw_dataset_mfid)
 ```
 
-## Deleting a dataset
+## Requesting dataset deletion
 
 ```python
-client.datasets.delete("ds-abc123")
+client.deletions.request(dataset_mfid, reason="Superseded dataset")
 ```
 
 !!! note
-    Calling `delete()` submits a deletion request — it does not immediately remove the resource. An admin must approve the request before the dataset is deleted.
-
-
+    A deletion request does not immediately remove the resource. An admin must approve it before permanent deletion.

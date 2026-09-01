@@ -39,7 +39,7 @@ class AccountOperations(BaseResource):
         """Return the authenticated caller's own user profile.
 
         Returns:
-            Dict: UserRead — includes username, first_name, last_name, email, orcid
+            Dict: UserRead with unique_id, username, first_name, last_name, and email
         """
         return self._request('get', '/account/profile')
 
@@ -48,12 +48,13 @@ class AccountOperations(BaseResource):
 
         Accepted fields: first_name, last_name, email, username.
         Pass username=None to clear the username.
-        Note: is_service_account is admin-only — use client.users.update() instead.
+        Account type cannot be changed through profile updates.
 
         Returns:
             Dict: Updated UserRead profile
         """
-        kwargs.pop('is_service_account', None)
+        if 'is_service_account' in kwargs:
+            raise ValueError("is_service_account cannot be changed through account profile updates.")
         return self._request('patch', '/account/profile', json=kwargs)
 
     def api_key(self) -> str:
@@ -75,6 +76,16 @@ class AccountOperations(BaseResource):
             Dict: {valid: bool, created_at: str, expires_at: str}
         """
         return self._request('get', '/account/verify')
+
+    def sync_projects(self) -> Dict:
+        """Refresh the caller's project memberships from the MF proposal database.
+
+        Additive — projects are only ever added, never removed.
+
+        Returns:
+            Dict: {orcid, projects_added, projects_already_member, projects_not_found}
+        """
+        return self._request('post', '/account/sync-projects')
 
     def join_requests(self, status: Optional[str] = None,
                       limit: int = DEFAULT_LIMIT, offset: int = 0) -> List[Dict]:

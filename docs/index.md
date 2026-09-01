@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/license-BSD-green.svg)](https://github.com/MolecularFoundryCrucible/nano-crucible/blob/main/LICENSE)
 [![Discord](https://img.shields.io/discord/1476722549424394242?logo=discord&label=Discord&color=5865F2)](https://discord.gg/Wrepphsgbx)
 
-**nano-crucible** is the official Python client library and CLI for [Crucible](https://crucible.lbl.gov) — the data management platform for the [Molecular Foundry](https://foundry.lbl.gov/) and DOE Nanoscale Science Research Centers (NSRCs).
+**nano-crucible** is the official Python client library and CLI for [Crucible](https://crucible.lbl.gov), the data management platform for the [Molecular Foundry](https://foundry.lbl.gov/) and DOE Nanoscale Science Research Centers (NSRCs).
 
 Use it to store, retrieve, and manage scientific datasets as well as metadata about the samples, instruments, and projects with which they are associated. 
 
@@ -24,52 +24,17 @@ Use it to store, retrieve, and manage scientific datasets as well as metadata ab
 
 ## Quick example
 
+After [configuring your API key](installation.md#configuration), connect with the Python client and inspect accessible datasets:
+
 ```python
 from crucible import CrucibleClient
-from crucible.models import Dataset, Sample, Project
 
 client = CrucibleClient()
-
-# Create a project
-project = client.projects.create(Project(
-    project_id="my-project",
-    organization="LBNL",
-    project_lead_orcid="0000-0001-2345-6789",
-))
-
-# Add a user to your project
-client.projects.add_user(project_id=project["project_id"], email="user@lbl.gov")
-# or by ORCID: client.projects.add_user(project_id=project["project_id"], orcid="0000-0001-2345-6789")
-
-# Create a sample
-sample = client.samples.create(
-    sample_name="Au nanoparticles",
-    sample_type="nanoparticle suspension",
-    project_id=project["project_id"],
-)
-# More information about the fields that can be added when creating a sample are documented [here](user-guide/samples.md)
-
-# Upload a dataset and link it to the sample
-dataset = client.datasets.create(
-    dataset=Dataset(
-        dataset_name="SAXS run 42",
-        measurement="Small-angle X-ray scattering",
-        instrument_name="SAXS beamline",
-        project_id=project["project_id"],
-    ),
-    files=["saxs_run42.dat"],
-    scientific_metadata={"energy_keV": 10.0, "sample_detector_distance_m": 1.5},
-    keywords=["SAXS", "nanoparticles", "gold"],
-)
-
-# Link the dataset to the sample
-client.samples.add_dataset(sample["unique_id"], dataset["unique_id"])
-
-# More information about creating datasets is documented [here](user-guide/datasets.md)
-
-print(f"Sample:  {sample['unique_id']}")
-print(f"Dataset: {dataset['unique_id']}")
+for dataset in client.datasets.list(limit=5):
+    print(dataset["unique_id"], dataset.get("dataset_name"))
 ```
+
+Continue with the [quick start](quickstart.md) to create datasets and samples or use the [CLI overview](cli/index.md) for terminal workflows.
 
 ---
 
@@ -89,7 +54,8 @@ print(f"Dataset: {dataset['unique_id']}")
 1. [Install the package](installation.md)
 2. [Configure your API key](installation.md#configuration)
 3. [Follow the quick start guide](quickstart.md)
-4. [Set up a UI for your instrument](integrations.md)
+4. [Automate safely with scripts or coding agents](automation.md)
+5. [Set up a UI for your instrument](integrations.md)
 ---
 
 ## Support

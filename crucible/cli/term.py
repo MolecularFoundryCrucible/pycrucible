@@ -12,6 +12,8 @@ import re
 import sys
 from datetime import datetime, timezone
 
+from ..utils.identifiers import is_orcid
+
 # Strips ANSI SGR sequences (\033[...m) and OSC 8 hyperlinks (\033]8;...\007)
 _ANSI_RE = re.compile(r'\033(?:\[[0-9;]*m|\][^\007\033]*(?:\007|\033\\))')
 # Matches a full OSC 8 hyperlink: \033]8;;URL\007TEXT\033]8;;\007
@@ -59,6 +61,18 @@ def orcid_link(orcid: str) -> str | None:
     return hyperlink(cyan(orcid), f"https://orcid.org/{orcid}")
 
 
+def user_id_link(user_id: str) -> str | None:
+    """Render a canonical user ORCID or MFID with the appropriate link style."""
+    if not user_id:
+        return None
+    return orcid_link(user_id) if is_orcid(user_id) else mfid_link(user_id)
+
+
+def user_id_label(user_id: str) -> str:
+    """Return the display label for a canonical user identifier."""
+    return "ORCID" if is_orcid(user_id) else "User ID"
+
+
 def fmt_name(person: dict, default: str | None = None, fallback_username: bool = True) -> str | None:
     """Join first_name + last_name from a user-shaped dict.
 
@@ -78,17 +92,19 @@ def fmt_owner(resource: dict) -> str | None:
     """Format the owner of a resource.
 
     If include_owner was used and the owner object is present, returns
-    'First Last (@username)' with the ORCID as a clickable hyperlink.
-    Falls back to the raw owner_orcid field.
+    'First Last (@username)' and links it only when the canonical owner ID is
+    an ORCID. Falls back to the canonical owner identifier.
     """
     owner = resource.get('owner')
-    orcid = resource.get('owner_orcid')
+    owner_id = resource.get('owner_orcid')
     if owner:
-        name  = fmt_name(owner, default=orcid or '-')
+        name  = fmt_name(owner, default=owner_id or '-')
         uname = owner.get('username')
         label = f"{name} (@{uname})" if uname else name
-        return hyperlink(cyan(label), f"https://orcid.org/{orcid}") if orcid else cyan(label)
-    return orcid_link(orcid)
+        if is_orcid(owner_id):
+            return hyperlink(cyan(label), f"https://orcid.org/{owner_id}")
+        return cyan(label)
+    return user_id_link(owner_id)
 
 
 def project_link(pid: str, url: str | None = None) -> str | None:

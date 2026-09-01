@@ -43,7 +43,7 @@ def execute(args):
         uid = user.get('unique_id')
         _p("Username", user.get('username') or term.dim('(not set)'))
         _p("Name",     name)
-        _p("ORCID",    term.orcid_link(uid) if not user.get('is_service_account') else uid)
+        _p(term.user_id_label(uid), term.user_id_link(uid))
         _p("Email",    user.get('email'))
         if user.get('is_service_account'):
             _p("Type", "service account")

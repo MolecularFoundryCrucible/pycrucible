@@ -236,6 +236,8 @@ def register_subcommand(subparsers):
     _register_get(dataset_subparsers)
     _register_create(dataset_subparsers)
     _register_update(dataset_subparsers)
+    _register_reassign_project(dataset_subparsers)
+    _register_transfer_ownership(dataset_subparsers)
     _register_delete(dataset_subparsers)
     _register_edit(dataset_subparsers)
     _register_link(dataset_subparsers)
@@ -255,6 +257,8 @@ def register_subcommand(subparsers):
     _register_list_keywords(dataset_subparsers)
     _register_list_access_groups(dataset_subparsers)
     _register_add_access_group(dataset_subparsers)
+    from ._access import register_access_commands
+    register_access_commands(dataset_subparsers, 'datasets', id_metavar='DATASET_MFID')
     _register_parsers(dataset_subparsers)
     _register_ingestors(dataset_subparsers)
 
@@ -382,8 +386,8 @@ def _register_get(subparsers):
 
     dataset_id_arg = parser.add_argument(
         'dataset_id',
-        metavar='DATASET_ID',
-        help='Dataset unique ID'
+        metavar='DATASET_MFID',
+        help='Dataset MFID'
     )
     # Disable file completion for dataset_id
     if ARGCOMPLETE_AVAILABLE:
@@ -496,8 +500,8 @@ Examples:
         nargs='?',
         const=True,
         default=None,
-        metavar='ID',
-        help='Unique dataset ID (mfid). If omitted, server assigns ID. If flag provided without value, generates locally. If value provided, uses that ID.'
+        metavar='MFID',
+        help='Dataset MFID. If omitted, the server assigns one. If the flag is provided without a value, the client generates one locally.'
     )
 
     # Dataset name
@@ -652,7 +656,7 @@ def _register_update(subparsers):
     fields = _dataset_updatable_fields()
 
     def _add_args(p):
-        did_arg = p.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+        did_arg = p.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
         if ARGCOMPLETE_AVAILABLE:
             did_arg.completer = argcomplete.completers.SuppressCompleter()
         p.add_argument('--set', '-s', action='append', dest='set_fields', metavar='KEY=VALUE',
@@ -672,12 +676,12 @@ Updatable fields (use --set):
     {', '.join(fields)}
 
 Examples:
-    crucible dataset update DSID --set dataset_name="My Dataset"
-    crucible dataset update DSID --set public=true
-    crucible dataset update DSID --set measurement=XRD --set session_name=run-01
-    crucible dataset update DSID --metadata '{{"temperature": 300, "pressure": 1.0}}'
-    crucible dataset update DSID --metadata metadata.json
-    crucible dataset update DSID --set measurement=XRD --metadata '{{"temperature": 300}}'
+    crucible dataset update DATASET_MFID --set dataset_name="My Dataset"
+    crucible dataset update DATASET_MFID --set public=true
+    crucible dataset update DATASET_MFID --set measurement=XRD --set session_name=run-01
+    crucible dataset update DATASET_MFID --metadata '{{"temperature": 300, "pressure": 1.0}}'
+    crucible dataset update DATASET_MFID --metadata metadata.json
+    crucible dataset update DATASET_MFID --set measurement=XRD --metadata '{{"temperature": 300}}'
 """
     )
     _add_args(parser)
@@ -745,6 +749,70 @@ def _execute_update(args):
         fail("updating dataset", e, args)
 
 
+def _register_reassign_project(subparsers):
+    """Register the 'dataset reassign-project' subcommand."""
+    parser = subparsers.add_parser(
+        'reassign-project',
+        help='Move a dataset to a different project',
+        description='Preview or execute a project reassignment (requires --confirm to execute)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible dataset reassign-project DATASET_MFID new-project
+    crucible dataset reassign-project DATASET_MFID new-project --confirm
+"""
+    )
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
+    parser.add_argument('project_id', metavar='PROJECT_ID', help='Target project ID')
+    parser.add_argument('--confirm', action='store_true', help='Execute the move (default: preview only)')
+    parser.set_defaults(func=_execute_reassign_project)
+
+
+def _execute_reassign_project(args):
+    """Execute the 'dataset reassign-project' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, show_reassign_project
+
+    try:
+        client = CrucibleClient()
+        result = client.datasets.reassign_project(args.dataset_id, args.project_id, confirm=args.confirm)
+        show_reassign_project(result, args.confirm)
+    except Exception as e:
+        fail("reassigning dataset project", e, args)
+
+
+def _register_transfer_ownership(subparsers):
+    """Register the 'dataset transfer-ownership' subcommand."""
+    parser = subparsers.add_parser(
+        'transfer-ownership',
+        help='Transfer ownership of a dataset',
+        description='Preview or execute an ownership transfer (requires --confirm to execute)',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible dataset transfer-ownership DATASET_MFID newowner@example.com
+    crucible dataset transfer-ownership DATASET_MFID newowner@example.com --confirm
+"""
+    )
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
+    parser.add_argument('new_owner', metavar='NEW_OWNER', help='ORCID, MFID, username, or email of the new owner')
+    parser.add_argument('--confirm', action='store_true', help='Execute the transfer (default: preview only)')
+    parser.set_defaults(func=_execute_transfer_ownership)
+
+
+def _execute_transfer_ownership(args):
+    """Execute the 'dataset transfer-ownership' subcommand."""
+    from crucible.client import CrucibleClient
+    from .helpers import fail, show_transfer_ownership
+
+    try:
+        client = CrucibleClient()
+        result = client.datasets.transfer_ownership(args.dataset_id, args.new_owner, confirm=args.confirm)
+        show_transfer_ownership(result, args.confirm)
+    except Exception as e:
+        fail("transferring dataset ownership", e, args)
+
+
 def _register_delete(subparsers):
     """Register the 'dataset delete' subcommand."""
     parser = subparsers.add_parser(
@@ -754,11 +822,11 @@ def _register_delete(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset delete DATASET_ID
-    crucible dataset delete DATASET_ID -y
+    crucible dataset delete DATASET_MFID
+    crucible dataset delete DATASET_MFID -y
 """
     )
-    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID to delete')
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID to delete')
     parser.add_argument('-y', '--yes', action='store_true', help='Skip confirmation prompt')
     parser.set_defaults(func=_execute_delete)
 
@@ -789,14 +857,14 @@ def _register_edit(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset edit DATASET_ID
-    EDITOR=vim crucible dataset edit DATASET_ID
+    crucible dataset edit DATASET_MFID
+    EDITOR=vim crucible dataset edit DATASET_MFID
 """
     )
     did_arg = parser.add_argument(
         'dataset_id',
-        metavar='DATASET_ID',
-        help='Dataset unique ID'
+        metavar='DATASET_MFID',
+        help='Dataset MFID'
     )
     if ARGCOMPLETE_AVAILABLE:
         did_arg.completer = argcomplete.completers.SuppressCompleter()
@@ -878,15 +946,15 @@ def _register_link(subparsers):
     parser.add_argument(
         '-p', '--parent',
         required=True,
-        metavar='PARENT_ID',
-        help='Parent dataset ID'
+        metavar='PARENT_MFID',
+        help='Parent dataset MFID'
     )
 
     parser.add_argument(
         '-c', '--child',
         required=True,
-        metavar='CHILD_ID',
-        help='Child dataset ID'
+        metavar='CHILD_MFID',
+        help='Child dataset MFID'
     )
 
     parser.set_defaults(func=_execute_link)
@@ -901,11 +969,11 @@ def _register_add_sample(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset add-sample DATASET_ID --sample SAMPLE_ID
+    crucible dataset add-sample DATASET_MFID --sample SAMPLE_MFID
 """
     )
-    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
-    parser.add_argument('-s', '--sample', required=True, metavar='SAMPLE_ID', help='Sample ID')
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
+    parser.add_argument('-s', '--sample', required=True, metavar='SAMPLE_MFID', help='Sample MFID')
     parser.set_defaults(func=_execute_add_sample)
 
 
@@ -932,11 +1000,11 @@ def _register_remove_sample(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset remove-sample DATASET_ID --sample SAMPLE_ID
+    crucible dataset remove-sample DATASET_MFID --sample SAMPLE_MFID
 """
     )
-    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
-    parser.add_argument('-s', '--sample', required=True, metavar='SAMPLE_ID', help='Sample ID to unlink')
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
+    parser.add_argument('-s', '--sample', required=True, metavar='SAMPLE_MFID', help='Sample MFID to unlink')
     parser.set_defaults(func=_execute_remove_sample)
 
 
@@ -961,11 +1029,11 @@ def _register_remove_child(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset remove-child PARENT_ID --child CHILD_ID
+    crucible dataset remove-child PARENT_MFID --child CHILD_MFID
 """
     )
-    parser.add_argument('parent_id', metavar='PARENT_ID', help='Parent dataset unique ID')
-    parser.add_argument('-c', '--child', required=True, metavar='CHILD_ID', help='Child dataset ID to unlink')
+    parser.add_argument('parent_id', metavar='PARENT_MFID', help='Parent dataset MFID')
+    parser.add_argument('-c', '--child', required=True, metavar='CHILD_MFID', help='Child dataset MFID to unlink')
     parser.set_defaults(func=_execute_remove_child)
 
 
@@ -990,11 +1058,11 @@ def _register_list_parents(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset list-parents DATASET_ID
-    crucible dataset list-parents DATASET_ID --limit 20
+    crucible dataset list-parents DATASET_MFID
+    crucible dataset list-parents DATASET_MFID --limit 20
 """
     )
-    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
     parser.add_argument('--limit', type=int, default=_config.default_limit, metavar='N',
                         help=f'Maximum number of results (default: {_config.default_limit})')
     parser.set_defaults(func=_execute_list_parents)
@@ -1009,11 +1077,11 @@ def _register_list_children(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset list-children DATASET_ID
-    crucible dataset list-children DATASET_ID --limit 20
+    crucible dataset list-children DATASET_MFID
+    crucible dataset list-children DATASET_MFID --limit 20
 """
     )
-    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
     parser.add_argument('--limit', type=int, default=_config.default_limit, metavar='N',
                         help=f'Maximum number of results (default: {_config.default_limit})')
     parser.set_defaults(func=_execute_list_children)
@@ -1028,10 +1096,10 @@ def _register_list_samples(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset list-samples DATASET_ID
+    crucible dataset list-samples DATASET_MFID
 """
     )
-    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
     parser.add_argument('--limit', type=int, default=_config.default_limit, metavar='N',
                         help=f'Maximum number of results (default: {_config.default_limit})')
     parser.set_defaults(func=_execute_list_samples)
@@ -1047,35 +1115,35 @@ def _register_download(subparsers):
         epilog="""
 Examples:
     # Download all files into ./crucible-downloads/<dataset_id>/
-    crucible dataset download DATASET_ID
+    crucible dataset download DATASET_MFID
 
     # Download to a specific directory
-    crucible dataset download DATASET_ID -o my_data/
+    crucible dataset download DATASET_MFID -o my_data/
 
     # Download a single file
-    crucible dataset download DATASET_ID -f results.csv
+    crucible dataset download DATASET_MFID -f results.csv
 
     # Only download CSV files
-    crucible dataset download DATASET_ID --include "*.csv"
+    crucible dataset download DATASET_MFID --include "*.csv"
 
     # Download everything except raw files
-    crucible dataset download DATASET_ID --exclude "*.raw"
+    crucible dataset download DATASET_MFID --exclude "*.raw"
 
     # Include multiple patterns
-    crucible dataset download DATASET_ID --include "*.csv" --include "*.json"
+    crucible dataset download DATASET_MFID --include "*.csv" --include "*.json"
 
     # Combine include and exclude
-    crucible dataset download DATASET_ID --include "data/*" --exclude "*.tmp"
+    crucible dataset download DATASET_MFID --include "data/*" --exclude "*.tmp"
 
     # Force re-download of files that already exist locally
-    crucible dataset download DATASET_ID --overwrite
+    crucible dataset download DATASET_MFID --overwrite
 """
     )
 
     dataset_id_arg = parser.add_argument(
         'dataset_id',
-        metavar='DATASET_ID',
-        help='Dataset unique ID'
+        metavar='DATASET_MFID',
+        help='Dataset MFID'
     )
     if ARGCOMPLETE_AVAILABLE:
         dataset_id_arg.completer = argcomplete.completers.SuppressCompleter()
@@ -1085,7 +1153,7 @@ Examples:
         dest='output_dir',
         default=None,
         metavar='DIR',
-        help='Directory to save downloaded files (default: crucible-downloads/DATASET_ID/)'
+        help='Directory to save downloaded files (default: crucible-downloads/DATASET_MFID/)'
     )
 
     parser.add_argument(
@@ -1163,20 +1231,20 @@ def _register_add_file(subparsers):
         epilog="""
 Examples:
     # Add a single file
-    crucible dataset add-file DATASET_ID -i results.csv
+    crucible dataset add-file DATASET_MFID -i results.csv
 
     # Add multiple files
-    crucible dataset add-file DATASET_ID -i file1.dat file2.dat
+    crucible dataset add-file DATASET_MFID -i file1.dat file2.dat
 
     # Add files matching a glob pattern
-    crucible dataset add-file DATASET_ID -i *.csv
+    crucible dataset add-file DATASET_MFID -i *.csv
 """
     )
 
     dataset_id_arg = parser.add_argument(
         'dataset_id',
-        metavar='DATASET_ID',
-        help='Dataset unique ID'
+        metavar='DATASET_MFID',
+        help='Dataset MFID'
     )
     if ARGCOMPLETE_AVAILABLE:
         dataset_id_arg.completer = argcomplete.completers.SuppressCompleter()
@@ -1258,7 +1326,7 @@ def _register_list_files(subparsers):
         description='Show all files associated with a dataset. File names are '
                     'clickable download links (valid for 1 hour) in supporting terminals.',
     )
-    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
     parser.set_defaults(func=_execute_list_files)
 
 
@@ -1315,10 +1383,10 @@ def _register_ingestion(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset ingestion DSID
+    crucible dataset ingestion DATASET_MFID
 """,
     )
-    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
     parser.set_defaults(func=_execute_ingestion)
 
 
@@ -1456,12 +1524,12 @@ def _register_add_keyword(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset add-keyword DATASET_ID silicon
-    crucible dataset add-keyword DATASET_ID "in-situ TEM"
+    crucible dataset add-keyword DATASET_MFID silicon
+    crucible dataset add-keyword DATASET_MFID "in-situ TEM"
 """
     )
 
-    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
     parser.add_argument('keyword', metavar='KEYWORD', help='Keyword to add')
     parser.set_defaults(func=_execute_add_keyword)
 
@@ -1485,7 +1553,7 @@ def _register_list_keywords(subparsers):
     import argparse
 
     def _add_args(p):
-        p.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+        p.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
 
     parser = subparsers.add_parser(
         'list-keywords',
@@ -1521,15 +1589,15 @@ def _execute_list_keywords(args):
 def _register_list_access_groups(subparsers):
     parser = subparsers.add_parser(
         'list-access-groups',
-        help='List access groups for a dataset (admin)',
-        description='List access groups that have been granted access to a dataset.',
+        help='Deprecated: use dataset access list',
+        description='Deprecated compatibility command. Use dataset access list.',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset list-access-groups DSID
+    crucible dataset list-access-groups DATASET_MFID
 """,
     )
-    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
     parser.set_defaults(func=_execute_list_access_groups)
 
 
@@ -1553,16 +1621,16 @@ def _execute_list_access_groups(args):
 def _register_add_access_group(subparsers):
     parser = subparsers.add_parser(
         'add-access-group',
-        help='Grant an access group access to a dataset (admin)',
-        description='Add an access group to a dataset with read and/or write permissions.',
+        help='Deprecated: use dataset access grant',
+        description='Deprecated compatibility command. Use dataset access grant.',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset add-access-group DSID my-group
-    crucible dataset add-access-group DSID my-group --write
+    crucible dataset add-access-group DATASET_MFID my-group
+    crucible dataset add-access-group DATASET_MFID my-group --write
 """,
     )
-    parser.add_argument('dataset_id', metavar='DATASET_ID', help='Dataset unique ID')
+    parser.add_argument('dataset_id', metavar='DATASET_MFID', help='Dataset MFID')
     parser.add_argument('group_name', metavar='GROUP',      help='Access group name')
     parser.add_argument('--write', action='store_true', default=False,
                         help='Also grant write access (read access is always granted)')
@@ -2024,7 +2092,7 @@ def _execute_list_samples(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        samples = sorted(client.samples.list(dataset_id=args.dataset_id, limit=args.limit),
+        samples = sorted(client.samples.list(dataset_mfid=args.dataset_id, limit=args.limit),
                          key=lambda s: (s.get('sample_name') or '').lower())
 
         term.header(f"Samples · {args.dataset_id} ({len(samples)})")

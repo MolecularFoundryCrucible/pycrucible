@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+## 3.2.0
+
 ### Added
 
+- Dataset, sample, and project lists accept repeated user and project access selectors.
+- Development skills for API, CLI, parser, and cast changes.
+- Agent-agnostic contributor guidance and a skill for safe client workflows.
 - New `file request-ingestion` CLI command to (re)request ingestion for a cataloged file.
 - New `client.datasets.add_remote_file()` and `client.files.update()` to catalog files that live outside GCS (Globus, NERSC, a shared filesystem) without uploading them.
 - `dataset create --no-upload`/`--backend`/`--access-note` to catalog files by path instead of uploading them.
@@ -13,9 +18,32 @@
 - Shell autocomplete for `instrument get` and `--project`/`-pid` flags.
 - Shell autocomplete for dataset/sample IDs across most subcommands.
 - Shell autocomplete for `user search` shows live matches while typing.
+- New `dataset`/`sample`/`project reassign-project` and `transfer-ownership` commands.
+- New `dataset`/`sample`/`project access list`/`grant`/`revoke` and `publish`/`unpublish` commands.
+- New `project update-user-role` command and `add-user --role` flag.
+- `project list-users` now shows each member's role.
+- `instrument create` requires a new `--instrument-id` flag (a unique slug, separate from its ID and name).
+- `project get --include-members` shows the project's member list and roles; `--members` remains as a deprecated alias.
+- `project create`/`client.projects.create()` accept a flexible `project_lead` field as an alternative to the explicit ORCID/email/username fields.
 
 ### Changed
 
+- The built-in production endpoint now targets API v3; explicit v1/v2 overrides display a migration warning, and `config unset api_url` restores the package default.
+- Instrument retrieval expands typed public owner records by default; instrument lists support owner expansion and lifecycle-status filtering.
+- Instrument creation defaults ownership to the authenticated identity, while ownership changes use `transfer_ownership()` and `instrument transfer-ownership` instead of update fields.
+- Human users may be created without an ORCID, receiving a server-assigned MFID that user and owner displays treat as a canonical user ID rather than an ORCID.
+- User operations that require a canonical identity use `user_unique_id`; the previous `orcid` keyword remains temporarily supported with a deprecation warning.
+- Health checks and `crucible status` accept deployment provenance from the nested API readiness response while remaining compatible with the legacy flat response during rollout.
+- Singleton dataset and sample retrieval expands typed public owner records by default; `owner_orcid` creation inputs are deprecated in favor of flexible `owner` identifiers.
+- Project membership mutations resolve usernames and emails before using canonical user identifiers; the old `orcid` keyword remains temporarily supported.
+- Generic access-group mutation helpers and CLI commands are deprecated in favor of typed resource, project, and instrument operations.
+- Exact user lookups show email to self and platform administrators and omit the email row when it is not disclosed; other user, project-lead, member, and operator views remain public-safe.
+- `user list-datasets` now uses the canonical paginated dataset collection and supports `--limit`.
+- `client.users.check_dataset_access()` and `user check-access` now report the canonical effective access role.
+- MFID-only parameters now use role-specific `_mfid` names, including `parent_mfid` and `child_mfid`; project and instrument slugs retain `_id`, and previous keywords remain temporarily supported.
+- Resource lookups now dispatch canonical MFIDs to single-resource routes and resolve project slugs, instrument slugs, usernames, and emails through exact collection filters without a second request. Returned records retain `unique_id` as their canonical identifier.
+- README now focuses on installation, navigation, and project essentials.
+- CLI reference now documents all command families from one canonical location.
 - `dataset get`/`dataset list-files` now show each file's MFID alongside its name.
 - `dataset get` shows a dataset's files by default; no longer requires `--verbose`.
 - `datasets.create()`'s `files_to_upload` renamed to `files` (accepts a mix of local paths and `AssociatedFile` objects); old name still works with a deprecation warning.
@@ -24,9 +52,24 @@
 - `ag approve`/`ag reject` accept multiple request IDs.
 - Shell username autocomplete now works for non-admins and completes to username.
 - Broken third-party parsers now log a warning instead of silently disappearing.
+- `project update` no longer accepts `--lead-email`/`--lead-orcid`; use `project transfer-ownership` instead.
+- `project update --project-id` now renames the project.
+- `sample update` no longer accepts `--project`/`--owner`; use `sample reassign-project`/`transfer-ownership` instead.
+- `dataset update`/`sample update --set` no longer accept `project_id`/`owner_orcid`; use the new reassign/transfer commands instead.
+- Generic access grants accept roles up to `admin`; ownership changes use `transfer-ownership`.
+- Dataset update fields now match the supported mutation contract: `data_format` is editable, while unsupported `description` and frozen instrument-assignment fields are excluded.
+- Dataset, sample, and project operations expose only the access-control, ownership, and project-assignment capabilities supported by their API contracts.
+- Project member add, role-update, and removal methods consistently return `list[ProjectMember]`.
 
 ### Fixed
 
+- CLI tables display usernames and project or instrument slugs up to their full 25-character limit.
+- Instrument CLI get/list output formats expanded owners correctly and `instrument list --include-metadata --json` exposes requested metadata.
+- Project and instrument lookup remains compatible with legacy slugs outside the current creation limits.
+- Access-control operations now use the API's canonical principal and permission fields.
+- Paginated list operations now request only the number of records needed to satisfy `limit` instead of over-fetching full server pages.
+- Quick-start examples now use current dataset creation return values.
+- Download guides now use current namespaced methods and overwrite options.
 - `files.download()` crashed with a raw exception on a non-GCS file instead of a clear error.
 - `AssociatedFile` silently dropped `storage_backend`/`access_note` fields returned by the API.
 - `cast`: uploading files in a recipe always crashed.
@@ -54,7 +97,7 @@
 - Fix `deletion approve`/`deletion reject`: batch commands now exit 1 if any request fails.
 - Fix `dataset add-access-group`: removed the decorative `--read` flag (read access is always granted; `--write` adds write).
 - `search_metadata()`: response unwrapped from the paginated envelope; default limit now 20; results include `resource_type`, `name`, `owner_orcid`, timestamps, `rank`.
-- `include_owner=True` on `datasets`/`samples` `get()`/`list()` and `client.get()` resolves the owner into a full user object.
+- `include_owner=True` on `datasets`/`samples` `get()`/`list()` and `client.get()` resolves the owner into a public-safe user object.
 - `client.files.delete()` and `crucible file delete` to delete a file by MFID.
 - `samples.create()` now takes a `Sample` model as its first argument, consistent with `datasets.create()`.
 - `crucible project list-users` shows usernames and correctly reads `unique_id` as the ORCID.

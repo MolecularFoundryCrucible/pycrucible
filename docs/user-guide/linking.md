@@ -12,13 +12,13 @@ Crucible supports links between datasets and between datasets and samples. Links
 
 ```python
 # Link a dataset to a sample
-client.samples.add_dataset(sample_id="sm-abc123", dataset_id="ds-xyz789")
+client.samples.add_dataset(sample_mfid=sample_mfid, dataset_mfid=dataset_mfid)
 
 # Or equivalently from the dataset side
-client.datasets.add_sample(dataset_id="ds-xyz789", sample_id="sm-abc123")
+client.datasets.add_sample(dataset_mfid=dataset_mfid, sample_mfid=sample_mfid)
 
 # Remove a link
-client.samples.remove_dataset(sample_id="sm-abc123", dataset_id="ds-xyz789")
+client.samples.remove_dataset(sample_mfid=sample_mfid, dataset_mfid=dataset_mfid)
 ```
 
 ---
@@ -29,14 +29,20 @@ Use parent-child links to represent processing pipelines:
 
 ```python
 # Establish raw → processed relationship
-client.datasets.link_parent_child(parent_dataset_id="ds-raw", child_dataset_id="ds-processed")
+client.datasets.link_parent_child(
+    parent_mfid=raw_dataset_mfid,
+    child_mfid=processed_dataset_mfid,
+)
 
 # Remove it
-client.datasets.remove_child(parent_id="ds-raw", child_id="ds-processed")
+client.datasets.remove_child(
+    parent_mfid=raw_dataset_mfid,
+    child_mfid=processed_dataset_mfid,
+)
 
 # Navigate
-parents = client.datasets.list_parents("ds-processed")
-children = client.datasets.list_children("ds-raw")
+parents = client.datasets.list_parents(processed_dataset_mfid)
+children = client.datasets.list_children(raw_dataset_mfid)
 ```
 
 ---
@@ -45,14 +51,20 @@ children = client.datasets.list_children("ds-raw")
 
 ```python
 # Establish provenance: boule → wafer
-client.samples.link(parent_id="sm-boule", child_id="sm-wafer")
+client.samples.link(
+    parent_mfid=boule_sample_mfid,
+    child_mfid=wafer_sample_mfid,
+)
 
 # Remove it
-client.samples.remove_child(parent_id="sm-boule", child_id="sm-wafer")
+client.samples.remove_child(
+    parent_mfid=boule_sample_mfid,
+    child_mfid=wafer_sample_mfid,
+)
 
 # Navigate
-parents = client.samples.list_parents("sm-wafer")
-children = client.samples.list_children("sm-boule")
+parents = client.samples.list_parents(wafer_sample_mfid)
+children = client.samples.list_children(boule_sample_mfid)
 ```
 
 ---
@@ -63,8 +75,8 @@ If you have two IDs and don't want to look up their types first:
 
 ```python
 # Works for dataset-sample, dataset-dataset, or sample-sample pairs
-client.link("ds-abc123", "sm-xyz789")
-client.unlink("ds-abc123", "sm-xyz789")
+client.link(dataset_mfid, sample_mfid)
+client.unlink(dataset_mfid, sample_mfid)
 ```
 
 ---
@@ -72,8 +84,8 @@ client.unlink("ds-abc123", "sm-xyz789")
 ## Viewing all links for a resource
 
 ```python
-# Returns immediate links for any resource ID
-links = client.get_links("ds-abc123")
+# Returns immediate links for any resource MFID
+links = client.get_links(dataset_mfid)
 ```
 
 ---
@@ -84,17 +96,19 @@ For a visual or programmatic view of the full relationship graph:
 
 ```python
 # First-degree connections
-graph = client.graphs.get("ds-abc123")
+graph = client.graphs.get(dataset_mfid)
 
 # Full connected component
-graph = client.graphs.get("ds-abc123", recursive=True)
+graph = client.graphs.get(dataset_mfid, recursive=True)
 
 # All resources in a project
 graph = client.graphs.project("MFP12345")
 
 # As a networkx DiGraph
-G = client.graphs.get("ds-abc123", recursive=True, as_networkx=True)
+G = client.graphs.get(dataset_mfid, recursive=True, as_networkx=True)
 ```
+
+Relationship lists and graphs are authorized views. An inaccessible starting resource returns 403, while readable graphs omit resources the caller cannot access and any edges connected to them. A smaller graph therefore does not imply that records or relationships were deleted.
 
 ---
 
@@ -102,11 +116,11 @@ G = client.graphs.get("ds-abc123", recursive=True, as_networkx=True)
 
 ```bash
 # Link any two resources (type auto-detected)
-crucible link PARENT_ID CHILD_ID
+crucible link -p PARENT_MFID -c CHILD_MFID
 
 # Unlink
-crucible unlink ID_A ID_B
+crucible unlink MFID_A MFID_B
 
 # View the graph for a resource
-crucible tree RESOURCE_ID
+crucible tree RESOURCE_MFID
 ```

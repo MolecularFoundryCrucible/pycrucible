@@ -73,8 +73,11 @@ Common patterns:
 | File + Size | `[60, 10]` |
 | File + Size + Status | `[60, 10, 4]` |
 | ID + Resource ID + Type + Name + Status + Date | `[6, 26, 10, 24, 10, 10]` |
+| Username + Name + user ID | `[25, 25, 26]` |
 | Name + ORCID + Email | `[25, 19, 35]` |
-| ID + Title + Organization | `[20, 30, 20]` |
+| Project ID + Title + Organization | `[25, 30, 20]` |
+
+Username, project ID, instrument ID, and project-backed access-group columns must allow the full current 25-character identifier limit before truncating.
 
 ---
 

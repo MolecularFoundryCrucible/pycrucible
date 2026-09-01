@@ -17,6 +17,23 @@ from . import term
 _SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
 
+def _readiness_fields(health):
+    """Return version, database status, latency, and contract detection."""
+    if not isinstance(health, dict):
+        return None, None, None, False
+
+    database = health.get("database")
+    if isinstance(database, dict):
+        build = health.get("build")
+        version = build.get("api_version") if isinstance(build, dict) else None
+        return version, database.get("status"), database.get("latency_ms"), True
+
+    if "db" in health:
+        return health.get("version"), health.get("db"), health.get("db_ms"), True
+
+    return None, None, None, False
+
+
 def _spin(stop_event, message):
     """Animate a spinner on the current line until stop_event is set."""
     for frame in itertools.cycle(_SPINNER_FRAMES):
@@ -95,13 +112,12 @@ def execute(args):
         sys.exit(1)
 
     http_status, health = health_result
-    version_str = health.get("version") if health else None
+    version_str, db_status, db_ms, readiness_detected = _readiness_fields(health)
     ver_label   = f"  {term.dim(version_str)}" if version_str else ""
     print(f'  ✓  {term.bold(host)}  {term.dim(f"{elapsed_ms:.0f}ms")}{ver_label}')
 
-    if "db" in health:
-        db_ok = health.get("db") == "ok"
-        db_ms = health.get("db_ms")
+    if readiness_detected:
+        db_ok = db_status == "ok"
         db_latency = f"  {term.dim(f'{db_ms:.0f}ms')}" if db_ms is not None else ""
         if db_ok:
             print(f'  ✓  Database reachable{db_latency}')

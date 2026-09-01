@@ -9,6 +9,7 @@ Provides access to entity graph traversal endpoints.
 import logging
 from typing import Optional
 from .base import BaseResource
+from ..utils.deprecation import _deprecated_parameter
 
 logger = logging.getLogger(__name__)
 
@@ -20,15 +21,17 @@ class GraphOperations(BaseResource):
     client.samples.graph() / client.datasets.graph().
     """
 
-    def get(self, entity_id: str, recursive: bool = False, as_networkx: bool = False):
-        """Return the graph of entities connected to entity_id.
+    @_deprecated_parameter('entity_id', 'resource_mfid')
+    def get(self, resource_mfid: str, recursive: bool = False,
+            as_networkx: bool = False):
+        """Return the graph of entities connected to a dataset or sample MFID.
 
         By default returns only first-degree neighbours (direct parents,
         children, and cross-linked entities). Pass recursive=True for the
         full connected component.
 
         Args:
-            entity_id (str): Unique ID of any sample or dataset.
+            resource_mfid (str): Dataset or sample MFID.
             recursive (bool): If True, traverse the full connected component.
             as_networkx (bool): If True, return a networkx DiGraph instead
                 of the raw node-link dict. Requires networkx to be installed.
@@ -37,7 +40,8 @@ class GraphOperations(BaseResource):
             dict | networkx.DiGraph: Node-link graph data.
         """
         params = {"recursive": recursive} if recursive else {}
-        data = self._request("get", f"/entity_graph_cte/{entity_id}", params=params)
+        data = self._request(
+            "get", f"/entity_graph_cte/{resource_mfid}", params=params)
         if as_networkx:
             import networkx as nx
             from networkx.readwrite import json_graph

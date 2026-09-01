@@ -512,20 +512,22 @@ try:
             text, words, trailing_space, resource = ctx
             if not (len(words) >= 2 and words[1] == 'get'):
                 return False
-            # Complete the NAME_OR_ID positional (instrument names may contain spaces).
+            # Complete the canonical instrument slug used by identifier dispatch.
             span = self._multiword_arg(text, 2)
             if span is None:
                 return True  # already past the positional (a flag was typed)
             arg_text, query = span
             query_lower = query.lower()
-            for name, uid in self._lazy_instruments():
-                if query_lower not in name.lower():
+            for slug, name, uid in self._lazy_instruments():
+                if query_lower not in slug.lower() and query_lower not in name.lower():
                     continue
                 yield Completion(
-                    name + ' ',
+                    slug + ' ',
                     start_position=-len(arg_text),
-                    display=_HTML(f'<b>{_html.escape(name)}</b>'),
-                    display_meta=_HTML(f'<ansibrightblack>{_html.escape(uid)}</ansibrightblack>'),
+                    display=_HTML(f'<b>{_html.escape(slug)}</b>'),
+                    display_meta=_HTML(
+                        f'<ansibrightblack>{_html.escape(name)}  {_html.escape(uid)}</ansibrightblack>'
+                    ),
                 )
             return True
 
@@ -1175,8 +1177,7 @@ class CrucibleShell:
             if self.completer is not None:
                 self.completer._service_accounts = new_service_accounts or []
 
-        # Reload client and full state after config set / config edit
-        if len(words) >= 2 and words[0] == 'config' and words[1] in ('set', 'edit'):
+        if len(words) >= 2 and words[0] == 'config' and words[1] in ('set', 'unset', 'edit'):
             from crucible.config import config as _cfg
             from crucible.client import CrucibleClient
             try:
