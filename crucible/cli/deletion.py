@@ -251,7 +251,7 @@ def _execute_list_deleted(args):
 
         term.header(f"Deleted Resources ({len(records)})")
         if not records:
-            print(f"  {term.dim('No records found.')}")
+            print(f"  {term.dim('No deleted resources found.')}")
             return
 
         from .helpers import explorer_url, resolve_usernames

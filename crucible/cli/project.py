@@ -875,7 +875,7 @@ def _execute_list_join_requests(args):
                                                       limit=args.limit)
         term.header(f"Join Requests · {args.project_id} ({len(records)})")
         if not records:
-            print(f"  {term.dim('None found.')}")
+            print(f"  {term.dim('No join requests found.')}")
             return
         term.table(_table_rows(records, client=client),
                   ['ID', 'Group', 'Status', 'Requester', 'Requested'],

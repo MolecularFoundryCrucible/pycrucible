@@ -4,14 +4,62 @@ from types import SimpleNamespace
 
 import pytest
 
+from crucible.cli import access_group as access_group_cli
 from crucible.cli import dataset as dataset_cli
+from crucible.cli import deletion as deletion_cli
 from crucible.cli import instrument as instrument_cli
 from crucible.cli import project as project_cli
 from crucible.cli import sample as sample_cli
+from crucible.cli import service_account as service_account_cli
 from crucible.cli import term
 
 
 MFID = '0tkn2knjast3h0008nyq9zps2c'
+
+
+@pytest.mark.parametrize(('execute', 'args', 'expected'), [
+    (
+        project_cli._execute_list_join_requests,
+        SimpleNamespace(project_id='project-slug', status=None, limit=100),
+        'No join requests found.',
+    ),
+    (
+        access_group_cli._execute_list,
+        SimpleNamespace(status='pending', group_name=None, requester_id=None, limit=100),
+        'No join requests found.',
+    ),
+    (
+        access_group_cli._execute_mine,
+        SimpleNamespace(status='pending', limit=100),
+        'No join requests found.',
+    ),
+    (
+        service_account_cli._execute_list,
+        SimpleNamespace(limit=100, json=False),
+        'No service accounts found.',
+    ),
+    (
+        deletion_cli._execute_list_deleted,
+        SimpleNamespace(resource_id=None, requester_id=None, reviewer_id=None, limit=100),
+        'No deleted resources found.',
+    ),
+])
+def test_empty_listings_name_their_subject(execute, args, expected, monkeypatch, capsys):
+    client = SimpleNamespace(
+        projects=SimpleNamespace(list_join_requests=lambda *args, **kwargs: []),
+        access_groups=SimpleNamespace(list_join_requests=lambda **kwargs: []),
+        account=SimpleNamespace(join_requests=lambda **kwargs: []),
+        service_accounts=SimpleNamespace(list=lambda **kwargs: []),
+        deletions=SimpleNamespace(list_deleted=lambda **kwargs: []),
+    )
+    monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
+
+    execute(args)
+
+    output = capsys.readouterr().out
+    assert expected in output
+    assert 'None found.' not in output
+    assert 'No records found.' not in output
 
 
 @pytest.mark.parametrize(('value', 'expected'), [

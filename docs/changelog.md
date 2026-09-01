@@ -16,6 +16,7 @@
 - Resource detail views now distinguish slugs from MFIDs, format nullable booleans and statuses consistently, and show project timing and member expansion clearly.
 - CLI tables now adapt to terminal width while preserving full usernames, resource slugs, and MFIDs whenever space permits.
 - Project listing, resource searches, user discovery, and service-account retrieval now support raw JSON output with structured JSON validation errors.
+- Empty CLI listings now identify the resource or request type instead of displaying generic placeholder text.
 
 ### Fixed
 

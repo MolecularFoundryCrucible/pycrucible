@@ -134,7 +134,7 @@ def _execute_list(args):
         )
         term.header(f"Join Requests — {args.status} ({len(records)})")
         if not records:
-            print(f"  {term.dim('None found.')}")
+            print(f"  {term.dim('No join requests found.')}")
             return
         term.table(_table_rows(records, client=client),
                   ['ID', 'Group', 'Status', 'Requester', 'Requested'],
@@ -172,7 +172,7 @@ def _execute_mine(args):
         records = client.account.join_requests(status=status, limit=args.limit)
         term.header(f"My Join Requests — {args.status} ({len(records)})")
         if not records:
-            print(f"  {term.dim('None found.')}")
+            print(f"  {term.dim('No join requests found.')}")
             return
         term.table(_table_rows(records, client=client),
                   ['ID', 'Group', 'Status', 'Requester', 'Requested'],

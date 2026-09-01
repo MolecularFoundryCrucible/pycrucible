@@ -239,7 +239,7 @@ def _execute_list(args):
             return
         term.header(f"Service Accounts ({len(accounts)})")
         if not accounts:
-            print(f"  {term.dim('None found.')}")
+            print(f"  {term.dim('No service accounts found.')}")
             return
         rows = []
         for sa in accounts:
