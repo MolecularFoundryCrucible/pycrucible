@@ -19,6 +19,7 @@ from ..utils.identifiers import MFID_PATTERN, classify_user_reference
 logger = logging.getLogger(__name__)
 
 _MFID_RE = MFID_PATTERN
+_NO_DEFAULT = object()
 
 
 def _error_details(error):
@@ -124,16 +125,170 @@ def show_warning(message) -> None:
     print(str(message), file=sys.stderr)
 
 
-def prompt_username(prompt: str = 'Username: ') -> str:
+def _interactive_stdin() -> bool:
+    return hasattr(sys.stdin, 'isatty') and sys.stdin.isatty()
+
+
+def _prompt_unavailable(label: str, option: str = None) -> None:
     from . import term
-    from ..utils.identifiers import validate_username
+
+    message = f"Cannot prompt for {label.lower()} because stdin is not interactive."
+    if option:
+        message += f" Provide {option}."
+    print(term.red('Error', stream=sys.stderr), file=sys.stderr)
+    print(message, file=sys.stderr)
+    raise SystemExit(2)
+
+
+def _prompt_value(label: str, *, optional: bool = False, default=_NO_DEFAULT,
+                  validator=None, option: str = None, secret: bool = False,
+                  hint: str = None):
+    from . import term
+
+    if not _interactive_stdin():
+        if default is not _NO_DEFAULT:
+            value = str(default)
+            try:
+                return validator(value) if validator else value
+            except ValueError as error:
+                print(term.red('Invalid value', stream=sys.stderr), file=sys.stderr)
+                print(str(error), file=sys.stderr)
+                if option:
+                    print(f"Provide {option} to override the configured default.", file=sys.stderr)
+                raise SystemExit(2)
+        if optional:
+            return None
+        _prompt_unavailable(label, option)
+
+    if default is not _NO_DEFAULT:
+        suffix = term.dim(f" [{default}]")
+    elif optional:
+        detail = f"optional; {hint}" if hint else "optional"
+        suffix = term.dim(f" ({detail})")
+    else:
+        suffix = term.dim(" (required)")
+    if hint and not optional:
+        suffix += term.dim(f" ({hint})")
+    prompt = f"{term.bold(label)}{suffix}: "
+
+    reader = input
+    if secret:
+        import getpass
+        reader = getpass.getpass
 
     while True:
         try:
-            return validate_username(input(prompt))
-        except ValueError as error:
-            print(term.red('Invalid username', stream=sys.stderr), file=sys.stderr)
-            print(str(error), file=sys.stderr)
+            value = reader(prompt).strip()
+        except EOFError:
+            _prompt_unavailable(label, option)
+        if not value:
+            if default is not _NO_DEFAULT:
+                value = str(default)
+            if optional:
+                return None
+            elif default is _NO_DEFAULT:
+                error = ValueError(f"{label} is required.")
+                print(term.red('Invalid value', stream=sys.stderr), file=sys.stderr)
+                print(str(error), file=sys.stderr)
+                continue
+        if value:
+            try:
+                return validator(value) if validator else value
+            except ValueError as validation_error:
+                error = validation_error
+
+        print(term.red('Invalid value', stream=sys.stderr), file=sys.stderr)
+        print(str(error), file=sys.stderr)
+
+
+def prompt_required(label: str, validator=None, option: str = None):
+    return _prompt_value(label, validator=validator, option=option)
+
+
+def prompt_optional(label: str, validator=None, default=_NO_DEFAULT,
+                    option: str = None, hint: str = None):
+    return _prompt_value(
+        label,
+        optional=default is _NO_DEFAULT,
+        default=default,
+        validator=validator,
+        option=option,
+        hint=hint,
+    )
+
+
+def prompt_secret(label: str, option: str = None) -> str:
+    return _prompt_value(label, option=option, secret=True)
+
+
+def prompt_choice(label: str, choices, default=_NO_DEFAULT, option: str = None) -> str:
+    allowed = tuple(choices)
+
+    def validate(value):
+        normalized = value.lower()
+        if normalized not in allowed:
+            raise ValueError(f"{label} must be one of: {', '.join(allowed)}.")
+        return normalized
+
+    return _prompt_value(
+        label,
+        default=default,
+        validator=validate,
+        option=option,
+        hint='/'.join(allowed),
+    )
+
+
+def prompt_username(label: str = 'Username') -> str:
+    from ..utils.identifiers import validate_username
+
+    return prompt_required(label, validator=validate_username, option='--username')
+
+
+def validate_email(value: str) -> str:
+    email = value.strip().lower()
+    if not re.fullmatch(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', email):
+        raise ValueError("Email must be a valid address such as user@example.org.")
+    return email
+
+
+def validate_user_reference(value: str) -> str:
+    _, normalized = classify_user_reference(value)
+    return normalized
+
+
+def validate_mfid(value: str) -> str:
+    from ..utils.identifiers import validate_mfid as validate
+
+    return validate(value)
+
+
+def validate_orcid(value: str) -> str:
+    from ..utils.identifiers import is_orcid
+
+    if not is_orcid(value):
+        raise ValueError("ORCID must use the canonical 0000-0000-0000-000X format.")
+    return value
+
+
+def validate_project_ids(value: str) -> str:
+    from ..utils.identifiers import validate_slug
+
+    project_ids = [item.strip() for item in value.split(',') if item.strip()]
+    if not project_ids:
+        raise ValueError("Provide at least one project ID.")
+    for project_id in project_ids:
+        validate_slug(project_id, 'project')
+    return ','.join(project_ids)
+
+
+def validate_http_url(value: str) -> str:
+    from urllib.parse import urlparse
+
+    parsed = urlparse(value)
+    if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+        raise ValueError("URL must be an absolute HTTP or HTTPS URL.")
+    return value.rstrip('/')
 
 
 def install_warning_formatter() -> None:

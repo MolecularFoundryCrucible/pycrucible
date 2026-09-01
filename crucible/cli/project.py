@@ -451,8 +451,9 @@ def _execute_get(args):
 
 def _execute_create(args):
     """Execute the 'project create' subcommand."""
-    import re
     from crucible.client import CrucibleClient
+    from .helpers import prompt_optional, prompt_required, validate_user_reference
+    from ..utils.identifiers import validate_slug
     # Interactive mode if any required arguments are missing
     project_id = args.project_id
     organization = args.organization
@@ -465,45 +466,29 @@ def _execute_create(args):
         term.header("Create Project")
         print("")
 
-    # Prompt for project_id
     if project_id is None:
-        while True:
-            project_id = input("Project ID (e.g., my-project): ").strip()
-            if project_id:
-                if re.match(r'^[a-zA-Z0-9_-]+$', project_id):
-                    break
-                else:
-                    logger.error("Invalid project ID. Use only letters, numbers, hyphens, and underscores.")
-            else:
-                logger.error("Project ID is required.")
+        project_id = prompt_required(
+            "Project ID",
+            validator=lambda value: validate_slug(value, 'project'),
+            option='--project-id',
+        )
 
-    # Prompt for organization
     if organization is None:
-        while True:
-            organization = input("Organization (e.g., LBNL, Argonne): ").strip()
-            if organization:
-                break
-            else:
-                logger.error("Organization is required.")
+        organization = prompt_required("Organization", option='--organization')
 
-    # Prompt for project lead
     if project_lead is None:
-        while True:
-            project_lead = input("Project lead ORCID, MFID, username, or email: ").strip()
-            if project_lead:
-                break
-            else:
-                logger.error("Project lead is required.")
+        project_lead = prompt_required(
+            "Project lead",
+            validator=validate_user_reference,
+            option='--lead',
+        )
 
-    # Optional fields — only prompt in interactive mode
     if interactive:
         if title is None:
-            val = input("Project title (optional, press Enter to skip): ").strip()
-            title = val or None
+            title = prompt_optional("Project title")
 
         if status is None:
-            val = input("Status (optional, press Enter to skip): ").strip()
-            status = val or None
+            status = prompt_optional("Status")
 
     metadata_dict = None
     if getattr(args, 'metadata', None):
@@ -516,6 +501,7 @@ def _execute_create(args):
 
     try:
         from crucible.models import Project
+        project_lead = validate_user_reference(project_lead)
         client = CrucibleClient()
 
         project = Project(

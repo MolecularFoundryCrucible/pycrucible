@@ -210,6 +210,8 @@ Examples:
 def _execute_create(args):
     """Execute the 'instrument create' subcommand."""
     from crucible.client import CrucibleClient
+    from .helpers import prompt_optional, prompt_required, validate_user_reference
+    from ..utils.identifiers import validate_slug
 
     instrument_name = args.instrument_name
     instrument_id = args.instrument_id
@@ -222,25 +224,17 @@ def _execute_create(args):
         print("")
 
     if instrument_name is None:
-        while True:
-            instrument_name = input("Instrument name: ").strip()
-            if instrument_name:
-                break
-            logger.error("Instrument name is required.")
+        instrument_name = prompt_required("Instrument name", option='--name')
 
     if instrument_id is None:
-        while True:
-            instrument_id = input("Instrument ID (unique slug): ").strip()
-            if instrument_id:
-                break
-            logger.error("Instrument ID is required.")
+        instrument_id = prompt_required(
+            "Instrument ID",
+            validator=lambda value: validate_slug(value, 'instrument'),
+            option='--instrument-id',
+        )
 
     if location is None:
-        while True:
-            location = input("Location: ").strip()
-            if location:
-                break
-            logger.error("Location is required.")
+        location = prompt_required("Location", option='--location')
 
     manufacturer = args.manufacturer
     model = args.model
@@ -249,17 +243,13 @@ def _execute_create(args):
 
     if interactive:
         if manufacturer is None:
-            val = input("Manufacturer (optional, press Enter to skip): ").strip()
-            manufacturer = val or None
+            manufacturer = prompt_optional("Manufacturer")
         if model is None:
-            val = input("Model (optional, press Enter to skip): ").strip()
-            model = val or None
+            model = prompt_optional("Model")
         if instrument_type is None:
-            val = input("Type (optional, press Enter to skip): ").strip()
-            instrument_type = val or None
+            instrument_type = prompt_optional("Type")
         if description is None:
-            val = input("Description (optional, press Enter to skip): ").strip()
-            description = val or None
+            description = prompt_optional("Description")
 
     metadata_dict = None
     if getattr(args, 'metadata', None):
@@ -272,6 +262,8 @@ def _execute_create(args):
 
     try:
         from crucible.models import Instrument
+        if owner is not None:
+            owner = validate_user_reference(owner)
         client = CrucibleClient()
 
         instrument = Instrument(

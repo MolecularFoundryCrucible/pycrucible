@@ -208,10 +208,33 @@ Priority order (highest to lowest):
 def cmd_init(args):
     """Interactive configuration wizard."""
     from crucible.config import create_config_file, config
+    from .helpers import (
+        prompt_optional,
+        prompt_secret,
+        show_warning,
+        validate_http_url,
+    )
+    from ..utils.identifiers import validate_slug
 
     term.header("Crucible Configuration Setup")
     print("")
     print("  This wizard will help you configure nano-crucible.\n")
+
+    active_overrides = [
+        name for name in (
+            'CRUCIBLE_API_KEY',
+            'CRUCIBLE_API_URL',
+            'CRUCIBLE_CACHE_DIR',
+            'CRUCIBLE_GRAPH_EXPLORER_URL',
+            'CRUCIBLE_CURRENT_PROJECT',
+        )
+        if os.environ.get(name) is not None
+    ]
+    if active_overrides:
+        show_warning(
+            "Environment variables override values saved by this wizard: "
+            + ', '.join(active_overrides)
+        )
 
     # Check if config exists
     config_file = config.config_file_path
@@ -225,39 +248,30 @@ def cmd_init(args):
     # Get API key
     print("\n1. Crucible API Key (required)")
     print("   Get your key from: https://crucible.lbl.gov/api/v3/user_apikey")
-    api_key = input("   API Key: ").strip()
-    if not api_key:
-        print("Error: API key is required")
-        sys.exit(1)
+    api_key = prompt_secret("API Key", option='CRUCIBLE_API_KEY')
 
     # Get API URL
     from crucible.config.config import Config as _Cfg
     print("\n2. Crucible API URL (optional)")
     print(f"   Press Enter to use the built-in default ({_Cfg.DEFAULT_API_URL})")
-    api_url = input("   API URL: ").strip()
-    if not api_url:
-        api_url = None
+    api_url = prompt_optional("API URL", validator=validate_http_url)
 
     # Get cache directory
     print("\n3. Cache Directory (optional)")
     print(f"   Press Enter to use default: {config.cache_dir}")
-    cache_dir = input("   Cache Dir: ").strip()
-    if not cache_dir:
-        cache_dir = None
+    cache_dir = prompt_optional("Cache directory")
 
     # Get Graph Explorer URL
     print("\n4. Graph Explorer URL (optional)")
     print("   Press Enter to use default: https://crucible.lbl.gov/explore")
-    graph_explorer_url = input("   Graph Explorer URL: ").strip()
-    if not graph_explorer_url:
-        graph_explorer_url = None
+    graph_explorer_url = prompt_optional(
+        "Graph Explorer URL", validator=validate_http_url)
 
     # Get current project
     print("\n5. Default Project ID (optional)")
     print("   Project ID to use when -pid is not specified")
-    current_project = input("   Project ID: ").strip()
-    if not current_project:
-        current_project = None
+    current_project = prompt_optional(
+        "Project ID", validator=lambda value: validate_slug(value, 'project'))
 
     # Create config file
     try:

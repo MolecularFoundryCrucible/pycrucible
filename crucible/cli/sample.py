@@ -868,6 +868,8 @@ def _execute_create(args):
     from crucible.client import CrucibleClient
 
     from ..utils import parse_timestamp
+    from ..utils.identifiers import IdentifierNotFoundError, validate_slug
+    from .helpers import fail, prompt_optional, prompt_required
 
     name        = args.name
     project_id  = args.project_id   # never auto-fill from config here
@@ -889,56 +891,53 @@ def _execute_create(args):
     try:
         client = CrucibleClient()
     except Exception as e:
-        from .helpers import fail
         fail("connecting", e)
 
+    def validate_project_id(value):
+        value = validate_slug(value, 'project')
+        try:
+            project = client.projects.get(value)
+        except IdentifierNotFoundError as error:
+            raise ValueError(f"Project '{value}' was not found.") from error
+        return project.get('project_id') or value
+
     if name is None:
-        while True:
-            name = input("Sample name: ").strip()
-            if name:
-                break
-            logger.error("Sample name is required.")
+        name = prompt_required("Sample name", option='--name')
 
     if project_id is None:
         default_proj = config.current_project
-        prompt = f"Project ID [{default_proj}]: " if default_proj else "Project ID: "
-        while True:
-            val = input(prompt).strip()
-            project_id = val or default_proj
-            if not project_id:
-                logger.error("Project ID is required.")
-                continue
-            if client.projects.get(project_id) is None:
-                logger.error(f"Project '{project_id}' not found.")
-                project_id = None
-                default_proj = None
-                prompt = "Project ID: "
-                continue
-            break
+        if default_proj:
+            project_id = prompt_optional(
+                "Project ID",
+                default=default_proj,
+                validator=validate_project_id,
+                option='--project-id',
+            )
+        else:
+            project_id = prompt_required(
+                "Project ID",
+                validator=validate_project_id,
+                option='--project-id',
+            )
     else:
-        if client.projects.get(project_id) is None:
-            logger.error(f"Project '{project_id}' not found.")
-            sys.exit(1)
+        try:
+            project_id = validate_project_id(project_id)
+        except Exception as e:
+            fail("validating sample project", e, args)
 
     if interactive:
         if sample_type is None:
-            val = input("Sample type (optional, press Enter to skip): ").strip()
-            sample_type = val or None
+            sample_type = prompt_optional("Sample type")
 
         if description is None:
-            val = input("Description (optional, press Enter to skip): ").strip()
-            description = val or None
+            description = prompt_optional("Description")
 
         if timestamp is None:
-            while True:
-                val = input("Timestamp (optional — 'today', '2024-01-15', '2024-01-15 10:30', press Enter to skip): ").strip()
-                if not val:
-                    break
-                try:
-                    timestamp = parse_timestamp(val)
-                    break
-                except ValueError:
-                    logger.error(f"Cannot parse date: {val!r}. Try 'today', '2024-01-15', or '2024-01-15 10:30'.")
+            timestamp = prompt_optional(
+                "Timestamp",
+                validator=parse_timestamp,
+                hint="today or YYYY-MM-DD HH:MM",
+            )
 
     metadata_dict = None
     if getattr(args, 'metadata', None):

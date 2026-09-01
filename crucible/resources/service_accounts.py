@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
-from ..utils.identifiers import validate_username
+from ..utils.identifiers import validate_mfid, validate_username
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class ServiceAccountOperations(BaseResource):
         """
         body = {'username': validate_username(username)}
         if unique_id:
-            body['unique_id'] = unique_id
+            body['unique_id'] = validate_mfid(unique_id)
         return self._request('post', '/service_accounts', json=body)
 
     def rotate_key(self, unique_id: str) -> Dict:

@@ -40,7 +40,7 @@ Run the interactive setup wizard once after installing:
 crucible config init
 ```
 
-This prompts for your API key and writes a config file at `~/.config/nano-crucible/config.ini` (path varies by OS). All subsequent CLI and Python API calls will use it automatically — no environment variables needed.
+This securely prompts for your API key without displaying it and writes a config file at `~/.config/nano-crucible/config.ini` (path varies by OS). All subsequent CLI and Python API calls will use it automatically. If a corresponding environment variable is set, it takes precedence and the wizard reports that override.
 
 You can review or change settings at any time:
 

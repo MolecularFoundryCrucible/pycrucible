@@ -65,6 +65,14 @@ Failed while creating instrument.
 
 Commands supporting `--json` emit structured errors to stderr when JSON output is selected. `--debug` additionally prints HTTP diagnostics and a traceback. Warnings use the same terminal presentation without Python source locations, while direct Python use of `CrucibleClient` retains standard Python warning behavior.
 
+## Interactive prompts
+
+Creation commands prompt for missing required fields when run in an interactive terminal. Required, optional, and defaulted values are identified consistently. Invalid values show an explanation and prompt again instead of being discarded or submitted to the API.
+
+When stdin is not interactive, optional prompts are skipped and configured defaults remain usable. A missing required value exits with status 2 and identifies the command-line option that must be supplied.
+
+`config init` hides API-key input. It also warns when an active environment variable will override a value saved by the wizard.
+
 ## Tab completion
 
 Install shell tab-completion once:
@@ -83,7 +91,7 @@ Follow the printed instructions to activate it in your shell.
 crucible config init
 ```
 
-This walks through setting your API key and default API URL. See [Installation → Configuration](../installation.md#configuration) for details.
+This walks through setting your API key and optional local defaults. See [Installation → Configuration](../installation.md#configuration) for details.
 
 ## Full command reference
 

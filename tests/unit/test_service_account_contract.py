@@ -34,6 +34,15 @@ def test_create_rejects_invalid_username(username):
     operations._request.assert_not_called()
 
 
+def test_create_rejects_invalid_explicit_mfid():
+    operations = make_ops()
+
+    with pytest.raises(ValueError, match='MFID must be exactly 26'):
+        operations.create('smoke-test', unique_id='not-an-mfid')
+
+    operations._request.assert_not_called()
+
+
 def test_interactive_create_uses_validated_username(monkeypatch):
     client = SimpleNamespace(service_accounts=SimpleNamespace())
     client.service_accounts.create = MagicMock(return_value={
@@ -43,6 +52,7 @@ def test_interactive_create_uses_validated_username(monkeypatch):
     })
     monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
     monkeypatch.setattr('crucible.cli.helpers.prompt_username', lambda prompt='Username: ': 'smoke-test')
+    monkeypatch.setattr('crucible.cli.helpers._interactive_stdin', lambda: True)
     monkeypatch.setattr('builtins.input', lambda prompt: '')
 
     _execute_create(SimpleNamespace(username=None, unique_id=None, debug=False))

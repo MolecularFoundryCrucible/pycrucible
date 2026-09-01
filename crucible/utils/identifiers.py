@@ -28,6 +28,13 @@ def is_orcid(value: str) -> bool:
     return isinstance(value, str) and bool(ORCID_PATTERN.fullmatch(value))
 
 
+def validate_mfid(value: str) -> str:
+    """Validate an exact canonical MFID."""
+    if not is_mfid(value):
+        raise ValueError("MFID must be exactly 26 lowercase Crockford Base32 characters.")
+    return value
+
+
 def is_slug(value: str) -> bool:
     """Return whether a value is a valid 3-to-25-character resource slug."""
     return isinstance(value, str) and bool(SLUG_PATTERN.fullmatch(value))

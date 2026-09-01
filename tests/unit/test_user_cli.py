@@ -73,10 +73,11 @@ def test_create_accepts_username_without_orcid():
 
 def test_interactive_username_prompt_retries_and_normalizes(monkeypatch, capsys):
     answers = iter(['1invalid', 'Alice_User'])
+    monkeypatch.setattr('crucible.cli.helpers._interactive_stdin', lambda: True)
     monkeypatch.setattr('builtins.input', lambda prompt: next(answers))
 
     assert prompt_username() == 'alice_user'
-    assert 'Invalid username' in capsys.readouterr().err
+    assert 'Invalid value' in capsys.readouterr().err
 
 
 def test_interactive_create_uses_validated_username(monkeypatch):
@@ -89,6 +90,7 @@ def test_interactive_create_uses_validated_username(monkeypatch):
     })
     monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
     monkeypatch.setattr('crucible.cli.helpers.prompt_username', lambda prompt='Username: ': 'alice_user')
+    monkeypatch.setattr('crucible.cli.helpers._interactive_stdin', lambda: True)
     monkeypatch.setattr('builtins.input', lambda prompt: '')
 
     _execute_create(SimpleNamespace(

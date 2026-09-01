@@ -96,6 +96,21 @@ Use `term.*` helpers. They are TTY-safe no-ops when output is redirected and res
 
 Use `-` for missing or null values in tables, not `None` or an empty string.
 
+## Interactive prompts
+
+Use the shared helpers in `cli.helpers` instead of calling `input()` directly for creation and configuration fields.
+
+- Use `prompt_required()` for required text or validated identifiers.
+- Use `prompt_optional()` for values that may be omitted and for configured defaults.
+- Use `prompt_secret()` for API keys and other credentials.
+- Use `prompt_choice()` for a fixed set of accepted values.
+- Reuse the same validator used by the Python resource method whenever one exists.
+- Invalid input must explain the problem and prompt again. Never silently discard it.
+- Required prompts must fail with status 2 when stdin is not interactive. Optional prompts should be skipped, and configured defaults may be used.
+- Keep labels bold, hints and defaults dim, and validation errors red. Do not color user-entered values.
+
+Confirmation prompts are a separate interaction class and are not covered by these field helpers.
+
 ## Errors and warnings
 
 Route command failures through `helpers.fail()` so HTTP status, reason, validation details, JSON output, debug tracebacks, and exit status remain consistent. Do not print raw API validation structures directly.

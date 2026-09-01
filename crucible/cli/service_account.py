@@ -118,8 +118,8 @@ Examples:
 
 def _execute_create(args):
     from crucible.client import CrucibleClient
-    from .helpers import prompt_username
-    from ..utils.identifiers import validate_username
+    from .helpers import prompt_optional, prompt_username
+    from ..utils.identifiers import validate_mfid, validate_username
 
     username = getattr(args, 'username', None)
     unique_id = getattr(args, 'unique_id', None)
@@ -128,15 +128,14 @@ def _execute_create(args):
         print()
         print("  Creating a new service account.")
         print()
-        username = prompt_username("  Username: ")
-
-        uid_input = input("  MFID (optional, press Enter to skip): ").strip()
-        if uid_input:
-            unique_id = uid_input
+        username = prompt_username()
+        unique_id = prompt_optional("MFID", validator=validate_mfid)
         print()
 
     try:
         username = validate_username(username)
+        if unique_id is not None:
+            unique_id = validate_mfid(unique_id)
         client = CrucibleClient()
         result = client.service_accounts.create(username=username, unique_id=unique_id)
         _show_sa(result, key=result.get('api_key'))

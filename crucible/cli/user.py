@@ -9,7 +9,6 @@ Provides user-related operations: get, create.
 import sys
 import logging
 import json
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +255,14 @@ def _execute_get(args):
 def _execute_create(args):
     """Execute the 'user create' subcommand."""
     from crucible.client import CrucibleClient
+    from .helpers import (
+        prompt_optional,
+        prompt_required,
+        prompt_username,
+        validate_email,
+        validate_orcid,
+        validate_project_ids,
+    )
     # Interactive mode if required arguments are missing
     orcid = args.orcid
     first_name = args.first_name
@@ -269,56 +276,42 @@ def _execute_create(args):
         term.header("Create User")
         print("")
 
-    # Prompt for first name
     if first_name is None:
-        while True:
-            first_name = input("First name: ").strip()
-            if first_name:
-                break
-            else:
-                logger.error("First name is required.")
+        first_name = prompt_required("First name", option='--first-name')
 
-    # Prompt for last name
     if last_name is None:
-        while True:
-            last_name = input("Last name: ").strip()
-            if last_name:
-                break
-            else:
-                logger.error("Last name is required.")
+        last_name = prompt_required("Last name", option='--last-name')
 
     if username is None:
-        from .helpers import prompt_username
         username = prompt_username()
 
-    # Optional fields — only prompt in interactive mode
     if interactive:
         if orcid is None:
-            orcid_input = input("ORCID (optional, press Enter to generate an MFID): ").strip()
-            if orcid_input:
-                if re.match(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$', orcid_input):
-                    orcid = orcid_input
-                else:
-                    logger.warning("Invalid ORCID format. The API will assign an MFID.")
+            orcid = prompt_optional(
+                "ORCID",
+                validator=validate_orcid,
+                hint="Enter to generate an MFID",
+            )
 
         if email is None:
-            email_input = input("Email (optional, press Enter to skip): ").strip()
-            if email_input:
-                if re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email_input):
-                    email = email_input
-                else:
-                    logger.warning("Invalid email format. Skipping.")
+            email = prompt_optional("Email", validator=validate_email)
 
         if projects is None:
-            projects_input = input("Project IDs (comma-separated, optional, press Enter to skip): ").strip()
-            if projects_input:
-                projects = projects_input
+            projects = prompt_optional(
+                "Project IDs",
+                validator=validate_project_ids,
+                hint="comma-separated",
+            )
 
     try:
         from crucible.models import User
         from ..utils.identifiers import validate_username
 
         username = validate_username(username)
+        if email is not None:
+            email = validate_email(email)
+        if projects is not None:
+            projects = validate_project_ids(projects)
         client = CrucibleClient()
 
         user = User(
