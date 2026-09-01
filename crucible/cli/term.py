@@ -4,10 +4,11 @@
 Terminal display utilities for the Crucible CLI.
 
 Provides TTY-aware color helpers, formatted headers, relative timestamps,
-human-readable sizes, and compact table rendering.  All color/style functions
-are no-ops when stdout is not a TTY (e.g. when piping or redirecting).
+human-readable sizes, and compact table rendering. Color and style functions
+are no-ops when their output stream is not a TTY.
 """
 
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -26,26 +27,40 @@ def _dlen(s: str) -> int:
 
 # ── TTY detection ──────────────────────────────────────────────────────────────
 
-def _tty() -> bool:
-    return hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
+_COLOR_ENABLED = 'NO_COLOR' not in os.environ
+
+
+def configure_color(enabled: bool = True) -> None:
+    global _COLOR_ENABLED
+    _COLOR_ENABLED = bool(enabled) and 'NO_COLOR' not in os.environ
+
+
+def _tty(stream=None) -> bool:
+    stream = stream or sys.stdout
+    return _COLOR_ENABLED and hasattr(stream, 'isatty') and stream.isatty()
+
+
+def _styled(s: str, code: str, stream=None) -> str:
+    use_color = _tty() if stream is None else _tty(stream)
+    return f"\033[{code}m{s}\033[0m" if use_color else s
 
 
 # ── ANSI helpers ───────────────────────────────────────────────────────────────
 
-def bold(s: str) -> str:
-    return f"\033[1m{s}\033[0m" if _tty() else s
+def bold(s: str, stream=None) -> str:
+    return _styled(s, '1', stream)
 
-def cyan(s: str) -> str:
-    return f"\033[36m{s}\033[0m" if _tty() else s
+def cyan(s: str, stream=None) -> str:
+    return _styled(s, '36', stream)
 
-def green(s: str) -> str:
-    return f"\033[32m{s}\033[0m" if _tty() else s
+def green(s: str, stream=None) -> str:
+    return _styled(s, '32', stream)
 
-def yellow(s: str) -> str:
-    return f"\033[33m{s}\033[0m" if _tty() else s
+def yellow(s: str, stream=None) -> str:
+    return _styled(s, '33', stream)
 
-def red(s: str) -> str:
-    return f"\033[31m{s}\033[0m" if _tty() else s
+def red(s: str, stream=None) -> str:
+    return _styled(s, '31', stream)
 
 def hyperlink(text: str, url: str | None) -> str:
     """Wrap *text* in an OSC 8 clickable hyperlink when stdout is a TTY."""
@@ -123,8 +138,8 @@ def mfid_link(uid: str, url: str | None = None) -> str | None:
         return None
     return hyperlink(cyan(uid), url)
 
-def dim(s: str) -> str:
-    return f"\033[2m{s}\033[0m" if _tty() else s
+def dim(s: str, stream=None) -> str:
+    return _styled(s, '2', stream)
 
 
 # ── Structural helpers ─────────────────────────────────────────────────────────
@@ -457,7 +472,7 @@ class ColorHelpFormatter(_argparse.RawDescriptionHelpFormatter):
             is_tty = _os.isatty(1)
         except Exception:
             is_tty = _tty()
-        if not is_tty:
+        if not _COLOR_ENABLED or not is_tty:
             return text
 
         out = []

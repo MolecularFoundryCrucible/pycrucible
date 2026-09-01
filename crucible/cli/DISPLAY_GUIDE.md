@@ -83,18 +83,30 @@ Username, project ID, instrument ID, and project-backed access-group columns mus
 
 ## ANSI Color Conventions
 
-Use `term.*` helpers — all are TTY-safe no-ops when output is redirected.
+Use `term.*` helpers. They are TTY-safe no-ops when output is redirected and respect both `NO_COLOR` and the global `--no-color` option.
 
 | Color | Use case | Helper |
 |-------|----------|--------|
 | Cyan | IDs (MFID, ORCID, project IDs) | `term.cyan(s)` / `term.mfid_link()` / `term.orcid_link()` |
 | Dim / grey | Supplementary info, empty placeholders, timestamps | `term.dim(s)` |
 | Bold | Section headers | `term.bold(s)` / `term.header()` |
-| Yellow | Status: pending | ANSI `\033[33m` |
-| Green | Status: approved / success | ANSI `\033[32m` |
-| Red | Status: rejected / error | ANSI `\033[31m` |
+| Yellow | Status: pending or warning | `term.yellow(s)` |
+| Green | Status: approved or success | `term.green(s)` |
+| Red | Status: rejected or error | `term.red(s)` |
 
-Use `—` (em dash) for missing/null values in tables, not `None` or empty string.
+Use `-` for missing or null values in tables, not `None` or an empty string.
+
+## Errors and warnings
+
+Route command failures through `helpers.fail()` so HTTP status, reason, validation details, JSON output, debug tracebacks, and exit status remain consistent. Do not print raw API validation structures directly.
+
+- Print the error heading and HTTP status in red.
+- Print warning headings in yellow.
+- Print field names in bold.
+- Keep explanatory text uncolored.
+- Write errors and warnings to stderr.
+- Preserve the HTTP status in output while using process exit status `1` for command failure.
+- Never include ANSI codes in JSON or redirected output.
 
 ---
 

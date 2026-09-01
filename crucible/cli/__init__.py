@@ -161,6 +161,13 @@ Examples:
         help='Enable debug logging (HTTP calls, raw API responses, tracebacks)'
     )
 
+    parser.add_argument(
+        '--no-color',
+        action='store_true',
+        default=False,
+        help='Disable ANSI colors and terminal hyperlinks'
+    )
+
     # Subcommand parsers
     subparsers = parser.add_subparsers(
         title='commands',
@@ -210,7 +217,11 @@ Examples:
         argcomplete.autocomplete(parser)
 
     # Remap deprecated subcommand names before parsing
-    argv = _remap_deprecated(sys.argv[1:])
+    raw_argv = sys.argv[1:]
+    term.configure_color('--no-color' not in raw_argv)
+    from .helpers import install_warning_formatter
+    install_warning_formatter()
+    argv = _remap_deprecated(raw_argv)
 
     # Parse arguments
     args = parser.parse_args(argv)

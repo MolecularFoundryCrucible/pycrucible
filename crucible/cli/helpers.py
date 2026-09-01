@@ -8,10 +8,12 @@ shell, keybindings, etc.) and don't belong in term.py (display-only) or
 shell.py (which would create circular imports).
 """
 
+import json
+import logging
 import re
 import sys
-import logging
 from concurrent.futures import ThreadPoolExecutor
+
 from ..utils.identifiers import MFID_PATTERN, classify_user_reference
 
 logger = logging.getLogger(__name__)
@@ -19,20 +21,123 @@ logger = logging.getLogger(__name__)
 _MFID_RE = MFID_PATTERN
 
 
+def _error_details(error):
+    response = getattr(error, 'response', None)
+    if response is None:
+        return None, None, []
+
+    status = getattr(response, 'status_code', None)
+    reason = getattr(response, 'reason', None)
+    detail = None
+    try:
+        payload = response.json()
+        if isinstance(payload, dict):
+            detail = payload.get('detail') or payload.get('message') or payload.get('error')
+        elif payload:
+            detail = payload
+    except (ValueError, AttributeError):
+        text = getattr(response, 'text', '').strip()
+        detail = text or None
+
+    items = detail if isinstance(detail, list) else [detail] if detail is not None else []
+    details = []
+    for item in items:
+        if isinstance(item, dict):
+            location = item.get('loc') or []
+            if isinstance(location, (str, int)):
+                location = [location]
+            location = [str(part) for part in location if part not in ('body', 'query', 'path')]
+            entry = {'message': str(item.get('msg') or item.get('message') or item)}
+            if location:
+                entry['field'] = '.'.join(location)
+            if item.get('type'):
+                entry['type'] = str(item['type'])
+            details.append(entry)
+        else:
+            details.append({'message': str(item)})
+    return status, reason, details
+
+
+def format_cli_error(action: str, error: Exception) -> dict:
+    import requests
+
+    status, reason, details = _error_details(error)
+    if status is not None:
+        error_type = 'http_error'
+    elif isinstance(error, requests.exceptions.Timeout):
+        error_type = 'timeout'
+        reason = 'Request timed out'
+    elif isinstance(error, requests.exceptions.ConnectionError):
+        error_type = 'connection_error'
+        reason = 'Connection failed'
+    else:
+        error_type = type(error).__name__
+
+    if not details and str(error):
+        details = [{'message': str(error)}]
+
+    result = {
+        'type': error_type,
+        'message': f"Failed while {action}." if action else 'Command failed.',
+        'details': details,
+    }
+    if status is not None:
+        result['status'] = status
+    if reason:
+        result['reason'] = str(reason)
+    return result
+
+
+def print_cli_error(data: dict, as_json: bool = False) -> None:
+    from . import term
+
+    if as_json:
+        print(json.dumps({'error': data}, default=str), file=sys.stderr)
+        return
+
+    title = 'Error'
+    if data.get('status') is not None:
+        title += f" {data['status']}"
+    if data.get('reason'):
+        title += f" {data['reason']}"
+    print(term.red(title, stream=sys.stderr), file=sys.stderr)
+    print(data['message'], file=sys.stderr)
+
+    details = data.get('details') or []
+    if details:
+        print(file=sys.stderr)
+        field_width = max((len(item.get('field', '')) for item in details), default=0)
+        for item in details:
+            field = item.get('field')
+            message = item.get('message', '')
+            if field:
+                label = term.bold(field.ljust(field_width), stream=sys.stderr)
+                print(f"  {label}  {message}", file=sys.stderr)
+            else:
+                print(f"  {message}", file=sys.stderr)
+
+
+def show_warning(message) -> None:
+    from . import term
+
+    print(term.yellow('Warning', stream=sys.stderr), file=sys.stderr)
+    print(str(message), file=sys.stderr)
+
+
+def install_warning_formatter() -> None:
+    import warnings
+
+    def showwarning(message, category, filename, lineno, file=None, line=None):
+        show_warning(message)
+
+    warnings.showwarning = showwarning
+
+
 def fail(action: str, error: Exception, args=None) -> None:
-    """Log a CLI error and exit(1), printing a traceback if --debug was passed.
-
-    `action` is the same trailing text every _execute_* function already
-    writes by hand, e.g. fail("deleting dataset", e, args) logs
-    "Error deleting dataset: <e>". Pass action="" for the bare "Error: <e>" form.
-
-    `args` may be an argparse Namespace (checks args.debug) or a plain bool
-    (some helpers like _edit_dataset take a bare `debug` flag, not the full
-    Namespace) — pass whichever is in scope at the call site.
-
-    Never returns — exits the process, same as every call site did manually.
-    """
-    logger.error(f"Error {action}: {error}" if action else f"Error: {error}")
+    """Display a structured CLI error and exit with status 1."""
+    data = format_cli_error(action, error)
+    as_json = not isinstance(args, bool) and getattr(args, 'json', False)
+    print_cli_error(data, as_json=as_json)
     debug = args if isinstance(args, bool) else getattr(args, 'debug', False)
     if debug:
         import traceback

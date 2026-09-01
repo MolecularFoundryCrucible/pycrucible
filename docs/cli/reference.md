@@ -8,6 +8,7 @@ This page is the canonical command inventory for the Crucible CLI. Use `crucible
 |---|---|
 | `--version` | Print the installed client version and exit |
 | `--debug` | Enable Crucible debug logging; place it before the command |
+| `--no-color` | Disable ANSI colors and terminal hyperlinks; place it before the command |
 
 Running `crucible` without a command starts the interactive shell. See the [CLI overview](index.md) for setup, shell completion, and interactive usage.
 

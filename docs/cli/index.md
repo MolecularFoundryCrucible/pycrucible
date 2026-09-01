@@ -7,7 +7,7 @@ nano-crucible ships a full command-line interface under the `crucible` command. 
 Resource commands follow a consistent pattern:
 
 ```
-crucible [--debug] <resource> <action> [options]
+crucible [--debug] [--no-color] <resource> <action> [options]
 ```
 
 Utility commands operate directly on IDs without a sub-action:
@@ -43,11 +43,27 @@ Shell-specific commands:
 | Flag | Effect |
 |---|---|
 | `--debug` | Print HTTP calls, raw responses, and tracebacks. Must come **before** the resource name. |
+| `--no-color` | Disable ANSI colors and terminal hyperlinks. Must come **before** the resource name. |
 | `--version` | Print version and exit. |
 
 ```bash
 crucible --debug dataset list   # --debug must precede the subcommand
 ```
+
+Colors are enabled only for interactive terminals. Set the standard `NO_COLOR` environment variable or use `--no-color` to disable them explicitly.
+
+## Errors and warnings
+
+CLI errors retain the HTTP status and reason while presenting API validation details in a readable form:
+
+```text
+Error 422 Unprocessable Entity
+Failed while creating instrument.
+
+  public  Extra inputs are not permitted
+```
+
+Commands supporting `--json` emit structured errors to stderr when JSON output is selected. `--debug` additionally prints HTTP diagnostics and a traceback. Warnings use the same terminal presentation without Python source locations, while direct Python use of `CrucibleClient` retains standard Python warning behavior.
 
 ## Tab completion
 

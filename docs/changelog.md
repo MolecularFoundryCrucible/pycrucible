@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+
+- The CLI supports `--no-color` and the standard `NO_COLOR` environment variable.
+
+### Changed
+
+- CLI failures now preserve HTTP status codes while formatting API validation details and warnings for readable terminal and JSON output.
+
 ### Fixed
 
 - Instrument creation no longer sends inherited response-only fields rejected by API v3.
