@@ -751,7 +751,7 @@ def _execute_list_projects(args):
             )
             for p in projects
         ]
-        term.table(rows, ['ID', 'Title', 'Organization'], max_widths=[25, 30, 20])
+        term.table(rows, ['Project ID', 'Title', 'Organization'], max_widths=[25, 30, 20])
 
     except ValueError as e:
         logger.error(str(e))

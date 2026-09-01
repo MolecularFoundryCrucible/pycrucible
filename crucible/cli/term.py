@@ -249,6 +249,9 @@ def fmt_date(ts) -> str:
 
 
 _STATUS_COLORS = {
+    'active':   green,
+    'maintenance': yellow,
+    'decommissioned': dim,
     'pending':  yellow,
     'approved': green,
     'complete': green,
@@ -267,6 +270,13 @@ def status_label(status: str) -> str:
     if not status:
         return '-'
     return _STATUS_COLORS.get(status, lambda s: s)(status)
+
+
+def fmt_bool(value) -> str:
+    """Format a nullable boolean for human-readable output."""
+    if value is None:
+        return '-'
+    return 'yes' if value else 'no'
 
 
 def fmt_size(size) -> str | None:

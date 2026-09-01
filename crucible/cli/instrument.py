@@ -313,11 +313,11 @@ def _execute_list(args):
                     i.get('instrument_id') or '-',
                     i.get('unique_id') or '-',
                     term.fmt_owner(i) or '-',
-                    i.get('status') or '-',
+                    term.status_label(i.get('status')),
                 )
                 for i in instruments
             ]
-            term.table(rows, ['Name', 'ID', 'MFID', 'Owner', 'Status'],
+            term.table(rows, ['Name', 'Instrument ID', 'MFID', 'Owner', 'Status'],
                        max_widths=[16, 25, 26, 25, 12])
 
     except Exception as e:
@@ -333,13 +333,13 @@ def _show_instrument(instrument, include_metadata=False):
     term.header("Instrument")
     uid = instrument.get('unique_id')
     _p("Name",         instrument.get('instrument_name'))
-    _p("ID",           instrument.get('instrument_id'))
-    _p("MFID",         term.cyan(uid) if uid else None)
+    _p("Instrument ID", instrument.get('instrument_id'))
+    _p("MFID",          term.mfid_link(uid))
     _p("Type",         instrument.get('instrument_type'))
     _p("Manufacturer", instrument.get('manufacturer'))
     _p("Model",        instrument.get('model'))
     _p("Owner",        term.fmt_owner(instrument))
-    _p("Status",       instrument.get('status'))
+    _p("Status",       term.status_label(instrument.get('status')))
     _p("Location",     instrument.get('location'))
     _p("Description",  instrument.get('description'))
     if instrument.get('other_id'):

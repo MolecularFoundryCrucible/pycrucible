@@ -373,7 +373,7 @@ def _execute_list(args):
                 )
                 for p in projects
             ]
-            term.table(rows, ['ID', 'Title', 'Organization', 'Lead'],
+            term.table(rows, ['Project ID', 'Title', 'Organization', 'Lead'],
                        max_widths=[25, 30, 20, 25])
 
     except Exception as e:
@@ -391,7 +391,7 @@ def _lead_name(project):
     )
 
 
-def _show_project(project, include_metadata=False):
+def _show_project(project, include_metadata=False, include_members=False):
     """Display project fields."""
     _p = term.field_printer(14)
 
@@ -403,21 +403,31 @@ def _show_project(project, include_metadata=False):
 
     term.header("Project")
     pid = project.get('project_id')
-    _p("ID",           term.project_link(pid, f"{_base}/{pid}" if _base and pid else None))
+    uid = project.get('unique_id')
+    project_url = f"{_base}/{pid}" if _base and pid else None
+    _p("Project ID",   term.project_link(pid, project_url))
+    _p("MFID",         term.mfid_link(uid, project_url))
     _p("Title",        project.get('title'))
     _p("Organization", project.get('organization'))
     _p("Lead",         _lead_name(project))
-    _p("Status",       project.get('status'))
+    _p("Status",       term.status_label(project.get('status')))
+
+    term.subheader("Timing")
+    _p("Created",      term.fmt_ts(project.get('creation_time')))
+    _p("Modified",     term.fmt_ts(project.get('modification_time')))
 
     if include_metadata:
         from .helpers import show_scientific_metadata
         show_scientific_metadata(project.get('scientific_metadata'))
 
     members = project.get('members')
-    if members:
+    if include_members or members:
         from .helpers import sort_members
-        members = sort_members(members)
-        term.header(f"Members ({len(members)})")
+        members = sort_members(members or [])
+        term.subheader(f"Members ({len(members)})")
+        if not members:
+            print(f"  {term.dim('No members found.')}")
+            return
         rows = [(m.get('username') or '-', term.fmt_name(m, default='-', fallback_username=False),
                  m.get('role') or '-') for m in members]
         term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
@@ -442,7 +452,11 @@ def _execute_get(args):
             import json
             print(json.dumps(project, indent=2, default=str))
         else:
-            _show_project(project, include_metadata=include_metadata)
+            _show_project(
+                project,
+                include_metadata=include_metadata,
+                include_members=include_members,
+            )
 
     except Exception as e:
         from .helpers import fail
@@ -981,7 +995,7 @@ def _execute_search(args):
             return
         rows = [(r.get('project_id', '-'), r.get('title') or '-',
                  r.get('organization') or '-') for r in results]
-        term.table(rows, ['ID', 'Title', 'Organization'], max_widths=[25, 30, 20])
+        term.table(rows, ['Project ID', 'Title', 'Organization'], max_widths=[25, 30, 20])
     except Exception as e:
         from .helpers import fail
         fail("", e, args)

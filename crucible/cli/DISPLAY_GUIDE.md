@@ -94,7 +94,13 @@ Use `term.*` helpers. They are TTY-safe no-ops when output is redirected and res
 | Green | Status: approved or success | `term.green(s)` |
 | Red | Status: rejected or error | `term.red(s)` |
 
+Pass lifecycle and workflow statuses through `term.status_label()`. Active states are green, maintenance and pending states are yellow, decommissioned states are dim, and rejected or failed states are red.
+
 Use `-` for missing or null values in tables, not `None` or an empty string.
+
+Use `term.fmt_bool()` for nullable boolean fields in human-readable output so true, false, and missing values render as `yes`, `no`, and `-`. Preserve native booleans and nulls in JSON output.
+
+Label resource slugs explicitly as `Project ID` or `Instrument ID`, and label canonical identifiers as `MFID`. Detail views for slug-addressable resources should show both when available.
 
 ## Interactive prompts
 
