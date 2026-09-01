@@ -92,6 +92,8 @@ Add `--json` only when a command has a defined machine-readable result. Collecti
 
 Serialize the raw client result before any terminal headers, links, relative timestamps, placeholders, user-resolution helpers, or display-only restructuring. Write successful JSON to stdout and pass `args` to `helpers.fail()` so errors are emitted as structured JSON on stderr. Do not mix informational logs or human-readable success messages into JSON output.
 
+Future expansion may cover relationship and membership listings, ingestion records, ACL models, deletion workflows, signed file links, local status, and mutation responses. Add these only after defining whether the output is a raw API response or an explicit client-owned schema; do not infer a JSON contract from the human display.
+
 ---
 
 ## ANSI Color Conventions
