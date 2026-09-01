@@ -55,13 +55,20 @@ Don't use widths < 14; labels will collide with values and look misaligned.
 
 ## Tables (`term.table`)
 
-Every `term.table()` call must include `max_widths` to prevent overflow on narrow terminals.
+Every `term.table()` call must include `max_widths`. The renderer treats these as upper bounds and shrinks columns to the current terminal width. Redirected output uses a deterministic 100-column width.
 
 ```python
-term.table(rows, headers, max_widths=[...])
+term.table(
+    rows,
+    headers,
+    max_widths=[...],
+    min_widths=[...],
+)
 ```
 
-**Width budget:** aim for a total of ≤ 100 columns (including 2-space padding between columns).
+Use `min_widths` for crowded tables when selected columns should be protected during shrinking. Keep full 26-character MFIDs, 25-character project or instrument IDs, and 24-character usernames whenever the remaining columns can shrink enough. The renderer may reduce protected columns when the terminal is too narrow for their combined preferred widths.
+
+Width declarations should still aim for a total of no more than 100 columns, including two-space padding between columns.
 
 Common patterns:
 

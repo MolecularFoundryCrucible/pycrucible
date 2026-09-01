@@ -1752,7 +1752,8 @@ def _execute_list(args):
             if not group_by:
                 term.table([_make_row(ds) for ds in sorted(datasets, key=_by_name)],
                            ['Name', 'MFID', 'Measurement', 'Session'],
-                           max_widths=[35, 26, 15, 20])
+                           max_widths=[35, 26, 15, 20],
+                           min_widths=[4, 26, 11, 7])
             else:
                 from collections import defaultdict
                 groups = defaultdict(list)
@@ -1764,7 +1765,8 @@ def _execute_list(args):
                     term.subheader(f"{label} ({len(groups[key])})")
                     term.table([_make_row(ds) for ds in sorted(groups[key], key=_by_name)],
                                ['Name', 'MFID', 'Measurement', 'Session'],
-                               max_widths=[35, 26, 15, 20])
+                               max_widths=[35, 26, 15, 20],
+                               min_widths=[4, 26, 11, 7])
 
     except Exception as e:
         from .helpers import fail

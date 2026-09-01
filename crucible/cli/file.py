@@ -112,7 +112,12 @@ def _execute_list(args):
             status       = _status_label(f)
             rows.append((term.cyan(name), size, term.dim(mfid), term.dim(dataset_mfid), status))
 
-        term.table(rows, ['File', 'Size', 'MFID', 'Dataset', 'Status'], max_widths=[40, 10, 30, 30, 10])
+        term.table(
+            rows,
+            ['File', 'Size', 'MFID', 'Dataset', 'Status'],
+            max_widths=[40, 10, 26, 26, 10],
+            min_widths=[4, 4, 26, 26, 6],
+        )
 
     except Exception as e:
         from .helpers import fail

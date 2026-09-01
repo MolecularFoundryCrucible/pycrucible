@@ -14,6 +14,7 @@
 - Interactive creation and configuration prompts now share required, optional, default, secret, and choice handling; invalid values prompt again, API keys remain hidden, and missing required input fails clearly outside a terminal.
 - Destructive CLI confirmations now use consistent yes-or-no handling, default to cancellation, and require `--yes` when no interactive terminal is available.
 - Resource detail views now distinguish slugs from MFIDs, format nullable booleans and statuses consistently, and show project timing and member expansion clearly.
+- CLI tables now adapt to terminal width while preserving full usernames, resource slugs, and MFIDs whenever space permits.
 
 ### Fixed
 

@@ -728,7 +728,8 @@ def _execute_list(args):
 
             if not group_by:
                 term.table([_make_row(s) for s in sorted(samples, key=_by_name)],
-                           ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
+                           ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20],
+                           min_widths=[4, 26, 4])
             else:
                 from collections import defaultdict
                 groups = defaultdict(list)
@@ -739,7 +740,8 @@ def _execute_list(args):
                     label = key or '(none)'
                     term.subheader(f"{label} ({len(groups[key])})")
                     term.table([_make_row(s) for s in sorted(groups[key], key=_by_name)],
-                               ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
+                               ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20],
+                               min_widths=[4, 26, 4])
 
     except Exception as e:
         from .helpers import fail

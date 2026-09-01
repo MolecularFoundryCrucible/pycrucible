@@ -374,7 +374,8 @@ def _execute_list(args):
                 for p in projects
             ]
             term.table(rows, ['Project ID', 'Title', 'Organization', 'Lead'],
-                       max_widths=[25, 30, 20, 25])
+                       max_widths=[25, 30, 20, 25],
+                       min_widths=[25, 5, 12, 4])
 
     except Exception as e:
         from .helpers import fail
@@ -995,7 +996,12 @@ def _execute_search(args):
             return
         rows = [(r.get('project_id', '-'), r.get('title') or '-',
                  r.get('organization') or '-') for r in results]
-        term.table(rows, ['Project ID', 'Title', 'Organization'], max_widths=[25, 30, 20])
+        term.table(
+            rows,
+            ['Project ID', 'Title', 'Organization'],
+            max_widths=[25, 30, 20],
+            min_widths=[25, 5, 12],
+        )
     except Exception as e:
         from .helpers import fail
         fail("", e, args)

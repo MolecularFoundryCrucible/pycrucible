@@ -318,7 +318,8 @@ def _execute_list(args):
                 for i in instruments
             ]
             term.table(rows, ['Name', 'Instrument ID', 'MFID', 'Owner', 'Status'],
-                       max_widths=[16, 25, 26, 25, 12])
+                       max_widths=[24, 25, 26, 25, 12],
+                       min_widths=[4, 25, 26, 5, 6])
 
     except Exception as e:
         from .helpers import fail

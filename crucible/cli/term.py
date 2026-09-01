@@ -10,6 +10,7 @@ are no-ops when their output stream is not a TTY.
 
 import os
 import re
+import shutil
 import sys
 from datetime import datetime, timezone
 
@@ -422,13 +423,42 @@ def _truncate_cell(s: str, width: int) -> str:
     # No OSC 8 — strip ANSI and truncate plainly
     return _ANSI_RE.sub('', s)[:width - 1] + '…'
 
-def table(rows: list, headers: list, max_widths: list | None = None) -> None:
+
+def _table_output_width() -> int:
+    if hasattr(sys.stdout, 'isatty') and sys.stdout.isatty():
+        return shutil.get_terminal_size(fallback=(100, 24)).columns
+    return 100
+
+
+def _shrink_widths(widths: list, floors: list, target: int) -> list:
+    result = list(widths)
+    while sum(result) > target:
+        candidates = [i for i, width in enumerate(result) if width > floors[i]]
+        if not candidates:
+            break
+        index = max(
+            candidates,
+            key=lambda i: (result[i] - floors[i], result[i], -i),
+        )
+        result[index] -= 1
+    return result
+
+
+def _fit_cell(value: str, width: int) -> str:
+    if _dlen(value) > width:
+        value = _truncate_cell(value, width)
+    return value + ' ' * (width - _dlen(value))
+
+
+def table(rows: list, headers: list, max_widths: list | None = None,
+          min_widths: list | None = None) -> None:
     """
     Print a compact aligned table to stdout.
 
     *rows*       — list of tuples/lists, one per row.
     *headers*    — column header strings (printed dim + uppercased).
     *max_widths* — optional per-column width caps (values are truncated with ``…``).
+    *min_widths* - optional preferred minimums used while fitting the terminal.
     """
     if not rows:
         return
@@ -437,20 +467,47 @@ def table(rows: list, headers: list, max_widths: list | None = None) -> None:
         for i, cell in enumerate(row):
             widths[i] = max(widths[i], _dlen(str(cell) if cell is not None else '-'))
     if max_widths:
-        widths = [min(w, m) for w, m in zip(widths, max_widths)]
+        for i, maximum in enumerate(max_widths[:len(widths)]):
+            widths[i] = min(widths[i], maximum)
 
-    header_line = "  " + "  ".join(h.upper().ljust(widths[i]) for i, h in enumerate(headers))
+    header_floors = [min(width, max(1, len(str(header))))
+                     for width, header in zip(widths, headers)]
+    preferred_floors = list(header_floors)
+    if min_widths:
+        for i, minimum in enumerate(min_widths[:len(widths)]):
+            preferred_floors[i] = min(
+                widths[i],
+                max(header_floors[i], minimum),
+            )
+
+    indent = '  '
+    separator = '  '
+    output_width = max(1, _table_output_width())
+    minimum_cells = len(headers)
+    if output_width < len(indent) + len(separator) * (len(headers) - 1) + minimum_cells:
+        indent = ''
+    if output_width < len(indent) + len(separator) * (len(headers) - 1) + minimum_cells:
+        separator = ' '
+    if output_width < len(indent) + len(separator) * (len(headers) - 1) + minimum_cells:
+        separator = ''
+    overhead = len(indent) + len(separator) * (len(headers) - 1)
+    content_width = max(len(headers), output_width - overhead)
+    widths = _shrink_widths(widths, preferred_floors, content_width)
+    widths = _shrink_widths(widths, header_floors, content_width)
+    widths = _shrink_widths(widths, [1] * len(widths), content_width)
+
+    header_line = indent + separator.join(
+        _fit_cell(str(header).upper(), widths[i])
+        for i, header in enumerate(headers)
+    ).rstrip()
     print(dim(header_line))
 
     for row in rows:
-        parts = []
-        for i, cell in enumerate(row):
-            s = str(cell) if cell is not None else '-'
-            dw = _dlen(s)
-            if dw > widths[i]:
-                s = _truncate_cell(s, widths[i])
-            parts.append(s + ' ' * (widths[i] - _dlen(s)))
-        print("  " + "  ".join(parts).rstrip())
+        parts = [
+            _fit_cell(str(cell) if cell is not None else '-', widths[i])
+            for i, cell in enumerate(row)
+        ]
+        print(indent + separator.join(parts).rstrip())
 
 
 # ── Colored argparse help formatter ────────────────────────────────────────────
