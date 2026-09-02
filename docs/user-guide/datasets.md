@@ -119,6 +119,8 @@ datasets = client.datasets.list(
 )
 ```
 
+The `sample_mfid` relationship filter uses the normal paginated dataset collection and can be combined with compatible dataset filters such as project, instrument, and access selectors. Results follow cursor pagination and include only datasets the caller may read.
+
 Access selectors accept user MFIDs, ORCIDs, usernames, or emails and project MFIDs or project IDs. Multiple selectors use intersection semantics and only narrow resources the authenticated caller may read. Inspecting another user requires platform-administrator access, while inspecting a project requires membership in that project or platform-administrator access.
 
 ## Updating a dataset

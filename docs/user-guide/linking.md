@@ -21,6 +21,15 @@ client.datasets.add_sample(dataset_mfid=dataset_mfid, sample_mfid=sample_mfid)
 client.samples.remove_dataset(sample_mfid=sample_mfid, dataset_mfid=dataset_mfid)
 ```
 
+List the readable resources on either side of the relationship through the canonical collection filters:
+
+```python
+datasets = client.datasets.list(sample_mfid=sample_mfid)
+samples = client.samples.list(dataset_mfid=dataset_mfid)
+```
+
+These methods use cursor pagination and return only related resources the caller may read. The older nested relationship reads remain an API compatibility surface but are not used by current Nano methods.
+
 ---
 
 ## Dataset → Dataset (parent-child)

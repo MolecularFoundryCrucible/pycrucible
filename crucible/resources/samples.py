@@ -94,9 +94,9 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             limit (int): Maximum total results to return (default: 100). Larger
                          requests are handled transparently by following the
                          server's keyset cursor. Pass None to fetch all matches.
-            offset (int): Deprecated for the top-level /samples endpoint, which now
-                          uses keyset pagination and ignores offset. Still honored
-                          for the dataset/parent sub-listings.
+            offset (int): Deprecated for the /samples collection, which uses
+                          keyset pagination and ignores offset. Still honored for
+                          the parent-child sub-listing.
             accessible_to_user: User reference or references whose effective access
                                 must include every result
             accessible_to_project: Project reference or references whose direct access
@@ -109,18 +109,18 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         params = {k: v for k, v in kwargs.items() if v is not None}
         selectors = self._access_selector_params(
             accessible_to_user, accessible_to_project)
-        if (dataset_mfid or parent_mfid) and selectors:
+        if parent_mfid and selectors:
             raise ValueError("Access selectors are supported only by the top-level sample list")
         params.update(selectors)
+        if dataset_mfid is not None:
+            params['dataset_mfid'] = dataset_mfid
         if include_metadata:
             params['include_metadata'] = True
         if include_links:
             params['include_links'] = True
         if include_owner:
             params['include_owner'] = True
-        if dataset_mfid:
-            endpoint = f"/datasets/{dataset_mfid}/samples"
-        elif parent_mfid:
+        if parent_mfid and dataset_mfid is None:
             endpoint = f"/samples/{parent_mfid}/children"
         else:
             endpoint = "/samples"

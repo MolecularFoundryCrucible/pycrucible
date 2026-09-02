@@ -74,6 +74,8 @@ samples = client.samples.list(
 )
 ```
 
+The `dataset_mfid` relationship filter uses the normal paginated sample collection and can be combined with compatible sample and access filters. Results follow cursor pagination and include only samples the caller may read.
+
 Multiple user and project access selectors use intersection semantics and never broaden what the authenticated caller may read.
 
 ## Updating a sample

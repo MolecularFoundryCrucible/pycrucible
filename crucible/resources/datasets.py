@@ -103,9 +103,9 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             limit (int): Maximum total results to return (default: 100). Larger
                          requests are handled transparently by following the
                          server's keyset cursor. Pass None to fetch all matches.
-            offset (int): Deprecated for the top-level /datasets endpoint, which now
-                          uses keyset pagination and ignores offset. Still honored
-                          for the sample sub-listing.
+            offset (int): Deprecated. The /datasets collection uses keyset
+                          pagination and ignores offset, including when filtered
+                          by sample_mfid.
             include_metadata (bool): Include scientific metadata in results
             include_links (bool): Include linked resources (parents, children, associated) per dataset
             include_owner (bool): Resolve owner_orcid into a public-safe user object per dataset
@@ -126,10 +126,9 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         params = {k: v for k, v in kwargs.items() if v is not None}
         selectors = self._access_selector_params(
             accessible_to_user, accessible_to_project)
-        if sample_mfid and (selectors or instrument_mfid):
-            raise ValueError(
-                "Access selectors and instrument_mfid are supported only by the top-level dataset list")
         params.update(selectors)
+        if sample_mfid is not None:
+            params['sample_mfid'] = sample_mfid
         if instrument_mfid is not None:
             params['instrument_mfid'] = instrument_mfid
         if include_metadata:
@@ -138,19 +137,14 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             params['include_links'] = True
         if include_owner:
             params['include_owner'] = True
-        if sample_mfid:
-            if limit:
-                params['limit'] = limit
-            raw = self._request('get', f'/samples/{sample_mfid}/datasets', params=params)
-        else:
-            if offset:
-                import warnings
-                warnings.warn(
-                    "'offset' is ignored by /datasets, which now uses keyset "
-                    "pagination; results start from the newest dataset.",
-                    DeprecationWarning, stacklevel=2,
-                )
-            raw = self._paginate('/datasets', params, limit, offset)
+        if offset:
+            import warnings
+            warnings.warn(
+                "'offset' is ignored by /datasets, which uses keyset "
+                "pagination; results start from the newest dataset.",
+                DeprecationWarning, stacklevel=2,
+            )
+        raw = self._paginate('/datasets', params, limit, offset)
         return [self._parse(d) for d in raw]
 
     def count(self, **kwargs) -> int:
