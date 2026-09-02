@@ -26,6 +26,8 @@ Running `crucible` with no arguments starts an interactive shell with tab-comple
 crucible
 ```
 
+The status bar uses a microscope for the active project, a bear for the authenticated user, and a link for the configured API.
+
 Shell-specific commands:
 
 | Command | Description |

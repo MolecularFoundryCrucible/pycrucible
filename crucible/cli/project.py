@@ -441,7 +441,7 @@ def _show_project(project, include_metadata=False, include_members=False):
             print(f"  {term.dim('No members found.')}")
             return
         rows = [(m.get('username') or '-', term.fmt_name(m, default='-', fallback_username=False),
-                 m.get('role') or '-') for m in members]
+                 term.role_label(m.get('role'))) for m in members]
         term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
 
 
@@ -563,7 +563,7 @@ def _execute_list_users(args):
             for u in users:
                 name     = term.fmt_name(u.model_dump(), default='-', fallback_username=False)
                 username = u.username or '-'
-                role     = u.role or '-'
+                role     = term.role_label(u.role)
                 rows.append((username, name, role))
             term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
 
@@ -770,7 +770,7 @@ def _execute_update_user_role(args):
         term.success(
             f"{args.user_unique_id} is now '{args.role}' in project '{args.project_id}'", args)
         rows = [(u.username or '-', term.fmt_name(u.model_dump(), default='-', fallback_username=False),
-                 u.role or '-') for u in users]
+                 term.role_label(u.role)) for u in users]
         term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
     except Exception as e:
         fail("updating user role", e, args)

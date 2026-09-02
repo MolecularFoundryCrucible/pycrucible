@@ -109,6 +109,8 @@ Fields normally updated through `sample update` include `sample_name`, `sample_t
 
 `project add-user` requires editor or above and accepts `viewer`, `contributor`, `editor`, or `admin`. Grants cannot exceed the caller's role. Use `project update-user-role` to change an existing member and `project transfer-ownership` to change ownership.
 
+Project member tables sort by standing from lead through viewer, display the API `owner` role as `lead`, and use distinct role colors when terminal color is enabled.
+
 The `access grant` commands accept `viewer`, `contributor`, `editor`, or `admin`. Use the resource's `transfer-ownership` command to change ownership.
 
 ## Instrument commands

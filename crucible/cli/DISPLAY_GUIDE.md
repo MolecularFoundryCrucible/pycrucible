@@ -119,6 +119,16 @@ Use `-` for missing or null values in tables, not `None` or an empty string.
 
 Use `term.fmt_bool()` for nullable boolean fields in human-readable output so true, false, and missing values render as `yes`, `no`, and `-`. Preserve native booleans and nulls in JSON output.
 
+Pass project membership roles through `term.role_label()`. Member tables are ordered from highest to lowest standing and use this palette:
+
+| API role | Display | Color |
+|---|---|---|
+| `owner` | `lead` | Gold |
+| `admin` | `admin` | Red |
+| `editor` | `editor` | Blue |
+| `contributor` | `contributor` | Cyan |
+| `viewer` | `viewer` | Gray |
+
 Label resource slugs explicitly as `Project ID` or `Instrument ID`, and label canonical identifiers as `MFID`. Detail views for slug-addressable resources should show both when available.
 
 ## Interactive prompts

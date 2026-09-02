@@ -24,6 +24,7 @@
 - `crucible status` now shows the configured endpoint, readiness state, client and API versions, deployed branch and commit, database latency and schema revisions, and authenticated identity.
 - Instrument search accepts an optional lifecycle-status filter in the Python client and CLI.
 - Instrument creation guidance now reflects that human callers may register instruments while service accounts may not.
+- Project member tables use role-priority ordering and distinct role colors, display the owner as the project lead, and the interactive shell status bar again identifies project, user, and API context with symbols.
 
 ### Fixed
 

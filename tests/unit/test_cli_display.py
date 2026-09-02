@@ -7,10 +7,12 @@ import pytest
 from crucible.cli import access_group as access_group_cli
 from crucible.cli import dataset as dataset_cli
 from crucible.cli import deletion as deletion_cli
+from crucible.cli import helpers
 from crucible.cli import instrument as instrument_cli
 from crucible.cli import project as project_cli
 from crucible.cli import sample as sample_cli
 from crucible.cli import service_account as service_account_cli
+from crucible.cli import shell as shell_cli
 from crucible.cli import term
 
 
@@ -101,6 +103,70 @@ def test_status_markers_use_symbols_in_interactive_output(monkeypatch):
     assert term.status_marker('error') == '×'
 
 
+def test_project_members_sort_by_role_then_name():
+    members = [
+        {'username': 'zoe', 'first_name': 'Zoe', 'role': 'viewer'},
+        {'username': 'amy', 'first_name': 'Amy', 'role': 'editor'},
+        {'username': 'ben', 'first_name': 'Ben', 'role': 'admin'},
+        {'username': 'ann', 'first_name': 'Ann', 'role': 'admin'},
+        {'username': 'lee', 'first_name': 'Lee', 'role': 'owner'},
+        {'username': 'cal', 'first_name': 'Cal', 'role': 'contributor'},
+    ]
+
+    ordered = helpers.sort_members(members)
+
+    assert [(member['role'], member['username']) for member in ordered] == [
+        ('owner', 'lee'),
+        ('admin', 'ann'),
+        ('admin', 'ben'),
+        ('editor', 'amy'),
+        ('contributor', 'cal'),
+        ('viewer', 'zoe'),
+    ]
+
+
+@pytest.mark.parametrize(('role', 'code'), [
+    ('owner', '38;5;220'),
+    ('admin', '31'),
+    ('editor', '34'),
+    ('contributor', '36'),
+    ('viewer', '90'),
+])
+def test_project_role_labels_have_distinct_colors(role, code, monkeypatch):
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+
+    display_role = 'lead' if role == 'owner' else role
+    assert term.role_label(role) == f'\033[{code}m{display_role}\033[0m'
+
+
+def test_project_role_labels_remain_plain_when_redirected(monkeypatch):
+    monkeypatch.setattr(term, '_tty', lambda stream=None: False)
+
+    assert term.role_label('admin') == 'admin'
+
+
+def test_shell_toolbar_restores_context_symbols(monkeypatch):
+    from prompt_toolkit.formatted_text import fragment_list_to_text, to_formatted_text
+
+    shell = shell_cli.CrucibleShell.__new__(shell_cli.CrucibleShell)
+    shell.state = {
+        'project': 'example-project',
+        'session': '',
+        'user_label': 'Test User',
+        'api_label': 'api: testapi-staging',
+        'debug': False,
+    }
+    app = SimpleNamespace(output=SimpleNamespace(
+        get_size=lambda: SimpleNamespace(columns=100)))
+    monkeypatch.setattr('prompt_toolkit.application.get_app', lambda: app)
+
+    rendered = fragment_list_to_text(to_formatted_text(shell._toolbar()))
+
+    assert '🔬 example-project' in rendered
+    assert '🧸 Test User' in rendered
+    assert '🔗 api: testapi-staging' in rendered
+
+
 def test_project_detail_distinguishes_slug_and_mfid_and_shows_empty_members(capsys):
     project_cli._show_project({
         'unique_id': MFID,
@@ -122,6 +188,26 @@ def test_project_detail_distinguishes_slug_and_mfid_and_shows_empty_members(caps
     assert 'Modified' in output
     assert 'Members (0)' in output
     assert 'No members found.' in output
+
+
+def test_project_detail_sorts_and_colors_member_roles(monkeypatch, capsys):
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+
+    project_cli._show_project({
+        'unique_id': MFID,
+        'project_id': 'project-slug',
+        'members': [
+            {'username': 'viewer-user', 'first_name': 'Viewer', 'role': 'viewer'},
+            {'username': 'lead-user', 'first_name': 'Lead', 'role': 'owner'},
+            {'username': 'admin-user', 'first_name': 'Admin', 'role': 'admin'},
+        ],
+    }, include_members=True)
+
+    output = capsys.readouterr().out
+    assert output.index('lead-user') < output.index('admin-user') < output.index('viewer-user')
+    assert '\033[38;5;220mlead\033[0m' in output
+    assert '\033[31madmin\033[0m' in output
+    assert '\033[90mviewer\033[0m' in output
 
 
 def test_instrument_detail_distinguishes_slug_and_mfid(capsys):

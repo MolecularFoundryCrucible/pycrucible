@@ -59,8 +59,17 @@ def bold(s: str, stream=None) -> str:
 def cyan(s: str, stream=None) -> str:
     return _styled(s, '36', stream)
 
+def blue(s: str, stream=None) -> str:
+    return _styled(s, '34', stream)
+
+def gold(s: str, stream=None) -> str:
+    return _styled(s, '38;5;220', stream)
+
 def green(s: str, stream=None) -> str:
     return _styled(s, '32', stream)
+
+def gray(s: str, stream=None) -> str:
+    return _styled(s, '90', stream)
 
 def yellow(s: str, stream=None) -> str:
     return _styled(s, '33', stream)
@@ -165,6 +174,22 @@ def status_marker(status: str, stream=None) -> str:
         raise ValueError(f"Unknown status marker: {status}")
     symbol, label, style = styles[status]
     return style(symbol if _interactive(stream) else label, stream=stream)
+
+
+def role_label(role: str, stream=None) -> str:
+    """Color a project membership role while preserving plain redirected output."""
+    if not role:
+        return '-'
+    normalized = role.lower()
+    styles = {
+        'owner': gold,
+        'admin': red,
+        'editor': blue,
+        'contributor': cyan,
+        'viewer': gray,
+    }
+    display_role = 'lead' if normalized == 'owner' else role
+    return styles.get(normalized, dim)(display_role, stream=stream)
 
 
 # ── Structural helpers ─────────────────────────────────────────────────────────
