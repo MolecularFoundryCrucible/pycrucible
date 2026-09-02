@@ -105,7 +105,7 @@ def test_error_and_warning_colors_use_stderr_tty(monkeypatch, capsys):
     output = capsys.readouterr().err
     assert '\033[31mError 422 Unprocessable Entity\033[0m' in output
     assert '\033[1mpublic\033[0m' in output
-    assert '\033[33mWarning\033[0m' in output
+    assert '\033[33mWarning:\033[0m Configured API is deprecated.' in output
 
 
 def test_no_color_environment_disables_ansi(monkeypatch):

@@ -338,7 +338,7 @@ def _execute_create(args):
         project_ids = [p.strip() for p in projects.split(',')] if projects else []
         result = client.users.create(user, project_ids=project_ids)
 
-        logger.info("✓ User created")
+        term.success("User created", args)
         _show_user(result)
 
     except Exception as e:
@@ -392,7 +392,7 @@ def _execute_update(args):
         client = CrucibleClient()
         user_id = resolve_user_id(client, args.user)
         result = client.users.update(user_id, **fields)
-        logger.info("User updated")
+        term.success("User updated", args)
         _show_user(result)
     except ValueError as e:
         logger.error(str(e))
@@ -519,7 +519,7 @@ def _execute_add_access_group(args):
         client = CrucibleClient()
         user_id = resolve_user_id(client, args.user)
         client.users.add_to_access_group(user_id, args.group_name)
-        logger.info(f"Added {args.user} to access group '{args.group_name}'")
+        term.success(f"Added {args.user} to access group '{args.group_name}'", args)
     except ValueError as e:
         logger.error(str(e))
         sys.exit(1)
@@ -557,7 +557,7 @@ def _execute_remove_access_group(args):
         client = CrucibleClient()
         user_id = resolve_user_id(client, args.user)
         client.users.remove_from_access_group(user_id, args.group_name)
-        logger.info(f"Removed {args.user} from access group '{args.group_name}'")
+        term.success(f"Removed {args.user} from access group '{args.group_name}'", args)
     except ValueError as e:
         logger.error(str(e))
         sys.exit(1)

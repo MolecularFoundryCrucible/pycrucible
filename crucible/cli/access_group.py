@@ -90,7 +90,7 @@ def _execute_request(args):
     try:
         client = CrucibleClient()
         record = client.access_groups.request_join(args.group_name, reason=args.reason)
-        logger.info("✓ Join request submitted")
+        term.success("Join request submitted", args)
         print()
         _show_join_request(record, client=client)
     except Exception as e:
@@ -244,7 +244,7 @@ def _execute_approve(args):
     for rid in args.request_id:
         try:
             record = client.access_groups.approve_join_request(rid, reviewer_notes=args.reviewer_notes)
-            logger.info(f"✓ Join request {rid} approved")
+            term.success(f"Join request {rid} approved", args)
             print()
             _show_join_request(record, client=client)
         except Exception as e:
@@ -288,7 +288,7 @@ def _execute_reject(args):
     for rid in args.request_id:
         try:
             record = client.access_groups.reject_join_request(rid, reviewer_notes=args.reviewer_notes)
-            logger.info(f"✓ Join request {rid} rejected")
+            term.success(f"Join request {rid} rejected", args)
             print()
             _show_join_request(record, client=client)
         except Exception as e:

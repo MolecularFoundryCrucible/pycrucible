@@ -539,7 +539,7 @@ def _execute_create(args):
         )
         result = client.projects.create(project, scientific_metadata=metadata_dict)
 
-        logger.info("✓ Project created")
+        term.success("Project created", args)
         _show_project(result)
 
     except Exception as e:
@@ -616,7 +616,8 @@ def _execute_add_user(args):
             if match:
                 name = ' '.join(p for p in (match.first_name or '', match.last_name or '') if p) or name
 
-        logger.info(f"\n✓ {name} added to project {args.project_id} successfully!")
+        print()
+        term.success(f"{name} added to project {args.project_id}", args)
 
     except Exception as e:
         from .helpers import fail
@@ -655,7 +656,7 @@ def _execute_update(args):
 
         if fields:
             result = client.projects.update(current_project_id, **fields)
-            logger.info("✓ Project updated")
+            term.success("Project updated", args)
             _show_project(result)
             current_project_id = result.get('project_id', current_project_id)
 
@@ -663,7 +664,7 @@ def _execute_update(args):
             overwrite = getattr(args, 'overwrite', False)
             client.projects.update_scientific_metadata(current_project_id, metadata_dict, overwrite=overwrite)
             action = "replaced" if overwrite else "updated"
-            logger.info(f"✓ Scientific metadata {action} for project {current_project_id}")
+            term.success(f"Scientific metadata {action} for project {current_project_id}", args)
 
     except Exception as e:
         from .helpers import fail
@@ -714,7 +715,7 @@ def _execute_remove_user(args):
             email=None if user_unique_id else email,
             username=None if user_unique_id else username,
         )
-        logger.info(f"Removed {name} from project '{args.project_id}'")
+        term.success(f"Removed {name} from project '{args.project_id}'", args)
 
     except _req.exceptions.HTTPError as e:
         if e.response is not None and e.response.status_code == 404:
@@ -766,9 +767,8 @@ def _execute_update_user_role(args):
         client = CrucibleClient()
         users = sort_members(client.projects.update_user_role(
             args.project_id, args.user_unique_id, args.role))
-        logger.info(
-            f"✓ {args.user_unique_id} is now '{args.role}' in project '{args.project_id}'"
-        )
+        term.success(
+            f"{args.user_unique_id} is now '{args.role}' in project '{args.project_id}'", args)
         rows = [(u.username or '-', term.fmt_name(u.model_dump(), default='-', fallback_username=False),
                  u.role or '-') for u in users]
         term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
@@ -838,7 +838,7 @@ def _execute_request_join(args):
     try:
         client = CrucibleClient()
         record = client.projects.request_join(args.project_id, reason=args.reason)
-        logger.info("✓ Join request submitted")
+        term.success("Join request submitted", args)
         _show_join_request(record, client=client)
     except Exception as e:
         from .helpers import fail

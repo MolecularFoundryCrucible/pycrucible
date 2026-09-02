@@ -71,6 +71,36 @@ def test_nullable_boolean_formatting(value, expected):
     assert term.fmt_bool(value) == expected
 
 
+def test_success_message_uses_text_and_respects_json(monkeypatch, capsys):
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+
+    term.success('Project created')
+    term.success('Hidden', SimpleNamespace(json=True))
+
+    output = capsys.readouterr().out
+    assert '\033[32mSuccess:\033[0m Project created' in output
+    assert 'Hidden' not in output
+
+
+@pytest.mark.parametrize(('status', 'expected'), [
+    ('success', 'OK'),
+    ('warning', 'WARNING'),
+    ('error', 'ERROR'),
+    ('info', 'INFO'),
+])
+def test_status_markers_use_words_when_redirected(status, expected, monkeypatch):
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: False)
+
+    assert term.status_marker(status) == expected
+
+
+def test_status_markers_use_symbols_in_interactive_output(monkeypatch):
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: True)
+
+    assert term.status_marker('success') == '✓'
+    assert term.status_marker('error') == '×'
+
+
 def test_project_detail_distinguishes_slug_and_mfid_and_shows_empty_members(capsys):
     project_cli._show_project({
         'unique_id': MFID,

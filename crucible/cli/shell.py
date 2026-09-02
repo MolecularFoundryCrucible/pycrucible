@@ -869,12 +869,12 @@ class CrucibleShell:
         label = f'{proj} / {sess}' if sess else proj
         if len(label) > 22:
             label = label[:21] + '…'
-        proj_content = f'🔬 {label}'.ljust(25)
+        proj_content = f'Project {label}'.ljust(25)
         clock        = datetime.now().strftime('%H:%M')
 
         left_str  = f' {proj_content} '
-        mid_str   = f' 🧸 {self.state.get("user_label", "?")} '
-        right_str = f' 🔗 {self.state.get("api_label", "?")}  │  {clock} '
+        mid_str   = f' User {self.state.get("user_label", "?")} '
+        right_str = f' API {self.state.get("api_label", "?")}  │  {clock} '
         debug_str = ' DEBUG ' if self.state.get('debug') else ''
 
         try:

@@ -279,7 +279,7 @@ def _execute_create(args):
 
         result = client.instruments.create(instrument, scientific_metadata=metadata_dict)
 
-        logger.info("✓ Instrument created")
+        term.success("Instrument created", args)
         _show_instrument(result)
 
     except Exception as e:
@@ -458,14 +458,14 @@ def _execute_update(args):
 
         if fields:
             result = client.instruments.update(args.unique_id, **fields)
-            logger.info("✓ Instrument updated")
+            term.success("Instrument updated", args)
             _show_instrument(result)
 
         if metadata_dict is not None:
             overwrite = getattr(args, 'overwrite', False)
             client.instruments.update_scientific_metadata(args.unique_id, metadata_dict, overwrite=overwrite)
             action = "replaced" if overwrite else "updated"
-            logger.info(f"✓ Scientific metadata {action} for instrument {args.unique_id}")
+            term.success(f"Scientific metadata {action} for instrument {args.unique_id}", args)
 
     except Exception as e:
         from .helpers import fail
@@ -541,7 +541,7 @@ def _execute_bind_sa(args):
     try:
         client = CrucibleClient()
         members = sort_members(client.instruments.bind_service_account(args.instrument_mfid, args.sa_id))
-        logger.info(f"✓ Service account {args.sa_id} bound to instrument {args.instrument_mfid}")
+        term.success(f"Service account {args.sa_id} bound to instrument {args.instrument_mfid}", args)
         rows = [(m.username or '-', term.fmt_name(m.model_dump(), default='-', fallback_username=False),
                  m.unique_id or '-', m.role or '-') for m in members]
         term.table(rows, ['Username', 'Name', 'ID', 'Role'], max_widths=[25, 25, 30, 12])
@@ -578,7 +578,7 @@ def _execute_unbind_sa(args):
     try:
         client = CrucibleClient()
         members = sort_members(client.instruments.unbind_service_account(args.instrument_mfid, args.sa_id))
-        logger.info(f"✓ Service account {args.sa_id} unbound from instrument {args.instrument_mfid}")
+        term.success(f"Service account {args.sa_id} unbound from instrument {args.instrument_mfid}", args)
         rows = [(m.username or '-', term.fmt_name(m.model_dump(), default='-', fallback_username=False),
                  m.unique_id or '-', m.role or '-') for m in members]
         term.table(rows, ['Username', 'Name', 'ID', 'Role'], max_widths=[25, 25, 30, 12])

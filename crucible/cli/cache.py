@@ -178,7 +178,7 @@ def _execute_clear(args):
             logger.info("Aborted.")
             return
         shutil.rmtree(target)
-        logger.info(f"✓ Removed {args.dataset} ({_human(size)})")
+        term.success(f"Removed {args.dataset} ({_human(size)})", args)
         return
 
     # --- older-than filter ---
@@ -205,7 +205,7 @@ def _execute_clear(args):
             return
         for entry in targets:
             shutil.rmtree(entry.path)
-        logger.info(f"✓ Removed {len(targets)} dataset(s) ({_human(total)})")
+        term.success(f"Removed {len(targets)} dataset(s) ({_human(total)})", args)
         return
 
     # --- clear everything ---
@@ -219,4 +219,4 @@ def _execute_clear(args):
         return
     shutil.rmtree(cache_dir)
     os.makedirs(cache_dir, exist_ok=True)
-    logger.info(f"✓ Cache cleared ({_human(total)} freed)")
+    term.success(f"Cache cleared ({_human(total)} freed)", args)

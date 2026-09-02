@@ -107,31 +107,31 @@ def execute(args):
     health_result, elapsed_ms, err = _check(stop, is_tty, _health)
 
     if err is not None:
-        print(f'  ✗  {term.bold(host)}  {term.dim("unreachable")}')
+        print(f'  {term.status_marker("error")}  {term.bold(host)}  {term.dim("unreachable")}')
         print(f'\n     {err}')
         sys.exit(1)
 
     http_status, health = health_result
     version_str, db_status, db_ms, readiness_detected = _readiness_fields(health)
     ver_label   = f"  {term.dim(version_str)}" if version_str else ""
-    print(f'  ✓  {term.bold(host)}  {term.dim(f"{elapsed_ms:.0f}ms")}{ver_label}')
+    print(f'  {term.status_marker("success")}  {term.bold(host)}  {term.dim(f"{elapsed_ms:.0f}ms")}{ver_label}')
 
     if readiness_detected:
         db_ok = db_status == "ok"
         db_latency = f"  {term.dim(f'{db_ms:.0f}ms')}" if db_ms is not None else ""
         if db_ok:
-            print(f'  ✓  Database reachable{db_latency}')
+            print(f'  {term.status_marker("success")}  Database reachable{db_latency}')
         else:
-            print(f'  ✗  Database unreachable')
+            print(f'  {term.status_marker("error")}  Database unreachable')
     else:
         db_ok = True  # can't determine; don't block auth check
-        print(f'  —  Health endpoint not yet deployed  {term.dim(f"(HTTP {http_status})")}')
+        print(f'  {term.status_marker("info")}  Health endpoint not yet deployed  {term.dim(f"(HTTP {http_status})")}')
 
 
     # ── 2. Authentication (/account, requires API key) ────────────────────────
     print()
     if not api_key:
-        print(f'  —  No API key configured')
+        print(f'  {term.status_marker("info")}  No API key configured')
         print(f'       Run: crucible config set api_key KEY')
         sys.exit(0 if db_ok else 1)
 
@@ -142,7 +142,7 @@ def execute(args):
     info, _, err = _check(stop, is_tty, _whoami)
 
     if err is not None:
-        print(f'  ✗  Authentication failed')
+        print(f'  {term.status_marker("error")}  Authentication failed')
         print(f'\n     {err}')
         sys.exit(1)
 
@@ -152,9 +152,9 @@ def execute(args):
     name  = f'{first} {last}'.strip() or None
 
     if name:
-        print(f'  ✓  Authenticated as  {name}')
+        print(f'  {term.status_marker("success")}  Authenticated as  {name}')
     else:
-        print(f'  ✓  Authenticated')
+        print(f'  {term.status_marker("success")}  Authenticated')
 
     print()
     sys.exit(0 if db_ok else 1)

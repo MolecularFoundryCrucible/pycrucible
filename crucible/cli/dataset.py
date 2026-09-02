@@ -72,7 +72,7 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
         reason = dr.get('reason') or ''
         rid    = dr.get('id', '')
         color  = term.yellow if status == 'pending' else term.red
-        msg    = color(f"⚠  Deletion {status}")
+        msg    = color(f"Deletion {status}")
         if reason:
             msg += f'  "{reason}"'
         if rid:
@@ -159,7 +159,8 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
             except Exception:
                 links_list = None
         if links_list is None:
-            print(f"  {term.dim('⚠  Could not fetch links.')}")
+            from .helpers import show_warning
+            show_warning("Could not fetch links.")
         else:
             proj            = dataset.get('project_id') or ''
             linked_samples  = [l for l in links_list if l.get('relationship') == 'associated'
@@ -731,7 +732,7 @@ def _execute_update(args):
 
         if updates:
             client.datasets.update(args.dataset_id, **updates)
-            logger.info(f"✓ Dataset {args.dataset_id} fields updated")
+            term.success(f"Dataset {args.dataset_id} fields updated", args)
             if getattr(args, "debug", False):
                 logger.debug(f"Updated fields: {list(updates.keys())}")
 
@@ -741,7 +742,7 @@ def _execute_update(args):
                 args.dataset_id, metadata_dict, overwrite=overwrite
             )
             action = "replaced" if overwrite else "updated"
-            logger.info(f"✓ Scientific metadata {action} for dataset {args.dataset_id}")
+            term.success(f"Scientific metadata {action} for dataset {args.dataset_id}", args)
 
     except Exception as e:
         from .helpers import fail
@@ -844,7 +845,7 @@ def _execute_delete(args):
     try:
         client = CrucibleClient()
         client.datasets.delete(args.dataset_id)
-        logger.info(f"✓ Deleted dataset {args.dataset_id}")
+        term.success(f"Deleted dataset {args.dataset_id}", args)
     except Exception as e:
         from .helpers import fail
         fail("deleting dataset", e, args)
@@ -986,7 +987,7 @@ def _execute_add_sample(args):
         client = CrucibleClient()
         client.datasets.add_sample(args.dataset_id, args.sample)
 
-        logger.info(f"✓ Linked sample {args.sample} to dataset {args.dataset_id}")
+        term.success(f"Linked sample {args.sample} to dataset {args.dataset_id}", args)
 
     except Exception as e:
         from .helpers import fail
@@ -1016,7 +1017,7 @@ def _execute_remove_sample(args):
     try:
         client = CrucibleClient()
         client.datasets.remove_sample(args.dataset_id, args.sample)
-        logger.info(f"✓ Unlinked sample {args.sample} from dataset {args.dataset_id}")
+        term.success(f"Unlinked sample {args.sample} from dataset {args.dataset_id}", args)
     except Exception as e:
         from .helpers import fail
         fail("unlinking sample from dataset", e, args)
@@ -1045,7 +1046,7 @@ def _execute_remove_child(args):
     try:
         client = CrucibleClient()
         client.datasets.remove_child(args.parent_id, args.child)
-        logger.info(f"✓ Unlinked child dataset {args.child} from parent dataset {args.parent_id}")
+        term.success(f"Unlinked child dataset {args.child} from parent dataset {args.parent_id}", args)
     except Exception as e:
         from .helpers import fail
         fail("unlinking child dataset", e, args)
@@ -1214,7 +1215,7 @@ def _execute_download(args):
             else:
                 logger.info("No files to download (all already exist or dataset is empty)")
         else:
-            logger.info(f"✓ Downloaded {len(downloaded)} file(s):")
+            term.success(f"Downloaded {len(downloaded)} file(s)", args)
             for path in downloaded:
                 logger.info(f"  {path}")
 
@@ -1310,7 +1311,8 @@ def _execute_add_file(args):
             client.datasets.add_file(dsid, str(fpath),
                                                 ingestion_class=ingestor,
                                                 wait_for_ingestion_response=wait)
-            rows.append((fpath.name, term.fmt_size(fpath.stat().st_size), '✓'))
+            rows.append((fpath.name, term.fmt_size(fpath.stat().st_size),
+                         term.status_marker('success')))
 
         print()
         term.table(rows, ['File', 'Size', ''], max_widths=[60, 10, 4])
@@ -1553,7 +1555,7 @@ def _execute_add_keyword(args):
         client = CrucibleClient()
         client.datasets.add_keyword(args.dataset_id, args.keyword)
 
-        logger.info(f"✓ Keyword '{args.keyword}' added to {args.dataset_id}")
+        term.success(f"Keyword '{args.keyword}' added to {args.dataset_id}", args)
 
     except Exception as e:
         from .helpers import fail
@@ -1657,7 +1659,7 @@ def _execute_add_access_group(args):
         client.datasets.add_access_group(args.dataset_id, args.group_name,
                                          read=True, write=args.write)
         perms = 'read+write' if args.write else 'read'
-        logger.info(f"✓ Access group '{args.group_name}' added to {args.dataset_id} ({perms})")
+        term.success(f"Access group '{args.group_name}' added to {args.dataset_id} ({perms})", args)
     except Exception as e:
         from .helpers import fail
         fail("", e, args)
@@ -2026,7 +2028,7 @@ def _execute_create(args):
                     wait_for_ingestion_response=True
                 )
 
-            logger.info("✓ Upload successful")
+            term.success("Upload completed", args)
             created = result.get('created_record', {}) if result else {}
             if created:
                 from crucible.client import CrucibleClient
@@ -2038,11 +2040,8 @@ def _execute_create(args):
                     logger.debug(f"  {key}: {value}")
 
         except Exception as e:
-            logger.error(f"✗ Upload failed: {e}")
-            if getattr(args, "debug", False):
-                import traceback
-                traceback.print_exc()
-            sys.exit(1)
+            from .helpers import fail
+            fail("uploading dataset", e, args)
 
 
 def _execute_link(args):
@@ -2052,7 +2051,7 @@ def _execute_link(args):
         client = CrucibleClient()
         client.datasets.link_parent_child(args.parent, args.child)
 
-        logger.info(f"✓ Linked dataset {args.child} as child of {args.parent}")
+        term.success(f"Linked dataset {args.child} as child of {args.parent}", args)
 
     except Exception as e:
         from .helpers import fail

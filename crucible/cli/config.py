@@ -282,7 +282,8 @@ def cmd_init(args):
             graph_explorer_url=graph_explorer_url,
             current_project=current_project
         )
-        print(f"\n✓ Configuration saved to: {created_path}")
+        print()
+        term.success(f"Configuration saved to: {created_path}", args)
         print("\nYou can now use crucible commands!")
         print("Example: crucible upload -i input.lmp -t lammps -pid my-project")
     except Exception as e:
@@ -439,8 +440,8 @@ def cmd_set(args):
     key   = args.key
     value = args.value
     section, config_file = set_config_value(key, value)
-    print(f"✓ Set {key} = {value}  (in [{section}])")
-    print(f"✓ Saved to {config_file}")
+    term.success(f"Set {key} = {value}  (in [{section}])", args)
+    term.success(f"Saved to {config_file}", args)
 
 
 def unset_config_value(key):
@@ -523,9 +524,10 @@ def cmd_edit(args):
 
     try:
         subprocess.run(cmd + [str(config_file)], check=True)
-        print("\n✓ Config file updated")
+        print()
+        term.success("Config file updated", args)
         config.reload()
-        print("✓ Configuration reloaded")
+        term.success("Configuration reloaded", args)
     except subprocess.CalledProcessError as e:
         logger.error(f"Error editing file: {e}")
         sys.exit(1)

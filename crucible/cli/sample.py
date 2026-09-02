@@ -395,13 +395,13 @@ def _execute_update(args):
 
         if updates:
             client.samples.update(args.sample_id, **updates)
-            logger.info(f"✓ Sample {args.sample_id} fields updated")
+            term.success(f"Sample {args.sample_id} fields updated", args)
 
         if metadata_dict is not None:
             overwrite = getattr(args, 'overwrite', False)
             client.samples.update_scientific_metadata(args.sample_id, metadata_dict, overwrite=overwrite)
             action = "replaced" if overwrite else "updated"
-            logger.info(f"✓ Scientific metadata {action} for sample {args.sample_id}")
+            term.success(f"Scientific metadata {action} for sample {args.sample_id}", args)
 
     except Exception as e:
         from .helpers import fail
@@ -766,7 +766,7 @@ def _show_sample(sample, client, verbose=False, graph=False, include_metadata=Fa
         reason = dr.get('reason') or ''
         rid    = dr.get('id', '')
         color  = term.yellow if status == 'pending' else term.red
-        msg    = color(f"⚠  Deletion {status}")
+        msg    = color(f"Deletion {status}")
         if reason:
             msg += f'  "{reason}"'
         if rid:
@@ -798,7 +798,8 @@ def _show_sample(sample, client, verbose=False, graph=False, include_metadata=Fa
             except Exception:
                 links_list = None
         if links_list is None:
-            print(f"  {term.dim('⚠  Could not fetch links.')}")
+            from .helpers import show_warning
+            show_warning("Could not fetch links.")
             return
 
         linked_datasets = [l for l in links_list if l.get('relationship') == 'associated'
@@ -964,7 +965,7 @@ def _execute_create(args):
             scientific_metadata=metadata_dict,
         )
 
-        logger.info("✓ Sample created")
+        term.success("Sample created", args)
         _show_sample(result, client)
 
     except Exception as e:
@@ -979,7 +980,7 @@ def _execute_link(args):
         client = CrucibleClient()
         client.samples.link(args.parent, args.child)
 
-        logger.info(f"✓ Linked sample {args.child} as child of {args.parent}")
+        term.success(f"Linked sample {args.child} as child of {args.parent}", args)
 
     except Exception as e:
         from .helpers import fail
@@ -1051,7 +1052,7 @@ def _execute_link_dataset(args):
         sample_id = args.sample_id
         client.samples.add_dataset(sample_id, args.dataset)
 
-        logger.info(f"✓ Linked sample {sample_id} to dataset {args.dataset}")
+        term.success(f"Linked sample {sample_id} to dataset {args.dataset}", args)
 
     except Exception as e:
         from .helpers import fail
@@ -1081,7 +1082,7 @@ def _execute_remove_child(args):
     try:
         client = CrucibleClient()
         client.samples.remove_child(args.parent_id, args.child)
-        logger.info(f"✓ Unlinked child sample {args.child} from parent sample {args.parent_id}")
+        term.success(f"Unlinked child sample {args.child} from parent sample {args.parent_id}", args)
     except Exception as e:
         from .helpers import fail
         fail("unlinking child sample", e, args)
@@ -1110,7 +1111,7 @@ def _execute_remove_dataset(args):
     try:
         client = CrucibleClient()
         client.samples.remove_dataset(args.sample_id, args.dataset)
-        logger.info(f"✓ Unlinked sample {args.sample_id} from dataset {args.dataset}")
+        term.success(f"Unlinked sample {args.sample_id} from dataset {args.dataset}", args)
     except Exception as e:
         from .helpers import fail
         fail("unlinking dataset from sample", e, args)

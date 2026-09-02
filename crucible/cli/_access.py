@@ -9,12 +9,8 @@ register_access_commands() with its own subparsers and the CrucibleClient
 attribute name for that resource type (e.g. 'datasets').
 """
 
-import logging
-
 from . import term
 from .helpers import fail
-
-logger = logging.getLogger(__name__)
 
 
 def register_access_commands(subparsers, resource_ops_name, id_metavar='RESOURCE_MFID'):
@@ -102,10 +98,9 @@ def _execute_grant(args):
     try:
         ops = _ops(args)
         grant = ops.set_access(args.resource_id, args.kind, args.principal, args.permission)
-        logger.info(
-            f"✓ Granted {grant.permission} to {grant.principal_id} "
-            f"({grant.principal_type}) on {args.resource_id}"
-        )
+        term.success(
+            f"Granted {grant.permission} to {grant.principal_id} "
+            f"({grant.principal_type}) on {args.resource_id}", args)
     except Exception as e:
         fail("granting access", e, args)
 
@@ -114,7 +109,7 @@ def _execute_revoke(args):
     try:
         ops = _ops(args)
         ops.revoke_access(args.resource_id, args.kind, args.principal)
-        logger.info(f"✓ Revoked access for {args.principal} ({args.kind}) on {args.resource_id}")
+        term.success(f"Revoked access for {args.principal} ({args.kind}) on {args.resource_id}", args)
     except Exception as e:
         fail("revoking access", e, args)
 
@@ -123,7 +118,7 @@ def _execute_publish(args):
     try:
         ops = _ops(args)
         ops.set_public(args.resource_id)
-        logger.info(f"✓ {args.resource_id} is now publicly viewable")
+        term.success(f"{args.resource_id} is now publicly viewable", args)
     except Exception as e:
         fail("publishing resource", e, args)
 
@@ -132,6 +127,6 @@ def _execute_unpublish(args):
     try:
         ops = _ops(args)
         ops.unset_public(args.resource_id)
-        logger.info(f"✓ Public access removed from {args.resource_id}")
+        term.success(f"Public access removed from {args.resource_id}", args)
     except Exception as e:
         fail("unpublishing resource", e, args)

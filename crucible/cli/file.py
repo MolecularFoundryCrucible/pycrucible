@@ -217,7 +217,7 @@ def _execute_download(args):
                 logger.error(f"Failed to download: {e}")
             sys.exit(1)
 
-        print(f"  {term.green('✓')} {output_path}")
+        term.success(f"Downloaded {output_path}", args)
 
     except SystemExit:
         raise
@@ -247,7 +247,7 @@ def _execute_delete(args):
     try:
         client = CrucibleClient()
         client.files.delete(args.file_id)
-        print(f"  {term.green('✓')} Deleted {args.file_id}")
+        term.success(f"Deleted {args.file_id}", args)
     except Exception as e:
         from .helpers import fail
         fail("", e, args)

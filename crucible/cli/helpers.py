@@ -121,8 +121,8 @@ def print_cli_error(data: dict, as_json: bool = False) -> None:
 def show_warning(message) -> None:
     from . import term
 
-    print(term.yellow('Warning', stream=sys.stderr), file=sys.stderr)
-    print(str(message), file=sys.stderr)
+    label = term.yellow('Warning:', stream=sys.stderr)
+    print(f"{label} {message}", file=sys.stderr)
 
 
 def _interactive_stdin() -> bool:
@@ -640,7 +640,7 @@ def show_transfer_ownership(result, confirm: bool) -> None:
     prev_name = term.fmt_name(prev.model_dump(), default=prev.unique_id) if prev else '-'
     new_name = term.fmt_name(result.new_owner.model_dump(), default=result.new_owner.unique_id)
     if confirm:
-        logger.info(f"✓ Ownership of {result.resource_id} transferred: {prev_name} -> {new_name}")
+        term.success(f"Ownership of {result.resource_id} transferred: {prev_name} -> {new_name}")
     else:
         logger.info(f"Preview: ownership of {result.resource_id} would transfer from {prev_name} to {new_name}")
         logger.info("Re-run with --confirm to execute.")
@@ -669,7 +669,8 @@ def show_reassign_project(result, confirm: bool) -> None:
     """Print the preview or outcome of a BaseResource.reassign_project() call."""
     prev = result.previous_project_id or '-'
     if confirm:
-        logger.info(f"✓ {result.resource_id} moved from project '{prev}' to '{result.new_project_id}'")
+        from . import term
+        term.success(f"{result.resource_id} moved from project '{prev}' to '{result.new_project_id}'")
     else:
         logger.info(f"Preview: {result.resource_id} would move from project '{prev}' to '{result.new_project_id}'")
         logger.info("Re-run with --confirm to execute.")

@@ -41,6 +41,11 @@ def _tty(stream=None) -> bool:
     return _COLOR_ENABLED and hasattr(stream, 'isatty') and stream.isatty()
 
 
+def _interactive(stream=None) -> bool:
+    stream = stream or sys.stdout
+    return hasattr(stream, 'isatty') and stream.isatty()
+
+
 def _styled(s: str, code: str, stream=None) -> str:
     use_color = _tty() if stream is None else _tty(stream)
     return f"\033[{code}m{s}\033[0m" if use_color else s
@@ -141,6 +146,25 @@ def mfid_link(uid: str, url: str | None = None) -> str | None:
 
 def dim(s: str, stream=None) -> str:
     return _styled(s, '2', stream)
+
+
+def success(message: str, args=None) -> None:
+    if getattr(args, 'json', False):
+        return
+    print(f"{green('Success:')} {message}")
+
+
+def status_marker(status: str, stream=None) -> str:
+    styles = {
+        'success': ('✓', 'OK', green),
+        'warning': ('!', 'WARNING', yellow),
+        'error': ('×', 'ERROR', red),
+        'info': ('-', 'INFO', dim),
+    }
+    if status not in styles:
+        raise ValueError(f"Unknown status marker: {status}")
+    symbol, label, style = styles[status]
+    return style(symbol if _interactive(stream) else label, stream=stream)
 
 
 # ── Structural helpers ─────────────────────────────────────────────────────────

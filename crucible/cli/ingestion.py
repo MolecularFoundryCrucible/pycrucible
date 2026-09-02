@@ -174,7 +174,7 @@ def _execute_wait(args):
         r = client.ingestions.wait(args.request_id)
         status = r.get('status', '-')
         if status == 'complete':
-            logger.info(f"✓ Ingestion {args.request_id} completed successfully")
+            term.success(f"Ingestion {args.request_id} completed", args)
         else:
             logger.error(f"Ingestion {args.request_id} ended with status: {status}")
             sys.exit(1)

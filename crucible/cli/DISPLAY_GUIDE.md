@@ -111,6 +111,10 @@ Use `term.*` helpers. They are TTY-safe no-ops when output is redirected and res
 
 Pass lifecycle and workflow statuses through `term.status_label()`. Active states are green, maintenance and pending states are yellow, decommissioned states are dim, and rejected or failed states are red.
 
+Use `term.success()` for completed mutations. It prints a green `Success:` label for interactive terminals, remains plain when color is disabled or output is redirected, and emits nothing for JSON output.
+
+Symbols may supplement text only in compact health summaries, repeated checklist results, tree structures, interactive selection markers, and progress indicators. Use `term.status_marker()` for compact health and checklist rows so interactive output uses a symbol while redirected output uses an explicit word. Do not use symbols for mutation confirmations, warning paragraphs, errors, logs, JSON, or table statuses that already have a clear word.
+
 Use `-` for missing or null values in tables, not `None` or an empty string.
 
 Use `term.fmt_bool()` for nullable boolean fields in human-readable output so true, false, and missing values render as `yes`, `no`, and `-`. Preserve native booleans and nulls in JSON output.
@@ -140,6 +144,7 @@ Route command failures through `helpers.fail()` so HTTP status, reason, validati
 
 - Print the error heading and HTTP status in red.
 - Print warning headings in yellow.
+- Prefix non-fatal warnings with `Warning:` and an actionable explanation.
 - Print field names in bold.
 - Keep explanatory text uncolored.
 - Write errors and warnings to stderr.

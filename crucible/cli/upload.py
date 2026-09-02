@@ -386,7 +386,8 @@ def execute(args):
                 wait_for_ingestion_response=True
             )
 
-            logger.info("\n✓ Upload successful!")
+            print()
+            term.success("Upload completed", args)
             logger.info(f"Dataset ID: {result.get('created_record', {}).get('unique_id', 'N/A')}")
 
             if result:
@@ -395,11 +396,8 @@ def execute(args):
                     logger.debug(f"  {key}: {value}")
 
         except Exception as e:
-            logger.error(f"\n✗ Upload failed: {e}")
-            if getattr(args, "debug", False):
-                import traceback
-                traceback.print_exc()
-            sys.exit(1)
+            from .helpers import fail
+            fail("uploading dataset", e, args)
     else:
         logger.info("\n(Use -u/--upload flag to upload to Crucible)")
 

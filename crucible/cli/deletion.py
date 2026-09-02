@@ -309,7 +309,7 @@ def _execute_request(args):
     try:
         client = CrucibleClient()
         record = client.deletions.request(args.resource_id, reason=args.reason)
-        logger.info(f"✓ Deletion request submitted (ID: {record.get('id')})")
+        term.success(f"Deletion request submitted (ID: {record.get('id')})", args)
         print()
         _show_deletion_request(record, client=client)
     except Exception as e:
@@ -387,7 +387,7 @@ def _execute_approve(args):
     for rid in args.request_id:
         try:
             record = client.deletions.approve(rid, reviewer_notes=args.notes)
-            logger.info(f"✓ Deletion request {rid} approved")
+            term.success(f"Deletion request {rid} approved", args)
             print()
             _show_deletion_request(record, client=client)
         except Exception as e:
@@ -408,7 +408,7 @@ def _execute_delete(args):
     try:
         client = CrucibleClient()
         result = client.deletions.delete(args.resource_id, force=args.force)
-        logger.info(result.get('detail', f"Resource {args.resource_id} permanently deleted"))
+        term.success(result.get('detail', f"Resource {args.resource_id} permanently deleted"), args)
     except _req.exceptions.HTTPError as e:
         if e.response is not None and e.response.status_code == 409:
             logger.error(f"No approved deletion request for '{args.resource_id}' - "
@@ -439,7 +439,7 @@ def _execute_reject(args):
     for rid in args.request_id:
         try:
             record = client.deletions.reject(rid, reviewer_notes=args.notes)
-            logger.info(f"✓ Deletion request {rid} rejected")
+            term.success(f"Deletion request {rid} rejected", args)
             print()
             _show_deletion_request(record, client=client)
         except Exception as e:

@@ -88,7 +88,7 @@ def execute(args):
     # Use the unified link method
     try:
         CrucibleClient().link(parent_id, child_id)
-        logger.info("Successfully linked resources")
+        term.success("Linked resources", args)
     except Exception as e:
         logger.error(f"Failed to link resources: {e}")
         sys.exit(1)
