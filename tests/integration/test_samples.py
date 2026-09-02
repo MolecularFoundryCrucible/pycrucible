@@ -42,7 +42,7 @@ def test_sample_list_children(client, existing_sample):
 
 
 def test_sample_list_datasets(client, existing_sample):
-    datasets = client.datasets.list(sample_id=existing_sample[0]['unique_id'])
+    datasets = client.datasets.list(sample_mfid=existing_sample[0]['unique_id'])
     assert isinstance(datasets, list)
 
 
@@ -94,9 +94,9 @@ def test_sample_link_parent_child(client, project_id, test_tag):
 
 def test_sample_dataset_link(client, new_sample, new_dataset):
     client.datasets.add_sample(new_dataset, new_sample)
-    linked = client.datasets.list(sample_id=new_sample)
+    linked = client.datasets.list(sample_mfid=new_sample)
     assert any(d.get('unique_id') == new_dataset for d in linked)
 
     client.datasets.remove_sample(new_dataset, new_sample)
-    linked = client.datasets.list(sample_id=new_sample)
+    linked = client.datasets.list(sample_mfid=new_sample)
     assert not any(d.get('unique_id') == new_dataset for d in linked)

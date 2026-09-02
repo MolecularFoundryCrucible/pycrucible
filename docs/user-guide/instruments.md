@@ -2,8 +2,10 @@
 
 | Field | Description | Settable |
 |---|---|---|
-| `instrument_name` | Unique name for the instrument as it will be referenced in datasets | create, update |
-| `owner` | Person or group responsible for the instrument | create, update |
+| `instrument_id` | Unique 3-to-25-character slug used to reference the instrument | create, update |
+| `instrument_name` | Human-readable display name | create, update |
+| `owner_orcid` | Canonical owner identifier returned by the API; deprecated as a creation input | read; deprecated for create |
+| `owner` | Flexible owner identifier on create; public-safe user record on reads with owner expansion | create with an ORCID, MFID, username, or email; expanded by default on `get()` |
 | `location` | Physical location (e.g. room number or building) | create, update |
 | `manufacturer` | Instrument manufacturer (e.g. `"FEI"`, `"Bruker"`) | create, update |
 | `model` | Manufacturer model name or number | create, update |
@@ -14,21 +16,24 @@
 | `unique_id` | System-assigned MFID identifier | server-assigned |
 | `creation_time` | When the record was created | server-assigned |
 | `modification_time` | When the record was last modified | server-assigned |
+| `status` | Lifecycle state: `active`, `maintenance`, or `decommissioned` | server-managed |
+
+New and renamed instrument IDs must contain 3 to 25 characters. Lookup remains compatible with older IDs outside that range.
 
 # Working with Instruments
 
 ## Creating an instrument
 
-Instruments are shared across all projects. If an instrument with the same name already exists, `create()` returns the existing record rather than creating a duplicate.
+Instruments are shared across all projects. If an instrument with the same `instrument_id` slug already exists, `create()` returns the existing record rather than creating a duplicate.
 
 ```python
 from crucible.models import Instrument
 
 instrument = client.instruments.create(Instrument(
+    instrument_id="team-i",
     instrument_name="TEAM I",
     manufacturer="FEI",
     model="Titan 80-300",
-    owner="LBNL MF NCEM",
     location="72-150",
     instrument_type="Transmission electron microscope",
     description="Aberration-corrected TEM/STEM with monochromator",
@@ -36,6 +41,9 @@ instrument = client.instruments.create(Instrument(
     other_id_source="RRID",
 ))
 ```
+
+When `owner` is omitted, the authenticated identity becomes the owner.
+Service accounts and platform administrators may create an instrument for another user by supplying an ORCID, MFID, username, or email.
 
 ## Listing instruments
 
@@ -45,23 +53,48 @@ for i in instruments:
     print(i["instrument_name"], i["location"])
 ```
 
+Normal list operations return active instruments.
+Pass `status="maintenance"` or `status="decommissioned"` to select another lifecycle state.
+List owner expansion is opt-in with `include_owner=True`.
+
 ## Getting an instrument
 
 ```python
-instrument = client.instruments.get(instrument_name="TEAM I")
-# or by unique_id
-instrument = client.instruments.get(instrument_id="if-abc123")
+instrument = client.instruments.get("team-i")
+# or by canonical MFID
+instrument = client.instruments.get("0tkn2knjast3h0008nyq9zps2c")
 ```
+
+Singleton retrieval expands `owner` by default as a public-safe user record containing `unique_id`, `username`, `first_name`, and `last_name`.
+Pass `include_owner=False` to suppress expansion.
+The canonical owner identifier remains available as `owner_orcid`.
+
+Use `instrument_id=` or `instrument_mfid=` when the intended identifier type must be explicit. Display names are not identifiers and are not accepted by the general lookup. For compatibility, an MFID-shaped value supplied as `instrument_id=` is temporarily treated as an MFID and emits a deprecation warning.
 
 ## Updating an instrument
 
 ```python
-client.instruments.update("if-abc123", description="Updated description", location="72-200")
+client.instruments.update("0tkn2knjast3h0008nyq9zps2c", description="Updated description", location="72-200")
+```
+
+Ownership is not an update field.
+Preview an ownership transfer first, then repeat it with confirmation:
+
+```python
+client.instruments.transfer_ownership(
+    "0tkn2knjast3h0008nyq9zps2c",
+    "new-owner",
+)
+client.instruments.transfer_ownership(
+    "0tkn2knjast3h0008nyq9zps2c",
+    "new-owner",
+    confirm=True,
+)
 ```
 
 ## Referencing instruments in datasets
 
-Once registered, reference an instrument in datasets by name:
+Once registered, reference an instrument in datasets by its slug:
 
 ```python
 from crucible.models import Dataset
@@ -69,7 +102,7 @@ from crucible.models import Dataset
 dataset = client.datasets.create(dataset=Dataset(
     dataset_name="HAADF-STEM image of Au NPs",
     measurement="STEM imaging",
-    instrument_name="TEAM I",
+    instrument_id="team-i",
     project_id="MFP12345",
 ))
 ```

@@ -10,7 +10,14 @@ import logging
 from typing import Optional, Dict, List
 from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
-from ..utils.deprecation import _deprecated
+from ..utils.deprecation import _deprecated, _deprecated_parameter
+from ..utils.identifiers import (
+    classify_user_reference,
+    collapse_exact_lookup,
+    is_mfid,
+    is_orcid,
+    require_canonical_identifier,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,44 +28,83 @@ class UserOperations(BaseResource):
     Access via: client.users.get(), client.users.create(), etc.
     """
 
-    def get(self, orcid: Optional[str] = None, email: Optional[str] = None,
-            username: Optional[str] = None) -> Dict:
-        """Get user details by ORCID, email, or username.
+    def get(self, user_ref: Optional[str] = None,
+            email: Optional[str] = None, username: Optional[str] = None,
+            *, orcid: Optional[str] = None,
+            user_unique_id: Optional[str] = None) -> Dict:
+        """Get a user by canonical unique ID, username, or email.
 
-        ORCID and email lookups require admin. Username lookup returns a
-        public profile (no email) and is open to all authenticated users.
+        Username and email references use exact collection filters and return
+        the caller-authorized representation without a second request. Self
+        and platform-administrator lookups may include email; other callers
+        receive the public-safe representation.
+        ``orcid``, ``email``, and ``username`` remain supported keyword forms.
 
         Args:
-            orcid (str, optional): User ORCID identifier
+            user_ref (str, optional): ORCID, user MFID, username, or email
             email (str, optional): User's email address
             username (str, optional): User's username
+            orcid (str, optional): Explicit person ORCID
+            user_unique_id (str, optional): Explicit canonical ORCID or user MFID
 
         Returns:
-            Dict: UserRead (ORCID/email) or UserPublicRead (username)
+            Dict: UserRead for a canonical lookup or the exact collection item
 
         Raises:
-            ValueError: If no identifier provided, no user found,
-                or email matches multiple accounts.
-
-        Note:
-            ORCID is the canonical identifier. If multiple are provided,
-            orcid > username > email in precedence.
+            ValueError: If no identifier or multiple identifiers are provided
         """
-        if orcid:
-            return self._request('get', f'/users/{orcid}')
-        elif username:
-            return self._request('get', f'/users/by-username/{username}')
-        elif email:
-            matches = self._paginate('/users', {'email': email, 'permissive': False})
-            if not matches:
-                raise ValueError(f"You do not have access to any users found with email: {email}")
-            if len(matches) > 1:
-                raise ValueError(
-                    f"Multiple users match email '{email}' - use ORCID to identify unambiguously"
-                )
-            return matches[0]
-        else:
-            raise ValueError('provide orcid, username, or email')
+        provided = [
+            value for value in (user_ref, email, username, orcid, user_unique_id)
+            if value is not None
+        ]
+        if len(provided) != 1:
+            raise ValueError("Provide exactly one user reference.")
+        if user_unique_id is not None:
+            return self._get_by_unique_id(user_unique_id)
+        if orcid is not None:
+            return self._get_by_unique_id(orcid)
+        if username is not None:
+            return self._get_by_username(username)
+        if email is not None:
+            return self._get_by_email(email)
+
+        reference_kind, normalized = classify_user_reference(user_ref)
+        if reference_kind == 'unique_id':
+            return self._get_by_unique_id(normalized)
+        if reference_kind == 'username':
+            return self._get_by_username(normalized)
+        return self._get_by_email(normalized)
+
+    def _get_by_unique_id(self, unique_id: str) -> Dict:
+        """Get a user by canonical ORCID or MFID."""
+        if not is_orcid(unique_id) and not is_mfid(unique_id):
+            raise ValueError("unique_id must be an ORCID or user MFID.")
+        raw = self._request('get', f'/users/{unique_id}')
+        return require_canonical_identifier(raw, 'user')
+
+    def _get_by_username(self, username: str) -> Dict:
+        """Resolve an exact username through the user collection route."""
+        reference_kind, normalized = classify_user_reference(username)
+        if reference_kind != 'username':
+            raise ValueError("username must be a valid 3-to-24-character username.")
+        raw = self._request(
+            'get',
+            '/users',
+            params={'username': normalized, 'limit': 2},
+        )
+        return collapse_exact_lookup(raw, 'user', username)
+
+    def _get_by_email(self, email: str) -> Dict:
+        """Resolve an exact email through the user collection route."""
+        reference_kind, normalized = classify_user_reference(email)
+        if reference_kind != 'email':
+            raise ValueError("email must contain '@'.")
+        raw = self._request(
+            'get',
+            '/users',
+            params={'email': normalized, 'limit': 2},
+        )
+        return collapse_exact_lookup(raw, 'user', email)
 
     def search(self, q: str, limit: int = 20) -> List[Dict]:
         """Search for users by name or username. Available to all authenticated users.
@@ -88,35 +134,37 @@ class UserOperations(BaseResource):
         """Deprecated: use client.account.update_profile() instead."""
         return self._client.account.update_profile(**kwargs)
 
-    def verify_api_key(self, orcid: str) -> Dict:
+    @_deprecated_parameter('orcid', 'user_unique_id')
+    def verify_api_key(self, user_unique_id: str) -> Dict:
         """Verify the API key for any user. Admin only.
 
         Args:
-            orcid: User's ORCID identifier
+            user_unique_id: Canonical user ORCID or MFID
 
         Returns:
             Dict: {valid: bool, created_at: str, expires_at: str}
         """
-        return self._request('get', f'/users/{orcid}/apikey/verify')
+        return self._request('get', f'/users/{user_unique_id}/apikey/verify')
 
-    def resolve(self, orcids: Optional[List[str]] = None,
+    @_deprecated_parameter('orcids', 'user_unique_ids')
+    def resolve(self, user_unique_ids: Optional[List[str]] = None,
                 usernames: Optional[List[str]] = None,
                 emails: Optional[List[str]] = None) -> Dict:
-        """Batch-resolve users by any mix of ORCIDs, usernames, or emails.
+        """Batch-resolve users by canonical IDs, usernames, or emails.
 
         Open to all authenticated users. Returns public profiles (no email).
 
         Args:
-            orcids: List of ORCID strings
+            user_unique_ids: List of canonical user ORCIDs or MFIDs
             usernames: List of username strings
             emails: List of email strings
 
         Returns:
-            Dict: Mapping of ORCID → UserPublicRead. Unresolved identifiers map to null.
+            Dict: Mapping of canonical user ID to UserPublicRead.
         """
         body = {}
-        if orcids:
-            body['orcids'] = orcids
+        if user_unique_ids:
+            body['orcids'] = user_unique_ids
         if usernames:
             body['usernames'] = usernames
         if emails:
@@ -124,9 +172,12 @@ class UserOperations(BaseResource):
         return self._request('post', '/users/resolve', json=body)
 
     def list(self, limit: int = DEFAULT_LIMIT, offset: int = 0, **kwargs) -> List[Dict]:
-        """List all users in the system.
+        """List users visible to the authenticated caller.
 
-        **Requires admin permissions.**
+        Platform administrators see the full directory. Other callers see
+        users who share an access group with them. Broad collection records
+        are public-safe. Exact unique-ID, username, or email filters may include
+        email when the caller is that user or a platform administrator.
 
         Args:
             limit (int): Maximum number of results to return (default: 100)
@@ -134,7 +185,7 @@ class UserOperations(BaseResource):
             **kwargs: Additional query parameters for filtering
 
         Returns:
-            List[Dict]: List of user objects with unique_id, name, email, is_service_account
+            List[Dict]: Public-safe user records with canonical identity and name
 
         Example:
             >>> users = client.users.list(limit=50)
@@ -146,17 +197,17 @@ class UserOperations(BaseResource):
         return sorted(users, key=lambda u: u.get('id') or 0)
 
     def create(self, user, project_ids=None) -> Dict:
-        """Add or update a user in the system (upsert by ORCID).
+        """Create a human user with an ORCID or a server-assigned MFID.
 
-        If a user with the given ORCID already exists their record is updated.
-        Project memberships and access groups are always re-applied.
+        If supplied, the ORCID must be canonical. When it is omitted, the API
+        generates an MFID for the user.
 
         **Requires admin permissions.**
 
         Args:
             user: User model or dict with user information.
-                  Required fields: first_name, last_name, orcid.
-                  Optional: email, is_service_account.
+                  Required fields: first_name, last_name, username.
+                  Optional: unique_id/orcid and email.
                   If a dict, may include a 'projects' key (list of project IDs)
                   as an alternative to the project_ids parameter.
             project_ids (list, optional): Project IDs to associate with the user.
@@ -166,7 +217,7 @@ class UserOperations(BaseResource):
 
         Example:
             >>> from crucible.models import User
-            >>> user = User(first_name="Jane", last_name="Doe", orcid="0000-0000-0000-0000")
+            >>> user = User(first_name="Jane", last_name="Doe", username="jane-doe")
             >>> new_user = client.users.create(user, project_ids=["project1"])
         """
         from ..models import User
@@ -177,107 +228,142 @@ class UserOperations(BaseResource):
             user_data = dict(user)
             user_projects = user_data.pop("projects", project_ids or [])
 
-        # API expects 'orcid', not 'unique_id'
+        if user_data.get('is_service_account') is not None:
+            raise ValueError(
+                "is_service_account cannot be supplied when creating a human user; "
+                "use client.service_accounts.create() for service accounts."
+            )
+        missing = [
+            field for field in ('first_name', 'last_name', 'username')
+            if not user_data.get(field)
+        ]
+        if missing:
+            raise ValueError(f"Human user creation requires: {', '.join(missing)}.")
+
+        # The API accepts the legacy wire alias 'orcid' for an optional unique_id.
         if 'unique_id' in user_data:
             user_data['orcid'] = user_data.pop('unique_id')
+        if user_data.get('orcid') is not None and not is_orcid(user_data['orcid']):
+            raise ValueError("A supplied human unique_id must be an ORCID; omit it to generate an MFID.")
 
         return self._request('post', "/users", json={"user_info": user_data, "project_ids": user_projects})
 
-    def list_datasets(self, orcid: str) -> List[str]:
-        """List dataset IDs accessible to a user.
+    @_deprecated("client.datasets.list(accessible_to_user=...)")
+    def list_datasets(self, user_ref: str) -> List[str]:
+        """List dataset MFIDs accessible to a user.
 
-        **Requires admin permissions.**
+        Inspecting another user requires platform-administrator permissions.
 
         Args:
-            orcid (str): User ORCID identifier
+            user_ref (str): User MFID, ORCID, username, or email
 
         Returns:
             List[str]: Dataset unique IDs the user has access to
         """
-        return self._request('get', f'/users/{orcid}/datasets')
+        records = self._client.datasets.list(
+            accessible_to_user=user_ref,
+            limit=None,
+        )
+        return [record['unique_id'] for record in records]
 
-    def check_dataset_access(self, orcid: str, dsid: str) -> Dict:
-        """Check a user's read/write access to a specific dataset.
+    @_deprecated_parameter('orcid', 'user_ref')
+    @_deprecated_parameter('dsid', 'dataset_mfid')
+    def check_dataset_access(self, user_ref: str,
+                             dataset_mfid: str) -> 'EffectiveResourceAccess':
+        """Return a user's effective access role for a dataset.
 
-        **Requires admin permissions.**
+        Inspecting another user requires platform-administrator permissions.
 
         Args:
-            orcid (str): User ORCID identifier
-            dsid (str): Dataset unique identifier
+            user_ref (str): User MFID, ORCID, username, or email
+            dataset_mfid (str): Dataset MFID
 
         Returns:
-            Dict: Permissions dict with 'read' and 'write' boolean keys
+            EffectiveResourceAccess: Canonical user, resource, and effective role
         """
-        return self._request('get', f'/users/{orcid}/datasets/{dsid}')
+        from ..models import EffectiveResourceAccess
 
-    def list_access_groups(self, orcid: str) -> List[str]:
+        raw = self._request('get', f'/users/{user_ref}/datasets/{dataset_mfid}')
+        return EffectiveResourceAccess.model_validate(raw)
+
+    @_deprecated_parameter('orcid', 'user_unique_id')
+    def list_access_groups(self, user_unique_id: str) -> List[str]:
         """List access group names for a user.
 
         Args:
-            orcid (str): User ORCID identifier
+            user_unique_id (str): Canonical user ORCID or MFID
 
         Returns:
             List[str]: Access group names the user belongs to
         """
-        return self._request('get', f'/users/{orcid}/access_groups')
+        return self._request('get', f'/users/{user_unique_id}/access_groups')
 
-    def add_to_access_group(self, orcid: str, group_name: str) -> Dict:
+    @_deprecated("client.projects.add_user() or client.instruments.bind_service_account()")
+    @_deprecated_parameter('orcid', 'user_unique_id')
+    def add_to_access_group(self, user_unique_id: str, group_name: str) -> Dict:
         """Add a user to an access group.
 
         **Requires admin permissions.**
 
         Args:
-            orcid (str): User ORCID identifier
+            user_unique_id (str): Canonical user ORCID or MFID
             group_name (str): Name of the access group
 
         Returns:
             Dict: Updated access group object
         """
-        return self._request('post', f'/users/{orcid}/access_groups/{group_name}')
+        return self._request('post', f'/users/{user_unique_id}/access_groups/{group_name}')
 
-    def get_projects(self, orcid: str, limit: int = DEFAULT_LIMIT, offset: int = 0) -> List[Dict]:
+    @_deprecated_parameter('orcid', 'user_unique_id')
+    def get_projects(self, user_unique_id: str, limit: int = DEFAULT_LIMIT,
+                     offset: int = 0) -> List[Dict]:
         """List projects associated with a user.
 
         Args:
-            orcid (str): User ORCID identifier
+            user_unique_id (str): Canonical user ORCID or MFID
             limit (int): Maximum number of results to return (default: 100)
             offset (int): Starting position in the full result set (default: 0)
 
         Returns:
             List[Dict]: Project objects the user is associated with
         """
-        return self._paginate(f'/users/{orcid}/projects', {}, limit, offset)
+        return self._paginate(f'/users/{user_unique_id}/projects', {}, limit, offset)
 
-    def update(self, orcid: str, **kwargs) -> Dict:
+    @_deprecated_parameter('orcid', 'user_unique_id')
+    def update(self, user_unique_id: str, **kwargs) -> Dict:
         """Partially update a user record.
 
         **Requires admin permissions.**
 
         Args:
-            orcid (str): User ORCID identifier
+            user_unique_id (str): Canonical user ORCID or MFID
             **kwargs: Fields to update. Accepted: first_name, last_name,
-                      email, is_service_account.
+                      email, username.
 
         Returns:
             Dict: Updated user object
         """
-        return self._request('patch', f'/users/{orcid}', json=kwargs)
+        if 'is_service_account' in kwargs:
+            raise ValueError("is_service_account cannot be changed through user update.")
+        return self._request('patch', f'/users/{user_unique_id}', json=kwargs)
 
     @_deprecated("client.account.api_key()")
     def get_api_key(self) -> str:
         """Deprecated: use client.account.api_key() instead."""
         return self._client.account.api_key()
 
-    def remove_from_access_group(self, orcid: str, group_name: str) -> Dict:
+    @_deprecated("client.projects.remove_user() or client.instruments.unbind_service_account()")
+    @_deprecated_parameter('orcid', 'user_unique_id')
+    def remove_from_access_group(self, user_unique_id: str, group_name: str) -> Dict:
         """Remove a user from an access group.
 
         **Requires admin permissions.**
 
         Args:
-            orcid (str): User ORCID identifier
+            user_unique_id (str): Canonical user ORCID or MFID
             group_name (str): Name of the access group
 
         Returns:
             Dict: Response message
         """
-        return self._request('delete', f'/users/{orcid}/access_groups/{group_name}')
+        return self._request('delete', f'/users/{user_unique_id}/access_groups/{group_name}')

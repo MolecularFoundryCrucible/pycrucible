@@ -5,7 +5,7 @@ Pydantic models for Crucible API request and response objects.
 """
 
 from pydantic import BaseModel, ConfigDict
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional, Union
 
 #%% Base model
 
@@ -24,10 +24,22 @@ class CrucibleResource(BaseModel):
 
 #%% Models
 
+class PublicUser(BaseModel):
+    """Public-safe user record embedded in resource responses."""
+
+    unique_id: str
+    username: Optional[str] = None
+    first_name: str
+    last_name: str
+
+    model_config = ConfigDict(from_attributes=True, extra='allow')
+
+
 class Sample(CrucibleResource):
     sample_name: Optional[str] = None
     sample_type: Optional[str] = None
     owner_orcid: Optional[str] = None
+    owner: Optional[Union[str, PublicUser]] = None
     project_id: Optional[str] = None
     description: Optional[str] = None
     timestamp: Optional[str] = None
@@ -39,8 +51,10 @@ class Sample(CrucibleResource):
 class Dataset(CrucibleResource):
     dataset_name: Optional[str] = None
     owner_orcid: Optional[str] = None
+    owner: Optional[Union[str, PublicUser]] = None
     project_id: Optional[str] = None
     instrument_name: Optional[str] = None
+    instrument_id: Optional[str] = None
     measurement: Optional[str] = None
     data_type: Optional[str] = None
     session_name: Optional[str] = None
@@ -52,21 +66,26 @@ class Dataset(CrucibleResource):
 
 
 class Instrument(CrucibleResource):
+    instrument_id: Optional[str] = None
     instrument_name: Optional[str] = None
     manufacturer: Optional[str] = None
     model: Optional[str] = None
-    owner: Optional[str] = None
+    owner_orcid: Optional[str] = None
+    owner: Optional[Union[str, PublicUser]] = None
     location: Optional[str] = None
     description: Optional[str] = None
     instrument_type: Optional[str] = None
     other_id: Optional[str] = None
     other_id_source: Optional[str] = None
+    status: Optional[str] = None
 
 
 class Project(BaseModel):
     project_id: str
     organization: str
+    unique_id: Optional[str] = None
     lead: Optional[Dict] = None
+    project_lead: Optional[str] = None
     project_lead_orcid: Optional[str] = None
     project_lead_email: Optional[str] = None
     project_lead_username: Optional[str] = None
@@ -75,6 +94,7 @@ class Project(BaseModel):
     scientific_metadata: Optional[Dict] = None
     creation_time: Optional[str] = None
     modification_time: Optional[str] = None
+    members: Optional[List['ProjectMember']] = None
 
     model_config = ConfigDict(from_attributes=True, extra='allow')
 
@@ -88,6 +108,73 @@ class User(BaseModel):
     is_service_account: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ProjectMember(User):
+    '''A project member's profile plus their standing role in the project.'''
+
+    role: str
+
+
+class AccessGrant(BaseModel):
+    '''One principal's access to a resource (GET/PUT /resources/{mfid}/access/...).'''
+
+    principal_id: str
+    principal_type: Literal[
+        'user', 'service_account', 'project', 'instrument', 'public', 'system', 'unknown'
+    ]
+    permission: Literal['viewer', 'contributor', 'editor', 'admin', 'owner']
+    slug: Optional[str] = None
+    display_name: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @property
+    def principal(self) -> str:
+        """Deprecated alias for :attr:`principal_id`."""
+        return self.principal_id
+
+    @property
+    def kind(self) -> str:
+        """Deprecated alias for :attr:`principal_type`."""
+        return self.principal_type
+
+    @property
+    def effective_permission(self) -> str:
+        """Deprecated alias for :attr:`permission`."""
+        return self.permission
+
+
+class EffectiveResourceAccess(BaseModel):
+    '''A user's effective permission on one resource.'''
+
+    resource_mfid: str
+    user_id: str
+    effective_access: Literal[
+        'none', 'viewer', 'contributor', 'editor', 'admin', 'owner', 'platform_admin'
+    ]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OwnershipTransfer(BaseModel):
+    '''Result of POST /resources/{mfid}/transfer_ownership.'''
+
+    resource_id: str
+    previous_owner: Optional[User] = None
+    new_owner: User
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectReassignment(BaseModel):
+    '''Result of POST /resources/{mfid}/project.'''
+
+    resource_id: str
+    previous_project_id: Optional[str] = None
+    new_project_id: str
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AssociatedFile(BaseModel):
@@ -177,7 +264,7 @@ class DeletionAuditLog(BaseModel):
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
 
-
+    
 class IngestionRequest(BaseModel):
     '''Fields to populate the status and provenance of how a file was parsed/ingested'''
     request_id: Optional[str] = None

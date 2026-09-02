@@ -20,15 +20,15 @@ Tracked here for future cleanup. Not bugs — the CLI works — but rough edges 
 ## User identifier inconsistency — RESOLVED
 
 Fixed: all `user` subcommands and `project add-user`/`remove-user` now accept a single
-identifier (ORCID, username, or email) that's format-sniffed via `helpers.parse_user_ref()`.
+identifier (ORCID, MFID, username, or email) that's format-sniffed via `helpers.parse_user_ref()`.
 
 - Commands with no other required positional (`user get`, `user edit`) take it as a
   positional `USER` argument.
 - Commands with an existing positional ORCID slot (`user update`, `add-access-group`,
   `remove-access-group`, `list-datasets`, `check-access`, `list-access-groups`,
   `list-projects`) had that slot's accepted values widened from ORCID-only to
-  ORCID/username/email, resolved to an ORCID via `helpers.resolve_orcid()` before the
-  API call (the underlying routes are ORCID-keyed).
+  ORCID/MFID/username/email, resolved to a canonical user ID via
+  `helpers.resolve_user_id()` before the API call.
 - Commands with a different required positional (`project add-user PROJECT_ID`,
   `project remove-user PROJECT_ID`) got a new `--user`/`-u` flag instead.
 

@@ -7,11 +7,11 @@ Provides shared functionality for all resource operation classes.
 """
 
 # typing
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, Sequence, Union
 
 # internal modules
 from ..constants import DEFAULT_LIMIT
-from ..utils.deprecation import _deprecated
+from ..utils.deprecation import _deprecated, _deprecated_parameter
 
 class BaseResource:
     """Base class for resource-specific operations.
@@ -29,6 +29,32 @@ class BaseResource:
         """
         self._client = client
         self._request = client._request  # Delegate HTTP requests to main client
+
+    @staticmethod
+    def _access_selector_params(
+        accessible_to_user: Optional[Union[str, Sequence[str]]] = None,
+        accessible_to_project: Optional[Union[str, Sequence[str]]] = None,
+    ) -> dict:
+        """Build repeated typed access-selector query parameters."""
+        def normalize(value, name):
+            if value is None:
+                return []
+            values = [value] if isinstance(value, str) else list(value)
+            if any(not isinstance(item, str) or not item for item in values):
+                raise ValueError(f"{name} values must be non-empty strings")
+            return values
+
+        users = normalize(accessible_to_user, 'accessible_to_user')
+        projects = normalize(accessible_to_project, 'accessible_to_project')
+        if len(users) + len(projects) > 10:
+            raise ValueError("At most 10 access selectors may be supplied")
+
+        params = {}
+        if users:
+            params['accessible_to_user'] = users
+        if projects:
+            params['accessible_to_project'] = projects
+        return params
 
     def _paginate(self, endpoint: str, params: dict,
                   limit: int = DEFAULT_LIMIT, offset: int = 0) -> list:
@@ -52,11 +78,19 @@ class BaseResource:
 
         Returns:
             list: Raw item dicts, up to limit items (or all items if limit is None)
+
+        Raises:
+            ValueError: If limit is negative
         """
         from concurrent.futures import ThreadPoolExecutor
         from ..constants import API_PAGE_MAX
 
-        page_size = API_PAGE_MAX
+        if limit is not None and limit < 0:
+            raise ValueError("limit must be non-negative or None")
+        if limit == 0:
+            return []
+
+        page_size = API_PAGE_MAX if limit is None else min(API_PAGE_MAX, limit)
         first_params = {**params, 'limit': page_size}
         if offset:
             first_params['offset'] = offset
@@ -66,15 +100,19 @@ class BaseResource:
         # Keyset (cursor) pagination — '/datasets' and '/samples'.
         if 'next_cursor' in first:
             cursor = first.get('next_cursor')
-            page_len = len(items)
-            while (cursor and page_len >= page_size
-                   and (limit is None or len(items) < limit)):
+            while cursor and (limit is None or len(items) < limit):
+                request_limit = (
+                    API_PAGE_MAX if limit is None
+                    else min(API_PAGE_MAX, limit - len(items))
+                )
                 resp = self._request('get', endpoint,
-                                     params={**params, 'limit': page_size, 'cursor': cursor})
-                page = resp['items']
+                                     params={**params, 'limit': request_limit,
+                                             'cursor': cursor})
+                page = list(resp['items'])
+                if not page:
+                    break
                 items.extend(page)
                 cursor = resp.get('next_cursor')
-                page_len = len(page)
             return items if limit is None else items[:limit]
 
         # Offset pagination — all other endpoints.
@@ -86,8 +124,9 @@ class BaseResource:
         remaining_offsets = range(offset + page_size, offset + need, API_PAGE_MAX)
 
         def _fetch(off):
+            request_limit = min(API_PAGE_MAX, offset + need - off)
             r = self._request('get', endpoint,
-                              params={**params, 'limit': API_PAGE_MAX, 'offset': off})
+                              params={**params, 'limit': request_limit, 'offset': off})
             return r['items']
 
         with ThreadPoolExecutor(max_workers=min(len(remaining_offsets), 8)) as pool:
@@ -122,16 +161,21 @@ class BaseResource:
         """Deprecated: use search_metadata() instead."""
         return self.search_metadata(q, limit=limit)
 
-    def get_scientific_metadata(self, resource_id: str) -> dict:
+    @_deprecated_parameter('resource_id', 'resource_mfid')
+    def get_scientific_metadata(self, resource_mfid: str) -> dict:
         """Get scientific metadata for a resource."""
-        return self._request('get', f'/resources/{resource_id}/metadata')
+        return self._request('get', f'/resources/{resource_mfid}/metadata')
 
-    def replace_scientific_metadata(self, resource_id: str, metadata: dict) -> dict:
+    @_deprecated_parameter('resource_id', 'resource_mfid')
+    def replace_scientific_metadata(self, resource_mfid: str, metadata: dict) -> dict:
         """Create new scientific metadata entry for a resource."""
         # this is kind of redundant with API but its better here? #TODO
-        return self._request('post', f'/resources/{resource_id}/metadata', json=metadata, params = {'overwrite': True})
+        return self._request(
+            'post', f'/resources/{resource_mfid}/metadata',
+            json=metadata, params={'overwrite': True})
 
-    def update_scientific_metadata(self, resource_id: str, metadata: dict,
+    @_deprecated_parameter('resource_id', 'resource_mfid')
+    def update_scientific_metadata(self, resource_mfid: str, metadata: dict,
                                    overwrite: bool = False) -> dict:
         """Add or Update scientific metadata for a resource.
 
@@ -139,40 +183,8 @@ class BaseResource:
             overwrite: If True, replace all metadata (POST); if False, merge with existing (PATCH)
         """
         if overwrite:
-            return self._request('post', f'/resources/{resource_id}/metadata', json=metadata, params = {'overwrite':overwrite})
-        return self._request('patch', f'/resources/{resource_id}/metadata', json=metadata)
-
-
-#%% access group methods
-
-    def get_access_groups(self, mfid: str) -> List[str]:
-        """Get list of access groups for a dataset.
-
-        **Requires admin permissions.**
-
-        Args:
-            dsid (str): Dataset unique identifier
-
-        Returns:
-            List[str]: Access group names
-        """
-        groups = self._request('get', f'/resources/{mfid}/access_groups')
-        return [group['group_name'] for group in groups]
-
-    def add_access_group(self, mfid: str, group_name: str,
-                         read: bool = True, write: bool = False) -> Dict:
-        """Add an access group to a dataset.
-
-        **Requires admin permissions.**
-
-        Args:
-            dsid (str): Dataset unique identifier
-            group_name (str): Name of the access group to add
-            read (bool): Grant read access (default: True)
-            write (bool): Grant write access (default: False)
-
-        Returns:
-            Dict: Created ACL entry
-        """
-        params = {"group_name": group_name, "read": read, "write": write}
-        return self._request('post', f'/resources/{mfid}/access_groups', params=params)
+            return self._request(
+                'post', f'/resources/{resource_mfid}/metadata',
+                json=metadata, params={'overwrite': overwrite})
+        return self._request(
+            'patch', f'/resources/{resource_mfid}/metadata', json=metadata)

@@ -7,6 +7,8 @@ Access via `client.samples`.
       members:
         - get
         - list
+        - count
+        - search
         - create
         - update
         - add_dataset
@@ -15,4 +17,15 @@ Access via `client.samples`.
         - remove_child
         - list_parents
         - list_children
+        - get_scientific_metadata
+        - update_scientific_metadata
+        - replace_scientific_metadata
+        - search_metadata
+        - list_access
+        - set_access
+        - revoke_access
+        - set_public
+        - unset_public
+        - transfer_ownership
+        - reassign_project
         - graph

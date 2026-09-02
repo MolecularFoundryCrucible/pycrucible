@@ -60,7 +60,7 @@ def _resolve_sa(client, unique_id=None, username=None, ambiguous=False):
     coincidentally match that pattern too. On a miss, retry as a username
     before giving up.
     """
-    sa = client.service_accounts.get(unique_id=unique_id, username=username)
+    sa = client.service_accounts.get(service_account_mfid=unique_id, username=username)
     if sa is None and ambiguous and unique_id:
         sa = client.service_accounts.get(username=unique_id)
     if sa is None:
@@ -397,7 +397,7 @@ def _execute_list_access_groups(args):
 def _register_add_access_group(subparsers):
     parser = subparsers.add_parser(
         'add-access-group',
-        help='Add a service account to an access group',
+        help='Deprecated: use project add-user or instrument bind-sa',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -428,7 +428,7 @@ def _execute_add_access_group(args):
 def _register_remove_access_group(subparsers):
     parser = subparsers.add_parser(
         'remove-access-group',
-        help='Remove a service account from an access group',
+        help='Deprecated: use project remove-user or instrument unbind-sa',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:

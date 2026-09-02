@@ -9,6 +9,16 @@ Access via `client.projects`.
         - list
         - create
         - update
+        - search
         - get_users
         - add_user
+        - update_user_role
         - remove_user
+        - request_join
+        - list_join_requests
+        - list_access
+        - set_access
+        - revoke_access
+        - set_public
+        - unset_public
+        - transfer_ownership

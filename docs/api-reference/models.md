@@ -3,7 +3,7 @@
 Pydantic v2 models for all Crucible API objects. All models are importable from `crucible.models` or directly from `crucible`.
 
 ```python
-from crucible.models import Dataset, Sample, Project, Instrument, User, DeletionRequest
+from crucible.models import Dataset, Sample, Project, Instrument, User, PublicUser, DeletionRequest
 ```
 
 ::: crucible.models.Project
@@ -15,5 +15,9 @@ from crucible.models import Dataset, Sample, Project, Instrument, User, Deletion
 ::: crucible.models.Instrument
 
 ::: crucible.models.User
+
+::: crucible.models.PublicUser
+
+::: crucible.models.EffectiveResourceAccess
 
 ::: crucible.models.DeletionRequest

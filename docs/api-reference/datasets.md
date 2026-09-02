@@ -13,8 +13,8 @@ File operations are also available via `client.files` (by MFID) and ingestion vi
         - search
         - create
         - update
-        - delete
         - add_file
+        - add_remote_file
         - list_files
         - get_download_links
         - download
@@ -35,4 +35,11 @@ File operations are also available via `client.files` (by MFID) and ingestion vi
         - list_children
         - get_access_groups
         - add_access_group
+        - list_access
+        - set_access
+        - revoke_access
+        - set_public
+        - unset_public
+        - transfer_ownership
+        - reassign_project
         - graph

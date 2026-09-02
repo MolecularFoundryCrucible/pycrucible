@@ -132,7 +132,7 @@ def _show_profile(user):
     _p("Username", user.get('username') or term.dim('(not set)'))
     _p("Name",  term.fmt_name(user, fallback_username=False))
     uid = user.get('unique_id')
-    _p("ORCID",  term.orcid_link(uid))
+    _p(term.user_id_label(uid), term.user_id_link(uid))
     _p("Email",  user.get('email'))
     if user.get('is_service_account'):
         _p("Type", "service account")
