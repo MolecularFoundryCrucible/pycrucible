@@ -264,12 +264,4 @@ class DeletionAuditLog(BaseModel):
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
 
-    
-class IngestionRequest(BaseModel):
-    '''Fields to populate the status and provenance of how a file was parsed/ingested'''
-    request_id: Optional[str] = None
-    file_id: str
-    status: Optional[str] = None
-    ingestion_githash: Optional[str] = None
-    ingestion_class: Optional[str] = None
-    timezone: Optional[str] = "America/Los_Angeles"
+

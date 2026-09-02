@@ -563,7 +563,9 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         file_size = os.path.getsize(file_path)
         filename  = os.path.basename(file_path)
 
-        file_record, was_existing = upload_file_gcs(self._client, dataset_mfid, file_path,
+        file_record, was_existing = upload_file_gcs(self._client, 
+                                                    dataset_mfid, 
+                                                    file_path,
                                                     multipart=multipart,
                                                     chunk_size_mb=chunk_size_mb,
                                                     max_workers=max_workers)
@@ -578,15 +580,14 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             return {'associated_file': file_record, 'ingestion_request': None}
 
         if skip_ingestion:
-            logger.info(f"Uploaded {stored_filename} to dataset {dsid}, ingestion not requested")
-            return {'associated_file': file_record, 'ingestion_request': None}
+            ingestion_request = self._client.files._skip_ingestion(file_id)
+            logger.info(f"Uploaded {stored_filename} to dataset {dataset_mfid}, ingestion not requested")
 
-        ingestion_request = self._client.files.request_ingestion(
-            file_id,
-            ingestion_class=ingestion_class,
-            wait_for_response=wait_for_ingestion_response,
-        )
+        else:
+            ingestion_request = self._client.files.request_ingestion(file_id, ingestion_class, wait_for_ingestion_response)
+
         return {'associated_file': file_record, 'ingestion_request': ingestion_request}
+
 
     @_deprecated_parameter('dsid', 'dataset_mfid')
     def add_remote_file(self, dataset_mfid: str, file: AssociatedFile) -> Dict:

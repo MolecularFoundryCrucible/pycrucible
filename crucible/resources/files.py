@@ -12,7 +12,6 @@ from typing import Optional, List, Dict
 
 from .base import BaseResource
 from ..constants import DEFAULT_LIMIT
-from ..models import IngestionRequest
 
 logger = logging.getLogger(__name__)
 
@@ -127,14 +126,12 @@ class FileOperations(BaseResource):
 
 
 
-    def _request_ingestion(self, ingestion_event = IngestionRequest) -> Dict:
+    def _skip_ingestion(self, file_id) -> Dict:
 
-        log_message = (f"Requesting ingestion for file {ingestion_event.file_id}"
-                     + f" (class={ingestion_event.ingestion_class})")
-        
+        log_message = f"Skipping ingestion for file {file_id}"
+                   
         logger.info(log_message)
-        params = ingestion_event.model_dump()
-        file_id = params.pop('file_id')
+        params = {'status': 'not_requested'}
 
         ingestion_request = self._request('post', f'/files/{file_id}/ingest',
                                           params=params)
@@ -153,11 +150,10 @@ class FileOperations(BaseResource):
         '''Request ingestion of an uploaded file or record local parsing details. '''
         
         # public facing ingestion request assumes cloud request
-        event = IngestionRequest(file_id = file_id,
-                                 ingestion_class = ingestion_class,
-                                 status = 'requested')
+        params = {'ingestion_class': ingestion_class,
+                  'status':'requested'}
         
-        ingestion_request = self._request_ingestion(event)
+        ingestion_request = self._request('post', f'/files/{file_id}/ingest', params=params)
 
         if wait_for_response and ingestion_request:
             self._client._wait_for_request_completion(ingestion_request['id'])
