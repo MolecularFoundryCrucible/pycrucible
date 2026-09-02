@@ -418,26 +418,32 @@ def _show_project(project, include_metadata=False, include_members=False):
     """Display project fields."""
     _p = term.field_printer(14)
 
-    try:
-        from crucible.config import config
-        _base = config.graph_explorer_url.rstrip('/')
-    except Exception:
-        _base = None
+    from .helpers import project_explorer_url
 
     term.header("Project")
     pid = project.get('project_id')
     uid = project.get('unique_id')
-    project_url = f"{_base}/{pid}" if _base and pid else None
+    project_url = project_explorer_url(pid)
+    _p("Title",        term.hyperlink(term.bold(project.get('title') or '-'), project_url))
     _p("Project ID",   term.project_link(pid, project_url))
     _p("MFID",         term.mfid_link(uid, project_url))
-    _p("Title",        project.get('title'))
     _p("Organization", project.get('organization'))
-    _p("Lead",         _lead_name(project))
     _p("Status",       term.status_label(project.get('status')))
 
-    term.subheader("Timing")
-    _p("Created",      term.fmt_ts(project.get('creation_time')))
-    _p("Modified",     term.fmt_ts(project.get('modification_time')))
+    lead = _lead_name(project)
+    if lead:
+        term.subheader("People")
+        _p("Lead", lead)
+
+    timing = (
+        ("Created", project.get('creation_time')),
+        ("Modified", project.get('modification_time')),
+    )
+    if any(value for _, value in timing):
+        term.subheader("Timing")
+        for label, value in timing:
+            if value:
+                _p(label, term.fmt_ts(value))
 
     if include_metadata:
         from .helpers import show_scientific_metadata

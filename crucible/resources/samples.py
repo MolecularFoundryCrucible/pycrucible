@@ -217,7 +217,8 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
                 raise ValueError("Pass a Sample model: samples.create(Sample(...))")
 
         sample_info = {
-            k: v for k, v in sample.model_dump(exclude={'capabilities'}).items()
+            k: v for k, v in sample.model_dump(
+                exclude={'capabilities', 'project'}).items()
             if v is not None
         }
 
@@ -233,7 +234,8 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         if sample_info.get('owner') is not None and not isinstance(sample_info['owner'], str):
             raise ValueError("Sample.owner must be a string identifier when creating a sample.")
 
-        new_samp = self._request('post', "/samples", json=sample_info)
+        new_samp = self._parse(
+            self._request('post', "/samples", json=sample_info))
         sample_mfid = new_samp['unique_id']
 
         for p in parents:

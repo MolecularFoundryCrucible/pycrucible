@@ -256,7 +256,8 @@ def test_mfid_backed_owner_is_not_linked_to_orcid(monkeypatch):
         },
     })
 
-    assert 'Test User One (@test-user-one)' in rendered
+    assert 'T. User One' in rendered
+    assert '(@test-user-one)' in rendered
     assert 'orcid.org' not in rendered
 
 
@@ -355,7 +356,7 @@ def test_cli_list_requests_owners_and_formats_public_owner(monkeypatch, capsys):
         status=None,
     )
     output = capsys.readouterr().out
-    assert 'Test User One' in output
+    assert 'T. User One' in output
     assert "{'unique_id'" not in output
 
 

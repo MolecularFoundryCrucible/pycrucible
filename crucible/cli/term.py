@@ -104,13 +104,19 @@ def user_id_label(user_id: str) -> str:
 
 
 def fmt_name(person: dict, default: str | None = None, fallback_username: bool = True) -> str | None:
-    """Join first_name + last_name from a user-shaped dict.
+    """Format given names as initials followed by the complete family name.
 
     Falls back to username (unless fallback_username=False), then to default,
     if both name fields are empty.
     """
-    parts = [person.get('first_name') or '', person.get('last_name') or '']
-    name = ' '.join(p for p in parts if p)
+    first_name = (person.get('first_name') or '').strip()
+    last_name = (person.get('last_name') or '').strip()
+    initials = []
+    for given_name in first_name.split():
+        parts = [part for part in given_name.split('-') if part]
+        if parts:
+            initials.append('-'.join(f'{part[0].upper()}.' for part in parts))
+    name = ' '.join([*initials, last_name]).strip()
     if name:
         return name
     if fallback_username and person.get('username'):
@@ -122,18 +128,18 @@ def fmt_owner(resource: dict) -> str | None:
     """Format the owner of a resource.
 
     If include_owner was used and the owner object is present, returns
-    'First Last (@username)' and links it only when the canonical owner ID is
+    'F. Lastname (@username)' and links it only when the canonical owner ID is
     an ORCID. Falls back to the canonical owner identifier.
     """
     owner = resource.get('owner')
     owner_id = resource.get('owner_orcid')
     if owner:
-        name  = fmt_name(owner, default=owner_id or '-')
+        name = fmt_name(owner, default=owner_id or '-')
         uname = owner.get('username')
-        label = f"{name} (@{uname})" if uname else name
+        label = f"{name}  {dim(f'(@{uname})')}" if uname else name
         if is_orcid(owner_id):
-            return hyperlink(cyan(label), f"https://orcid.org/{owner_id}")
-        return cyan(label)
+            return hyperlink(label, f"https://orcid.org/{owner_id}")
+        return label
     return user_id_link(owner_id)
 
 

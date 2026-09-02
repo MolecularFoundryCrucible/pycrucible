@@ -4,6 +4,7 @@
 
 ### Added
 
+- Sample responses expose a typed project reference when supplied by the API, while retaining the flat project ID fallback.
 - Dataset responses expose typed project and instrument references with canonical MFIDs while retaining legacy flat fields.
 - The CLI supports `--no-color` and the standard `NO_COLOR` environment variable.
 - Instrument operations can list bound service accounts and change lifecycle status through the dedicated API routes.
@@ -12,6 +13,8 @@
 
 ### Changed
 
+- Resource detail views group identity, project, instrument, access, and timing fields; related labels link to the Explorer without displaying related MFIDs, and human names use given-name initials.
+- Generic `crucible get MFID` now renders projects in addition to datasets, samples, and instruments.
 - CLI project and sample-type options use consistent canonical flags, and interactive completion now discovers flags and searches resource endpoints for identifier values.
 - CLI failures now preserve HTTP status codes while formatting API validation details and warnings for readable terminal and JSON output.
 - Human and service-account creation now normalize usernames and validate the API's complete username rules before submitting a request, with immediate retry prompts during interactive creation.

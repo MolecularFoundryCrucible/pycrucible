@@ -59,18 +59,14 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
     """Display dataset fields. Extracted for reuse by top-level 'crucible get'."""
     _p = term.field_printer(14)
 
-    from .helpers import explorer_url
+    from .helpers import explorer_url, instrument_reference, project_reference
 
     def _ds_link(r):
-        u, p = r.get('unique_id'), r.get('project_id')
+        u = r.get('unique_id')
+        _, p, _ = project_reference(r)
         return term.mfid_link(u, explorer_url(u, p, 'dataset'))
 
     term.header("Dataset")
-
-    instrument = dataset.get('instrument') or {}
-    project = dataset.get('project') or {}
-    instrument_name = instrument.get('instrument_name') or dataset.get('instrument_name')
-    project_label = project.get('title') or project.get('project_id') or dataset.get('project_id')
 
     dr = dataset.get('deletion_request')
     if dr:
@@ -85,28 +81,49 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
             msg += '  ' + term.dim(f"(request #{rid})")
         print(f"  {msg}")
 
-    _p("Name",        dataset.get('dataset_name') or '(unnamed)')
+    _p("Name",        term.bold(dataset.get('dataset_name') or '(unnamed)'))
     _p("MFID",        _ds_link(dataset))
     _p("Measurement", dataset.get('measurement'))
     _p("Data Type",   dataset.get('data_type'))
     _p("Session",     dataset.get('session_name'))
-    _p("Instrument",  instrument_name)
-    _p("Public",      term.fmt_bool(dataset.get('public')))
-    _p("Project",     project_label)
-    _p("Timestamp",   term.fmt_ts(dataset.get('timestamp')))
-    _p("Owner",       term.fmt_owner(dataset))
     _p("Description", dataset.get('description'))
 
     dsid = dataset.get('unique_id')
 
     if verbose:
-        term.subheader("File")
         _p("Data Format", dataset.get('data_format'))
         _p("Size",        term.fmt_size(dataset.get('size')))
 
+    project_title, project_id, project_url = project_reference(dataset)
+    if project_title or project_id:
+        term.subheader("Project")
+        if project_title:
+            _p("Title", term.hyperlink(project_title, project_url))
+        if project_id:
+            _p("Project ID", term.project_link(project_id, project_url))
+
+    instrument_name, instrument_id, instrument_url = instrument_reference(dataset)
+    if instrument_name or instrument_id:
+        term.subheader("Instrument")
+        if instrument_name:
+            _p("Name", term.hyperlink(instrument_name, instrument_url))
+        if instrument_id:
+            _p("Instrument ID", term.hyperlink(term.cyan(instrument_id), instrument_url))
+
+    term.subheader("Access")
+    _p("Owner",  term.fmt_owner(dataset))
+    _p("Public", term.fmt_bool(dataset.get('public')))
+
+    timing = (
+        ("Timestamp", dataset.get('timestamp')),
+        ("Created", dataset.get('creation_time')),
+        ("Modified", dataset.get('modification_time')),
+    )
+    if any(value for _, value in timing):
         term.subheader("Timing")
-        _p("Created",  term.fmt_ts(dataset.get('creation_time')))
-        _p("Modified", term.fmt_ts(dataset.get('modification_time')))
+        for label, value in timing:
+            if value:
+                _p(label, term.fmt_ts(value))
 
     if prefetched is not None:
         keywords = prefetched.get('keywords', [])
@@ -168,7 +185,8 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
             from .helpers import show_warning
             show_warning("Could not fetch links.")
         else:
-            proj            = dataset.get('project_id') or ''
+            _, proj, _ = project_reference(dataset)
+            proj = proj or ''
             linked_samples  = [l for l in links_list if l.get('relationship') == 'associated'
                                and l.get('resource_type') == 'sample']
             parent_datasets = [l for l in links_list if l.get('relationship') == 'parent'
@@ -1516,11 +1534,12 @@ def _execute_search(args):
         if not results:
             print(f"  {term.dim('No results found.')}")
             return
-        from .helpers import explorer_url
+        from .helpers import explorer_url, project_reference
         rows = []
         for r in results:
             uid  = r.get('unique_id') or ''
-            pid  = r.get('project_id') or project_id or ''
+            _, referenced_project_id, _ = project_reference(r)
+            pid = referenced_project_id or project_id or ''
             rows.append((
                 r.get('dataset_name') or '(unnamed)',
                 term.mfid_link(uid, explorer_url(uid, pid, 'dataset')),
@@ -1799,7 +1818,7 @@ def _execute_list(args):
         if not datasets:
             print(f"  {term.dim('No datasets found.')}")
         else:
-            from .helpers import explorer_url
+            from .helpers import explorer_url, project_reference
 
             _GROUP_FIELD = {
                 'measurement': 'measurement',
@@ -1812,7 +1831,8 @@ def _execute_list(args):
 
             def _make_row(ds):
                 uid = ds.get('unique_id') or ''
-                pid = ds.get('project_id') or project_id
+                _, referenced_project_id, _ = project_reference(ds)
+                pid = referenced_project_id or project_id
                 return (
                     ds.get('dataset_name') or '(unnamed)',
                     term.mfid_link(uid, explorer_url(uid, pid, 'dataset')) if uid else '-',

@@ -332,24 +332,38 @@ def _show_instrument(instrument, include_metadata=False):
     """Display instrument fields."""
     _p = term.field_printer(14)
 
-    verbose = include_metadata  # reuse flag for verbose fields
+    from .helpers import instrument_explorer_url
+
     term.header("Instrument")
     uid = instrument.get('unique_id')
-    _p("Name",         instrument.get('instrument_name'))
-    _p("Instrument ID", instrument.get('instrument_id'))
-    _p("MFID",          term.mfid_link(uid))
+    instrument_url = instrument_explorer_url(uid)
+    _p("Name",          term.hyperlink(term.bold(instrument.get('instrument_name') or '-'), instrument_url))
+    _p("Instrument ID", term.hyperlink(term.cyan(instrument.get('instrument_id')), instrument_url)
+       if instrument.get('instrument_id') else None)
+    _p("MFID",          term.mfid_link(uid, instrument_url))
     _p("Type",         instrument.get('instrument_type'))
     _p("Manufacturer", instrument.get('manufacturer'))
     _p("Model",        instrument.get('model'))
-    _p("Owner",        term.fmt_owner(instrument))
-    _p("Status",       term.status_label(instrument.get('status')))
     _p("Location",     instrument.get('location'))
     _p("Description",  instrument.get('description'))
     if instrument.get('other_id'):
         _p("Other ID",     f"{instrument['other_id']}  ({instrument.get('other_id_source', '')})")
-    if verbose:
-        _p("Created",      term.fmt_ts(instrument.get('creation_time')))
-        _p("Modified",     term.fmt_ts(instrument.get('modification_time')))
+
+    term.subheader("Access")
+    _p("Owner",  term.fmt_owner(instrument))
+    _p("Status", term.status_label(instrument.get('status')))
+
+    timing = (
+        ("Created", instrument.get('creation_time')),
+        ("Modified", instrument.get('modification_time')),
+    )
+    if any(value for _, value in timing):
+        term.subheader("Timing")
+        for label, value in timing:
+            if value:
+                _p(label, term.fmt_ts(value))
+
+    if include_metadata:
         from .helpers import show_scientific_metadata
         show_scientific_metadata(instrument.get('scientific_metadata'))
 

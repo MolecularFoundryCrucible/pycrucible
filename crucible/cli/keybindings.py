@@ -127,9 +127,22 @@ def register(kb, shell):
         def _open():
             try:
                 import webbrowser
-                from .helpers import explorer_url
-                pid = last['data'].get('project_id', '')
-                url = explorer_url(uid, pid, last['type'])
+                from .helpers import (
+                    explorer_url,
+                    instrument_explorer_url,
+                    project_explorer_url,
+                    project_reference,
+                )
+                resource_type = last['type']
+                if resource_type == 'instrument':
+                    url = instrument_explorer_url(uid)
+                elif resource_type == 'project':
+                    url = project_explorer_url(last['data'].get('project_id'))
+                else:
+                    _, pid, _ = project_reference(last['data'])
+                    url = explorer_url(uid, pid, resource_type)
+                if not url:
+                    raise ValueError("No Explorer route is available for this resource.")
                 webbrowser.open(url)
             except Exception as e:
                 logger.error(f"Could not open resource: {e}")

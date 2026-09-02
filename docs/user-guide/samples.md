@@ -5,6 +5,7 @@
 | `sample_name` | Human-readable name for the sample | create, update |
 | `sample_type` | Category or type of sample (used for filtering) | create, update |
 | `project_id` | Project this sample belongs to | create; later changes use `reassign_project()` |
+| `project` | Current project title, ID, and canonical identity when the relationship resolves | server-assigned |
 | `description` | Free-text description of the sample | create, update |
 | `timestamp` | Date associated with the sample (ISO 8601 format) | create, update |
 | `public` | Whether the sample is publicly accessible (default: `False`) | create, update |
@@ -57,6 +58,8 @@ Samples are retrieved only by their canonical 26-character MFID. Sample names ar
 Singleton retrieval expands `owner` by default as a public-safe user record containing `unique_id`, `username`, `first_name`, and `last_name`. Pass `include_owner=False` to suppress expansion. List operations remain opt-in with `include_owner=True`. The canonical owner identifier remains available as `owner_orcid`.
 
 Canonical detail responses include caller-specific `capabilities` when the server has calculated them. Sample capabilities always report `can_change_status=False` because samples have no lifecycle-status operation. Collections and search results normally return `capabilities=None`, which means the guidance was not calculated rather than that every action is denied. The API remains authoritative for each mutation.
+
+Sample responses include a lightweight `project` reference when the canonical relationship resolves. Use its `title` and `project_id` for display and its `unique_id` for stable navigation. The flat `project_id` remains the compatibility fallback for legacy records. A project reference does not imply permission to retrieve the complete project.
 
 ## Listing samples
 

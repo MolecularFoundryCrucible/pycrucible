@@ -742,7 +742,7 @@ def _execute_list(args):
         if not samples:
             print(f"  {term.dim('No samples found.')}")
         else:
-            from .helpers import explorer_url
+            from .helpers import explorer_url, project_reference
 
             _GROUP_FIELD = {'type': 'sample_type', 'project': 'project_id'}
             group_by_key = args.group_by or config.sample_group_by or 'type'
@@ -750,7 +750,8 @@ def _execute_list(args):
 
             def _make_row(s):
                 uid = s.get('unique_id') or ''
-                pid = s.get('project_id') or project_id
+                _, referenced_project_id, _ = project_reference(s)
+                pid = referenced_project_id or project_id
                 return (
                     s.get('sample_name') or '(unnamed)',
                     term.mfid_link(uid, explorer_url(uid, pid, 'sample')) if uid else '-',
@@ -785,10 +786,11 @@ def _show_sample(sample, client, verbose=False, graph=False, include_metadata=Fa
     """Display sample fields. Extracted for reuse by top-level 'crucible get'."""
     _p = term.field_printer(14)
 
-    from .helpers import explorer_url
+    from .helpers import explorer_url, project_reference
 
     def _s_link(r):
-        u, p = r.get('unique_id'), r.get('project_id')
+        u = r.get('unique_id')
+        _, p, _ = project_reference(r)
         return term.mfid_link(u, explorer_url(u, p, 'sample'))
 
     term.header("Sample")
@@ -806,23 +808,38 @@ def _show_sample(sample, client, verbose=False, graph=False, include_metadata=Fa
             msg += '  ' + term.dim(f"(request #{rid})")
         print(f"  {msg}")
 
-    _p("Name",        sample.get('sample_name') or '(unnamed)')
+    _p("Name",        term.bold(sample.get('sample_name') or '(unnamed)'))
     _p("MFID",        _s_link(sample))
     _p("Type",        sample.get('sample_type'))
-    _p("Public",      term.fmt_bool(sample.get('public')))
-    _p("Project",     sample.get('project_id'))
-    _p("Timestamp",   term.fmt_ts(sample.get('timestamp')))
-    _p("Owner",       term.fmt_owner(sample))
     _p("Description", sample.get('description'))
 
-    if verbose or graph:
+    project_title, project_id, project_url = project_reference(sample)
+    if project_title or project_id:
+        term.subheader("Project")
+        if project_title:
+            _p("Title", term.hyperlink(project_title, project_url))
+        if project_id:
+            _p("Project ID", term.project_link(project_id, project_url))
+
+    term.subheader("Access")
+    _p("Owner",  term.fmt_owner(sample))
+    _p("Public", term.fmt_bool(sample.get('public')))
+
+    timing = (
+        ("Timestamp", sample.get('timestamp')),
+        ("Created", sample.get('creation_time')),
+        ("Modified", sample.get('modification_time')),
+    )
+    if any(value for _, value in timing):
         term.subheader("Timing")
-        _p("Created",  term.fmt_ts(sample.get('creation_time')))
-        _p("Modified", term.fmt_ts(sample.get('modification_time')))
+        for label, value in timing:
+            if value:
+                _p(label, term.fmt_ts(value))
 
     if graph:
         sid  = sample.get('unique_id')
-        proj = sample.get('project_id') or ''
+        _, proj, _ = project_reference(sample)
+        proj = proj or ''
 
         links_list = links if links is not None else sample.get('links')
         if links_list is None:
@@ -1206,11 +1223,12 @@ def _execute_search(args):
         if not results:
             print(f"  {term.dim('No results found.')}")
             return
-        from .helpers import explorer_url
+        from .helpers import explorer_url, project_reference
         rows = []
         for r in results:
             uid = r.get('unique_id') or ''
-            pid = r.get('project_id') or project_id or ''
+            _, referenced_project_id, _ = project_reference(r)
+            pid = referenced_project_id or project_id or ''
             rows.append((
                 r.get('sample_name') or '(unnamed)',
                 term.mfid_link(uid, explorer_url(uid, pid, 'sample')),

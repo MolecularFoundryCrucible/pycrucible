@@ -135,6 +135,12 @@ Pass project membership roles through `term.role_label()`. Member tables are ord
 
 Label resource slugs explicitly as `Project ID` or `Instrument ID`, and label canonical identifiers as `MFID`. Detail views for slug-addressable resources should show both when available.
 
+Singleton resource views use this section order when the data applies: primary identity and scientific fields, project, instrument, access, timing, then files, relationships, and scientific metadata. The inspected resource keeps its own MFID visible. Embedded project and instrument references show their title or name and public ID without exposing the related MFID. Use the related MFID internally when the Explorer route requires it.
+
+Project titles and instrument names remain plain text and may be hyperlinked. Project IDs, instrument IDs, and MFIDs are cyan and hyperlinked when a stable Explorer route is available. Do not make an additional API request solely to enrich a label or construct a link.
+
+Format human names using every given-name initial followed by the complete family name, such as `Jean Pierre Dupont` as `J. P. Dupont`. Keep usernames as dim supplementary text when shown beside a name. JSON output preserves the API values unchanged.
+
 ## Interactive prompts
 
 Use the shared helpers in `cli.helpers` instead of calling `input()` directly for creation and configuration fields.

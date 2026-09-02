@@ -505,15 +505,57 @@ def explorer_url(resource_id: str, project_id: str, resource_type: str) -> str:
 
     Returns None if the graph_explorer_url is not configured or any argument is missing.
     """
-    try:
-        from crucible.config import config
-        base = (config.graph_explorer_url or '').rstrip('/')
-    except Exception:
-        return None
+    base = _graph_explorer_base()
     if not base or not resource_id or not project_id:
         return None
     dtype = 'samples' if resource_type == 'sample' else 'datasets'
     return f"{base}/{project_id}/{dtype}/{resource_id}"
+
+
+def _graph_explorer_base():
+    try:
+        from crucible.config import config
+        return (config.graph_explorer_url or '').rstrip('/') or None
+    except Exception:
+        return None
+
+
+def project_explorer_url(project_id: str) -> str:
+    """Build the Graph Explorer URL for a project."""
+    base = _graph_explorer_base()
+    if not base or not project_id:
+        return None
+    return f"{base}/{project_id}/"
+
+
+def instrument_explorer_url(instrument_mfid: str) -> str:
+    """Build the Graph Explorer URL for an instrument."""
+    base = _graph_explorer_base()
+    if not base or not instrument_mfid:
+        return None
+    return f"{base}/instrument/{instrument_mfid}"
+
+
+def project_reference(resource):
+    """Return the display title, project ID, and Explorer URL for a resource."""
+    reference = resource.get('project') or {}
+    project_id = reference.get('project_id') or resource.get('project_id')
+    return (
+        reference.get('title'),
+        project_id,
+        project_explorer_url(project_id),
+    )
+
+
+def instrument_reference(resource):
+    """Return the display name, instrument ID, and Explorer URL for a dataset."""
+    reference = resource.get('instrument') or {}
+    instrument_mfid = reference.get('unique_id')
+    return (
+        reference.get('instrument_name') or resource.get('instrument_name'),
+        reference.get('instrument_id') or resource.get('instrument_id'),
+        instrument_explorer_url(instrument_mfid),
+    )
 
 
 def cast_value(value: str):

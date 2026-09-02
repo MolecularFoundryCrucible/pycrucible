@@ -1,6 +1,7 @@
 """Unit coverage for shared CLI resource presentation."""
 
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -9,6 +10,8 @@ from crucible.cli import dataset as dataset_cli
 from crucible.cli import deletion as deletion_cli
 from crucible.cli import helpers
 from crucible.cli import instrument as instrument_cli
+from crucible.cli import get as get_cli
+from crucible.cli import open as open_cli
 from crucible.cli import project as project_cli
 from crucible.cli import sample as sample_cli
 from crucible.cli import service_account as service_account_cli
@@ -145,6 +148,20 @@ def test_project_role_labels_remain_plain_when_redirected(monkeypatch):
     assert term.role_label('admin') == 'admin'
 
 
+def test_person_names_use_all_given_name_initials():
+    assert term.fmt_name({
+        'first_name': 'Jean Pierre',
+        'last_name': 'Dupont',
+    }) == 'J. P. Dupont'
+
+
+def test_hyphenated_given_names_preserve_each_initial():
+    assert term.fmt_name({
+        'first_name': 'Jean-Pierre',
+        'last_name': 'Dupont',
+    }) == 'J.-P. Dupont'
+
+
 def test_shell_toolbar_restores_context_symbols(monkeypatch):
     from prompt_toolkit.formatted_text import fragment_list_to_text, to_formatted_text
 
@@ -275,6 +292,117 @@ def test_dataset_detail_prefers_embedded_reference_labels(capsys):
     assert 'Current Project' in output
     assert 'Legacy Instrument' not in output
     assert 'legacy-project' not in output
+    assert output.count(MFID) == 1
+
+
+def test_sample_detail_uses_embedded_project_reference(capsys):
+    sample_cli._show_sample(
+        {
+            'unique_id': MFID,
+            'sample_name': 'Sample',
+            'project_id': 'legacy-project',
+            'project': {
+                'unique_id': '0td7evvtg5wb90005k1j97ak94',
+                'project_id': 'current-project',
+                'title': 'Current Project',
+            },
+        },
+        SimpleNamespace(),
+    )
+
+    output = capsys.readouterr().out
+    assert 'Current Project' in output
+    assert 'current-project' in output
+    assert 'legacy-project' not in output
+    assert '0td7evvtg5wb90005k1j97ak94' not in output
+
+
+def test_dataset_reference_fields_link_to_explorer(monkeypatch, capsys):
+    from crucible.config import config
+
+    monkeypatch.setitem(
+        config._data, 'graph_explorer_url', 'https://example.org/explore')
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    instrument_mfid = '0td7evvtg5wb90005k1j97ak94'
+
+    dataset_cli._show_dataset(
+        {
+            'unique_id': MFID,
+            'dataset_name': 'Dataset',
+            'project': {
+                'unique_id': '0tp7evvtg5wb90005k1j97ak94',
+                'project_id': 'project-one',
+                'title': 'Project One',
+            },
+            'instrument': {
+                'unique_id': instrument_mfid,
+                'instrument_id': 'xrd-1',
+                'instrument_name': 'XRD One',
+            },
+        },
+        SimpleNamespace(),
+        prefetched={'keywords': [], 'af_list': [], 'link_map': {}},
+    )
+
+    output = capsys.readouterr().out
+    assert 'https://example.org/explore/project-one/' in output
+    assert f'https://example.org/explore/instrument/{instrument_mfid}' in output
+
+
+def test_generic_get_dispatches_project_detail(monkeypatch):
+    project = {
+        'unique_id': MFID,
+        'resource_type': 'project',
+        'project_id': 'project-one',
+    }
+    client = SimpleNamespace(get=MagicMock(return_value=project))
+    show_project = MagicMock()
+    monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
+    monkeypatch.setattr(project_cli, '_show_project', show_project)
+
+    get_cli.execute(SimpleNamespace(
+        resource_id=MFID,
+        output=None,
+        verbose=False,
+        graph=True,
+        include_metadata=False,
+        qr=False,
+        debug=False,
+    ))
+
+    show_project.assert_called_once_with(project, include_metadata=False)
+
+
+@pytest.mark.parametrize(('resource', 'expected'), [
+    (
+        {
+            'unique_id': MFID,
+            'resource_type': 'project',
+            'project_id': 'project-one',
+        },
+        'https://example.org/explore/project-one/',
+    ),
+    (
+        {
+            'unique_id': MFID,
+            'resource_type': 'instrument',
+            'instrument_id': 'xrd-one',
+        },
+        f'https://example.org/explore/instrument/{MFID}',
+    ),
+])
+def test_open_uses_resource_specific_explorer_route(
+        resource, expected, monkeypatch, capsys):
+    from crucible.config import config
+
+    client = SimpleNamespace(get=MagicMock(return_value=resource))
+    monkeypatch.setattr(config, '_client', client)
+    monkeypatch.setitem(
+        config._data, 'graph_explorer_url', 'https://example.org/explore')
+
+    open_cli.execute(SimpleNamespace(mfid=MFID, print_url=True))
+
+    assert capsys.readouterr().out.strip() == expected
 
 
 def test_dataset_detail_falls_back_to_flat_reference_fields(capsys):

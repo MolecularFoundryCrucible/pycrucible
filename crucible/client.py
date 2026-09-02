@@ -215,7 +215,8 @@ class CrucibleClient:
 
         Args:
             resource_mfid (str): Resource MFID
-            resource_type (str, optional): Resource type ('sample', 'dataset', 'instrument').
+            resource_type (str, optional): Resource type ('sample', 'dataset',
+                                          'project', or 'instrument').
                                           If not provided, will be auto-detected.
             include_metadata (bool): Include scientific metadata
             include_links (bool): Include immediate parent/child/associated links
@@ -254,6 +255,11 @@ class CrucibleClient:
                 instrument_mfid=resource_mfid,
                 include_metadata=include_metadata,
                 include_owner=include_owner,
+            )
+        elif resource_type == "project":
+            return self.projects.get(
+                project_mfid=resource_mfid,
+                include_metadata=include_metadata,
             )
         else:
             raise ValueError(f"Unknown or unsupported resource type: {resource_type}")

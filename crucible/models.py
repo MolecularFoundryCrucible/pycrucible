@@ -73,6 +73,7 @@ class Sample(CrucibleResource):
     owner_orcid: Optional[str] = None
     owner: Optional[Union[str, PublicUser]] = None
     project_id: Optional[str] = None
+    project: Optional[ProjectReference] = None
     description: Optional[str] = None
     timestamp: Optional[str] = None
     datasets: Optional[List[Dict]] = None

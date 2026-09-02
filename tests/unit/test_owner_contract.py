@@ -117,6 +117,22 @@ def test_dataset_response_uses_typed_resource_references():
     assert resource.project.project_id == 'project-one'
 
 
+def test_sample_response_uses_typed_project_reference():
+    resource = Sample.model_validate({
+        'unique_id': MFID,
+        'sample_name': 'test',
+        'project': {
+            'unique_id': SECOND_MFID,
+            'project_id': 'project-one',
+            'title': 'Project One',
+        },
+    })
+
+    assert isinstance(resource.project, ProjectReference)
+    assert resource.project.unique_id == SECOND_MFID
+    assert resource.project.project_id == 'project-one'
+
+
 @pytest.mark.parametrize(
     'operations_class',
     [DatasetOperations, SampleOperations],
@@ -200,6 +216,18 @@ def test_typed_generic_instrument_get_propagates_include_owner():
     )
 
 
+def test_typed_generic_project_get_uses_project_mfid():
+    client = CrucibleClient(api_url='https://example.invalid', api_key='test')
+    client.projects.get = MagicMock(return_value={'unique_id': MFID})
+
+    client.get(MFID, resource_type='project', include_metadata=True)
+
+    client.projects.get.assert_called_once_with(
+        project_mfid=MFID,
+        include_metadata=True,
+    )
+
+
 def test_dataset_create_warns_for_owner_orcid_and_preserves_payload():
     operations = make_ops(DatasetOperations, {'unique_id': MFID})
 
@@ -262,6 +290,22 @@ def test_dataset_create_omits_response_references():
     payload = operations._request.call_args.kwargs['json']
     assert 'instrument' not in payload
     assert 'project' not in payload
+
+
+def test_sample_create_omits_project_reference():
+    operations = make_ops(SampleOperations, {'unique_id': MFID})
+    sample = Sample(
+        unique_id=MFID,
+        sample_name='test',
+        project={
+            'unique_id': SECOND_MFID,
+            'project_id': 'project-one',
+        },
+    )
+
+    operations.create(sample)
+
+    assert 'project' not in operations._request.call_args.kwargs['json']
 
 
 def test_dataset_update_rejects_response_capabilities():

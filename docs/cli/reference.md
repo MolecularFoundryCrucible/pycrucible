@@ -275,7 +275,7 @@ Configuration values can come from environment variables, the platform-specific 
 |---|---|
 | `status` | Show endpoint reachability, deployment provenance, database readiness, and authentication identity |
 | `whoami` | Show the identity associated with the configured key |
-| `get MFID` | Show a dataset or sample after detecting its resource type |
+| `get MFID` | Show a dataset, sample, project, or instrument after detecting its resource type |
 | `edit MFID` | Edit a dataset, sample, or instrument after detecting its type |
 | `download MFID` | Save a record and, for datasets, associated files |
 | `link` | Link parent-child resources or associate a dataset and sample |
