@@ -7,7 +7,7 @@
 - The CLI supports `--no-color` and the standard `NO_COLOR` environment variable.
 - Instrument operations can list bound service accounts and change lifecycle status through the dedicated API routes.
 - Dataset listing accepts a canonical instrument MFID in the Python client and CLI without implicitly narrowing to the configured default project.
-- Exact project and instrument responses expose typed caller-specific resource capabilities when supplied by the API.
+- Exact dataset, sample, project, and instrument responses expose typed caller-specific resource capabilities when supplied by the API.
 
 ### Changed
 

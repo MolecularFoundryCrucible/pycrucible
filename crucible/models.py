@@ -58,6 +58,7 @@ class Sample(CrucibleResource):
     datasets: Optional[List[Dict]] = None
     deletion_request: Optional[Dict] = None
     links: Optional[List[Dict]] = None
+    capabilities: Optional[ResourceCapabilities] = None
 
 
 class Dataset(CrucibleResource):
@@ -75,6 +76,7 @@ class Dataset(CrucibleResource):
     timestamp: Optional[str] = None
     deletion_request: Optional[Dict] = None
     links: Optional[List[Dict]] = None
+    capabilities: Optional[ResourceCapabilities] = None
 
 
 class Instrument(CrucibleResource):

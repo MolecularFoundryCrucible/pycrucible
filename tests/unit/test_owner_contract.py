@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from crucible.client import CrucibleClient
-from crucible.models import Dataset, Instrument, PublicUser, Sample
+from crucible.models import Dataset, Instrument, PublicUser, ResourceCapabilities, Sample
 from crucible.resources.datasets import DatasetOperations
 from crucible.resources.instruments import InstrumentOperations
 from crucible.resources.samples import SampleOperations
@@ -19,6 +19,13 @@ PUBLIC_OWNER = {
     'username': 'roncofaber',
     'first_name': 'Fabrice',
     'last_name': 'Roncoroni',
+}
+CAPABILITIES = {
+    'can_edit': True,
+    'can_manage_access': True,
+    'can_change_status': False,
+    'can_transfer': False,
+    'max_grant_role': 'editor',
 }
 
 
@@ -46,7 +53,12 @@ def test_owner_response_uses_public_user_model(model):
     [(DatasetOperations, 'datasets'), (SampleOperations, 'samples')],
 )
 def test_get_requests_and_preserves_public_owner_by_default(operations_class, resource_name):
-    response = {'unique_id': MFID, 'owner_orcid': ORCID, 'owner': PUBLIC_OWNER}
+    response = {
+        'unique_id': MFID,
+        'owner_orcid': ORCID,
+        'owner': PUBLIC_OWNER,
+        'capabilities': CAPABILITIES,
+    }
     operations = make_ops(operations_class, response)
 
     result = operations.get(MFID)
@@ -57,6 +69,38 @@ def test_get_requests_and_preserves_public_owner_by_default(operations_class, re
         params={'include_owner': True},
     )
     assert result['owner'] == PUBLIC_OWNER
+    assert result['capabilities'] == CAPABILITIES
+
+
+@pytest.mark.parametrize(
+    'model',
+    [Dataset, Sample],
+)
+def test_dataset_and_sample_capabilities_are_typed(model):
+    resource = model.model_validate({
+        'unique_id': MFID,
+        'capabilities': CAPABILITIES,
+    })
+
+    assert isinstance(resource.capabilities, ResourceCapabilities)
+    assert resource.capabilities.can_change_status is False
+    assert resource.capabilities.max_grant_role == 'editor'
+
+
+@pytest.mark.parametrize(
+    'operations_class',
+    [DatasetOperations, SampleOperations],
+)
+def test_collection_results_accept_null_capabilities(operations_class):
+    operations = make_ops(operations_class, None)
+    operations._paginate = MagicMock(return_value=[{
+        'unique_id': MFID,
+        'capabilities': None,
+    }])
+
+    result = operations.list(limit=1)
+
+    assert result[0]['capabilities'] is None
 
 
 @pytest.mark.parametrize(
@@ -77,15 +121,20 @@ def test_get_can_suppress_owner_expansion(operations_class, resource_name):
 
 def test_generic_get_requests_owner_by_default():
     client = CrucibleClient(api_url='https://example.invalid', api_key='test')
-    client._request = MagicMock(return_value={'unique_id': MFID, 'resource_type': 'dataset'})
+    client._request = MagicMock(return_value={
+        'unique_id': MFID,
+        'resource_type': 'dataset',
+        'capabilities': CAPABILITIES,
+    })
 
-    client.get(MFID)
+    result = client.get(MFID)
 
     client._request.assert_called_once_with(
         'get',
         f'/resources/{MFID}',
         params={'include_owner': True},
     )
+    assert result['capabilities'] == CAPABILITIES
 
 
 def test_generic_get_can_suppress_owner_expansion():
@@ -137,6 +186,38 @@ def test_sample_create_warns_for_owner_orcid_and_preserves_payload():
         operations.create(Sample(unique_id=MFID, sample_name='test', owner_orcid=ORCID))
 
     assert operations._request.call_args.kwargs['json']['owner_orcid'] == ORCID
+
+
+@pytest.mark.parametrize(
+    ('operations_class', 'resource'),
+    [
+        (DatasetOperations, Dataset(
+            unique_id=MFID,
+            dataset_name='test',
+            capabilities=CAPABILITIES,
+        )),
+        (SampleOperations, Sample(
+            unique_id=MFID,
+            sample_name='test',
+            capabilities=CAPABILITIES,
+        )),
+    ],
+)
+def test_create_omits_response_capabilities(operations_class, resource):
+    operations = make_ops(operations_class, {'unique_id': MFID})
+
+    operations.create(resource)
+
+    assert 'capabilities' not in operations._request.call_args.kwargs['json']
+
+
+def test_dataset_update_rejects_response_capabilities():
+    operations = make_ops(DatasetOperations, {'unique_id': MFID})
+
+    with pytest.raises(ValueError, match='response-only'):
+        operations.update(MFID, capabilities=CAPABILITIES)
+
+    operations._request.assert_not_called()
 
 
 @pytest.mark.parametrize(

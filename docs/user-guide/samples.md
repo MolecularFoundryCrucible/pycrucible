@@ -13,6 +13,7 @@
 | `unique_id` | System-assigned MFID identifier | server-assigned |
 | `creation_time` | When the record was created | server-assigned |
 | `modification_time` | When the record was last modified | server-assigned |
+| `capabilities` | Optional caller-specific actions calculated for an exact response | server-assigned |
 
 ### Relationships
 
@@ -54,6 +55,8 @@ sample_with_details = client.samples.get(
 Samples are retrieved only by their canonical 26-character MFID. Sample names are display values, not identifiers.
 
 Singleton retrieval expands `owner` by default as a public-safe user record containing `unique_id`, `username`, `first_name`, and `last_name`. Pass `include_owner=False` to suppress expansion. List operations remain opt-in with `include_owner=True`. The canonical owner identifier remains available as `owner_orcid`.
+
+Canonical detail responses include caller-specific `capabilities` when the server has calculated them. Sample capabilities always report `can_change_status=False` because samples have no lifecycle-status operation. Collections and search results normally return `capabilities=None`, which means the guidance was not calculated rather than that every action is denied. The API remains authoritative for each mutation.
 
 ## Listing samples
 

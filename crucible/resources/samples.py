@@ -216,7 +216,10 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             else:
                 raise ValueError("Pass a Sample model: samples.create(Sample(...))")
 
-        sample_info = {k: v for k, v in sample.model_dump().items() if v is not None}
+        sample_info = {
+            k: v for k, v in sample.model_dump(exclude={'capabilities'}).items()
+            if v is not None
+        }
 
         if sample_info.get('owner') is not None and sample_info.get('owner_orcid') is not None:
             raise ValueError("Pass either 'owner' or 'owner_orcid', not both.")

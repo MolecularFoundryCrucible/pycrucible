@@ -214,7 +214,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         if files is None:
             files = []
 
-        dataset_details = dataset.model_dump()
+        dataset_details = dataset.model_dump(exclude={'capabilities'})
 
         if dataset_details.get('owner') is not None and dataset_details.get('owner_orcid') is not None:
             raise ValueError("Pass either 'owner' or 'owner_orcid', not both.")
@@ -293,6 +293,8 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         Example:
             >>> client.datasets.update("my-dataset-id", dataset_name="Updated Name", public=True)
         """
+        if 'capabilities' in updates:
+            raise ValueError("Dataset capabilities are response-only.")
         return self._request('patch', f'/datasets/{dataset_mfid}', json=updates)
 
     @_deprecated_parameter('dsid', 'dataset_mfid')
