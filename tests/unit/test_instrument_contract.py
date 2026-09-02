@@ -8,7 +8,7 @@ import pytest
 
 from crucible.cli import instrument as instrument_cli
 from crucible.cli import term
-from crucible.models import Instrument
+from crucible.models import Instrument, ProjectMember
 from crucible.resources.instruments import InstrumentOperations
 
 
@@ -79,6 +79,64 @@ def test_search_can_request_expanded_owners():
         'get', '/instruments/search',
         params={'q': 'team', 'limit': 4, 'include_owner': True},
     )
+
+
+def test_search_can_filter_by_lifecycle_status():
+    operations = make_ops()
+    operations._request = MagicMock(return_value={'items': []})
+
+    operations.search('team', status='maintenance')
+
+    operations._request.assert_called_once_with(
+        'get', '/instruments/search',
+        params={'q': 'team', 'limit': 20, 'status': 'maintenance'},
+    )
+
+
+def test_search_rejects_unknown_status():
+    with pytest.raises(ValueError, match='status must be one of'):
+        make_ops().search('team', status='retired')
+
+
+def test_set_status_uses_dedicated_route_and_parses_response():
+    operations = make_ops()
+    operations._request = MagicMock(return_value={
+        'unique_id': MFID,
+        'instrument_id': 'team-i',
+        'status': 'maintenance',
+    })
+
+    result = operations.set_status(MFID, 'maintenance')
+
+    operations._request.assert_called_once_with(
+        'post', f'/instruments/{MFID}/status',
+        params={'status': 'maintenance'},
+    )
+    assert result['status'] == 'maintenance'
+
+
+def test_set_status_rejects_unknown_status():
+    with pytest.raises(ValueError, match='status must be one of'):
+        make_ops().set_status(MFID, 'retired')
+
+
+def test_list_service_accounts_parses_members():
+    operations = make_ops()
+    operations._request = MagicMock(return_value=[{
+        'unique_id': USER_MFID,
+        'username': 'instrument-operator',
+        'first_name': 'Instrument',
+        'last_name': 'Operator',
+        'is_service_account': True,
+        'role': 'editor',
+    }])
+
+    result = operations.list_service_accounts(MFID)
+
+    operations._request.assert_called_once_with(
+        'get', f'/instruments/{MFID}/service_accounts')
+    assert result[0].username == 'instrument-operator'
+    assert result[0].role == 'editor'
 
 
 def test_update_rejects_owner_fields_locally():
@@ -171,6 +229,33 @@ def test_list_parser_exposes_status_and_json():
     assert args.json is True
 
 
+def test_search_parser_exposes_status():
+    args = make_parser(instrument_cli._register_search).parse_args([
+        'search', 'team', '--status', 'decommissioned',
+    ])
+
+    assert args.status == 'decommissioned'
+
+
+def test_set_status_parser_dispatches_lifecycle_values():
+    args = make_parser(instrument_cli._register_set_status).parse_args([
+        'set-status', MFID, 'maintenance',
+    ])
+
+    assert args.instrument_mfid == MFID
+    assert args.status == 'maintenance'
+    assert args.func is instrument_cli._execute_set_status
+
+
+def test_list_service_accounts_parser_dispatches():
+    args = make_parser(instrument_cli._register_list_service_accounts).parse_args([
+        'list-service-accounts', MFID,
+    ])
+
+    assert args.instrument_mfid == MFID
+    assert args.func is instrument_cli._execute_list_service_accounts
+
+
 def test_create_parser_leaves_owner_optional():
     args = make_parser(instrument_cli._register_create).parse_args([
         'create', '--instrument-id', 'team-i', '--name', 'TEAM I',
@@ -232,3 +317,55 @@ def test_cli_list_requests_owners_and_formats_public_owner(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert 'Test User One' in output
     assert "{'unique_id'" not in output
+
+
+def test_cli_set_status_dispatches_and_displays_result(monkeypatch, capsys):
+    operations = SimpleNamespace(set_status=MagicMock(return_value={
+        'unique_id': MFID,
+        'instrument_id': 'team-i',
+        'instrument_name': 'TEAM I',
+        'location': '72-150',
+        'status': 'maintenance',
+    }))
+    monkeypatch.setattr(
+        'crucible.client.CrucibleClient',
+        lambda: SimpleNamespace(instruments=operations),
+    )
+
+    instrument_cli._execute_set_status(SimpleNamespace(
+        instrument_mfid=MFID,
+        status='maintenance',
+        debug=False,
+    ))
+
+    operations.set_status.assert_called_once_with(MFID, 'maintenance')
+    output = capsys.readouterr().out
+    assert 'Success:' in output
+    assert 'maintenance' in output
+
+
+def test_cli_lists_instrument_service_accounts(monkeypatch, capsys):
+    member = ProjectMember(
+        unique_id=USER_MFID,
+        username='instrument-operator',
+        first_name='Instrument',
+        last_name='Operator',
+        is_service_account=True,
+        role='editor',
+    )
+    operations = SimpleNamespace(
+        list_service_accounts=MagicMock(return_value=[member]))
+    monkeypatch.setattr(
+        'crucible.client.CrucibleClient',
+        lambda: SimpleNamespace(instruments=operations),
+    )
+
+    instrument_cli._execute_list_service_accounts(SimpleNamespace(
+        instrument_mfid=MFID,
+        debug=False,
+    ))
+
+    operations.list_service_accounts.assert_called_once_with(MFID)
+    output = capsys.readouterr().out
+    assert 'instrument-operator' in output
+    assert 'editor' in output

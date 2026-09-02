@@ -49,8 +49,10 @@ def register_subcommand(subparsers):
     _register_get(instrument_subparsers)
     _register_create(instrument_subparsers)
     _register_update(instrument_subparsers)
+    _register_set_status(instrument_subparsers)
     _register_edit(instrument_subparsers)
     _register_transfer_ownership(instrument_subparsers)
+    _register_list_service_accounts(instrument_subparsers)
     _register_bind_sa(instrument_subparsers)
     _register_unbind_sa(instrument_subparsers)
     from ._access import register_access_commands
@@ -512,6 +514,85 @@ def _execute_transfer_ownership(args):
         fail("transferring instrument ownership", e, args)
 
 
+def _register_set_status(subparsers):
+    parser = subparsers.add_parser(
+        'set-status',
+        help='Change an instrument lifecycle status',
+        description='Set an instrument to active, maintenance, or decommissioned',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible instrument set-status INSTRUMENT_MFID maintenance
+""",
+    )
+    parser.add_argument('instrument_mfid', metavar='INSTRUMENT_MFID', help='Instrument MFID')
+    parser.add_argument(
+        'status',
+        choices=['active', 'maintenance', 'decommissioned'],
+        help='New lifecycle status',
+    )
+    parser.set_defaults(func=_execute_set_status)
+
+
+def _execute_set_status(args):
+    from crucible.client import CrucibleClient
+    from .helpers import fail
+
+    try:
+        instrument = CrucibleClient().instruments.set_status(
+            args.instrument_mfid, args.status)
+        term.success(
+            f"Instrument {args.instrument_mfid} status changed to {args.status}", args)
+        _show_instrument(instrument)
+    except Exception as e:
+        fail("changing instrument status", e, args)
+
+
+def _register_list_service_accounts(subparsers):
+    parser = subparsers.add_parser(
+        'list-service-accounts',
+        help='List service accounts bound to an instrument',
+        description='List the instrument operator service accounts',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible instrument list-service-accounts INSTRUMENT_MFID
+""",
+    )
+    parser.add_argument('instrument_mfid', metavar='INSTRUMENT_MFID', help='Instrument MFID')
+    parser.set_defaults(func=_execute_list_service_accounts)
+
+
+def _execute_list_service_accounts(args):
+    from crucible.client import CrucibleClient
+    from .helpers import fail, sort_members
+
+    try:
+        members = sort_members(
+            CrucibleClient().instruments.list_service_accounts(args.instrument_mfid))
+        term.header(f"Instrument Service Accounts ({len(members)})")
+        if not members:
+            print(f"  {term.dim('No service accounts found.')}")
+            return
+        rows = [
+            (
+                member.username or '-',
+                term.fmt_name(member.model_dump(), default='-', fallback_username=False),
+                member.unique_id or '-',
+                member.role or '-',
+            )
+            for member in members
+        ]
+        term.table(
+            rows,
+            ['Username', 'Name', 'MFID', 'Role'],
+            max_widths=[25, 25, 26, 12],
+            min_widths=[24, 4, 26, 6],
+        )
+    except Exception as e:
+        fail("listing instrument service accounts", e, args)
+
+
 def _register_bind_sa(subparsers):
     """Register the 'instrument bind-sa' subcommand."""
     parser = subparsers.add_parser(
@@ -691,6 +772,11 @@ Examples:
     parser.add_argument('query', metavar='QUERY', help='Search term (min 3 chars)')
     parser.add_argument('--limit', '-l', type=int, default=20, metavar='N',
                         help='Maximum results (default: 20, max: 50)')
+    parser.add_argument(
+        '--status',
+        choices=['active', 'maintenance', 'decommissioned'],
+        help='Filter by lifecycle status',
+    )
     parser.add_argument('--json', action='store_true', default=False,
                         help='Output as JSON array')
     parser.set_defaults(func=_execute_search)
@@ -703,7 +789,8 @@ def _execute_search(args):
     from crucible.client import CrucibleClient
     try:
         client  = CrucibleClient()
-        results = client.instruments.search(args.query, limit=args.limit)
+        results = client.instruments.search(
+            args.query, limit=args.limit, status=getattr(args, 'status', None))
         if getattr(args, 'json', False):
             print(json.dumps(results, indent=2, default=str))
             return

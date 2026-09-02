@@ -119,9 +119,13 @@ The `access grant` commands accept `viewer`, `contributor`, `editor`, or `admin`
 | `instrument get INSTRUMENT` | Show an instrument by MFID or instrument slug |
 | `instrument create` | Register an instrument |
 | `instrument update MFID` | Update an instrument record or scientific metadata |
+| `instrument set-status MFID STATUS` | Change an instrument lifecycle status |
 | `instrument transfer-ownership MFID USER` | Transfer instrument ownership |
+| `instrument list-service-accounts MFID` | List service accounts bound as instrument operators |
+| `instrument bind-sa MFID SA_MFID` | Bind a service account as an instrument operator |
+| `instrument unbind-sa MFID SA_MFID` | Remove an instrument operator binding |
 | `instrument edit MFID` | Edit instrument fields interactively |
-| `instrument search QUERY` | Search names, types, and manufacturers |
+| `instrument search QUERY [--status STATUS]` | Search names, types, and manufacturers with optional lifecycle filtering |
 | `instrument search-metadata QUERY` | Search scientific metadata; `search-md` is an alias |
 
 ## User commands

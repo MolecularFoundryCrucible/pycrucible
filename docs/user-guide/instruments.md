@@ -77,6 +77,12 @@ Use `instrument_id=` or `instrument_mfid=` when the intended identifier type mus
 client.instruments.update("0tkn2knjast3h0008nyq9zps2c", description="Updated description", location="72-200")
 ```
 
+Lifecycle changes use the dedicated status operation:
+
+```python
+client.instruments.set_status("0tkn2knjast3h0008nyq9zps2c", "maintenance")
+```
+
 Ownership is not an update field.
 Preview an ownership transfer first, then repeat it with confirmation:
 
@@ -90,6 +96,16 @@ client.instruments.transfer_ownership(
     "new-owner",
     confirm=True,
 )
+```
+
+## Managing service-account operators
+
+Instrument administrators can inspect, add, and remove service-account operators through the instrument namespace:
+
+```python
+operators = client.instruments.list_service_accounts("0tkn2knjast3h0008nyq9zps2c")
+client.instruments.bind_service_account("0tkn2knjast3h0008nyq9zps2c", "0tkvpezyz1zzf00076nahf85j4")
+client.instruments.unbind_service_account("0tkn2knjast3h0008nyq9zps2c", "0tkvpezyz1zzf00076nahf85j4")
 ```
 
 ## Referencing instruments in datasets
