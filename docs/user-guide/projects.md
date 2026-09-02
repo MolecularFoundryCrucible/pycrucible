@@ -10,6 +10,7 @@
 | `lead` | Public-safe resolved project lead record without email | server-assigned |
 | `creation_time` | When the record was created | server-assigned |
 | `modification_time` | When the record was last modified | server-assigned |
+| `capabilities` | Optional caller-specific actions calculated for an exact response | server-assigned |
 
 # Project Management
 
@@ -37,6 +38,8 @@ project = client.projects.get("MFP12345")
 `get()` accepts either a project ID or its canonical 26-character MFID. It dispatches MFIDs to the single-project route and resolves project IDs with one exact collection request. New and renamed project IDs must contain 3 to 25 characters, but lookup remains compatible with older IDs outside that range. Every returned project keeps `unique_id` as its canonical identifier. Use `project_id=` or `project_mfid=` when the intended identifier type must be explicit.
 
 Use `include_members=True` to request the member list. Members and administrators can see membership-gated metadata and members; other authenticated users receive the public project view.
+
+Exact MFID and slug lookups include caller-specific `capabilities` when the server has calculated them. General lists and searches normally return `capabilities=None`, which means the guidance was not calculated rather than that every action is denied. The API remains authoritative for each mutation.
 
 ```python
 project = client.projects.get("MFP12345", include_metadata=True, include_members=True)

@@ -172,7 +172,10 @@ class InstrumentOperations(OwnershipMixin, AccessControlMixin, BaseResource):
         return self._parse(collapse_exact_lookup(raw, 'instrument', instrument_name))
 
     def create(self, instrument, scientific_metadata: Optional[Dict] = None) -> Dict:
-        """Create a new instrument, returning the existing one if it already exists.
+        """Create a new instrument as an authenticated human caller.
+
+        Service accounts cannot create instruments. If the instrument already
+        exists, this method returns the existing record.
 
         Args:
             instrument: Instrument model or dict with instrument details.
@@ -207,6 +210,7 @@ class InstrumentOperations(OwnershipMixin, AccessControlMixin, BaseResource):
             )
         else:
             payload = dict(instrument)
+            payload.pop('capabilities', None)
 
         if not payload.get('instrument_id'):
             raise ValueError(
@@ -261,6 +265,8 @@ class InstrumentOperations(OwnershipMixin, AccessControlMixin, BaseResource):
                 "Instrument ownership cannot be changed with update(); "
                 "use transfer_ownership() instead."
             )
+        if 'capabilities' in kwargs:
+            raise ValueError("Instrument capabilities are response-only.")
         if kwargs.get('instrument_id') is not None:
             validate_slug(kwargs['instrument_id'], 'instrument')
         return self._parse(self._request('patch', f'/instruments/{unique_id}', json=kwargs))

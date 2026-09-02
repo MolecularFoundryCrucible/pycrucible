@@ -17,6 +17,7 @@
 | `creation_time` | When the record was created | server-assigned |
 | `modification_time` | When the record was last modified | server-assigned |
 | `status` | Lifecycle state: `active`, `maintenance`, or `decommissioned` | server-managed |
+| `capabilities` | Optional caller-specific actions calculated for an exact response | server-assigned |
 
 New and renamed instrument IDs must contain 3 to 25 characters. Lookup remains compatible with older IDs outside that range.
 
@@ -42,8 +43,7 @@ instrument = client.instruments.create(Instrument(
 ))
 ```
 
-When `owner` is omitted, the authenticated identity becomes the owner.
-Service accounts and platform administrators may create an instrument for another user by supplying an ORCID, MFID, username, or email.
+When `owner` is omitted, the authenticated human identity becomes the owner. A human platform administrator may create an instrument for another registered identity by supplying an ORCID, MFID, username, or email. Service accounts cannot create instruments, including for themselves.
 
 ## Listing instruments
 
@@ -68,6 +68,8 @@ instrument = client.instruments.get("0tkn2knjast3h0008nyq9zps2c")
 Singleton retrieval expands `owner` by default as a public-safe user record containing `unique_id`, `username`, `first_name`, and `last_name`.
 Pass `include_owner=False` to suppress expansion.
 The canonical owner identifier remains available as `owner_orcid`.
+
+Exact MFID and slug lookups include caller-specific `capabilities` when the server has calculated them. General lists and searches normally return `capabilities=None`, which means the guidance was not calculated rather than that every action is denied. The API remains authoritative for each mutation.
 
 Use `instrument_id=` or `instrument_mfid=` when the intended identifier type must be explicit. Display names are not identifiers and are not accepted by the general lookup. For compatibility, an MFID-shaped value supplied as `instrument_id=` is temporarily treated as an MFID and emits a deprecation warning.
 

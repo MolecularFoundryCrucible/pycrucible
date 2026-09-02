@@ -143,7 +143,7 @@ def _register_create(subparsers):
     parser = subparsers.add_parser(
         'create',
         help='Create a new instrument',
-        description='Register a new instrument in Crucible',
+        description='Register a new instrument as an authenticated human user',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:

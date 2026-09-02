@@ -91,12 +91,23 @@ class TestExactLookupCollapse:
 class TestProjectDispatch:
     def test_mfid_uses_canonical_route(self):
         ops = make_ops(ProjectOperations)
-        ops._request = MagicMock(return_value={'unique_id': MFID, 'project_id': 'example'})
+        ops._request = MagicMock(return_value={
+            'unique_id': MFID,
+            'project_id': 'example',
+            'capabilities': {
+                'can_edit': True,
+                'can_manage_access': True,
+                'can_change_status': True,
+                'can_transfer': False,
+                'max_grant_role': 'editor',
+            },
+        })
 
         result = ops.get(MFID)
 
         ops._request.assert_called_once_with('get', f'/projects/{MFID}', params=None)
         assert result['unique_id'] == MFID
+        assert result['capabilities']['max_grant_role'] == 'editor'
 
     def test_slug_uses_one_exact_collection_request(self):
         ops = make_ops(ProjectOperations)
@@ -135,16 +146,27 @@ class TestInstrumentDispatch:
         ops = make_ops(InstrumentOperations)
         ops._request = MagicMock(return_value={
             'total': 1,
-            'items': [{'unique_id': MFID, 'instrument_id': 'beamline-1'}],
+            'items': [{
+                'unique_id': MFID,
+                'instrument_id': 'beamline-1',
+                'capabilities': {
+                    'can_edit': True,
+                    'can_manage_access': False,
+                    'can_change_status': False,
+                    'can_transfer': False,
+                    'max_grant_role': None,
+                },
+            }],
         })
 
-        ops.get('beamline-1')
+        result = ops.get('beamline-1')
 
         ops._request.assert_called_once_with(
             'get',
             '/instruments',
             params={'instrument_id': 'beamline-1', 'limit': 2, 'include_owner': True},
         )
+        assert result['capabilities']['can_edit'] is True
 
     def test_explicit_mfid_keyword_uses_canonical_route(self):
         ops = make_ops(InstrumentOperations)

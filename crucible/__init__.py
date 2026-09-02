@@ -66,6 +66,7 @@ from .models import (
     Instrument,
     PublicUser,
     Project,
+    ResourceCapabilities,
     ResourceSearchResult,
     Sample,
     User,
@@ -75,5 +76,6 @@ from . import config
 __all__ = [
     'CrucibleClient', 'CrucibleResource', 'Dataset', 'Sample', 'Project', 'User', 'PublicUser',
     'Instrument', 'AssociatedFile', 'EffectiveResourceAccess', 'ResourceSearchResult',
+    'ResourceCapabilities',
     'config', 'setup_logging', '__version__', '__author__',
 ]

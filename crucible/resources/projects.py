@@ -185,9 +185,13 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
             >>> result = client.projects.create(project)
         """
         if isinstance(project, Project):
-            project_details = project.model_dump(exclude_none=True)
+            project_details = project.model_dump(
+                exclude={'capabilities'},
+                exclude_none=True,
+            )
         else:
             project_details = dict(project)
+            project_details.pop('capabilities', None)
 
         validate_slug(project_details.get('project_id'), 'project')
 
@@ -251,6 +255,8 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
         """
         if kwargs.get('project_id') is not None:
             validate_slug(kwargs['project_id'], 'project')
+        if 'capabilities' in kwargs:
+            raise ValueError("Project capabilities are response-only.")
         return self._request('patch', f'/projects/{proj_id}', json=kwargs)
 
     @staticmethod

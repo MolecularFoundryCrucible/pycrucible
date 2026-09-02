@@ -7,6 +7,7 @@
 - The CLI supports `--no-color` and the standard `NO_COLOR` environment variable.
 - Instrument operations can list bound service accounts and change lifecycle status through the dedicated API routes.
 - Dataset listing accepts a canonical instrument MFID in the Python client and CLI without implicitly narrowing to the configured default project.
+- Exact project and instrument responses expose typed caller-specific resource capabilities when supplied by the API.
 
 ### Changed
 
@@ -22,6 +23,7 @@
 - CLI mutations now use consistent `Success:` messages, while compact status checks retain TTY-only symbols with text fallbacks for redirected output.
 - `crucible status` now shows the configured endpoint, readiness state, client and API versions, deployed branch and commit, database latency and schema revisions, and authenticated identity.
 - Instrument search accepts an optional lifecycle-status filter in the Python client and CLI.
+- Instrument creation guidance now reflects that human callers may register instruments while service accounts may not.
 
 ### Fixed
 

@@ -35,6 +35,18 @@ class PublicUser(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra='allow')
 
 
+class ResourceCapabilities(BaseModel):
+    """Caller-specific actions available for an exact resource response."""
+
+    can_edit: bool
+    can_manage_access: bool
+    can_change_status: bool
+    can_transfer: bool
+    max_grant_role: Optional[Literal['viewer', 'contributor', 'editor', 'admin']] = None
+
+    model_config = ConfigDict(from_attributes=True, extra='allow')
+
+
 class Sample(CrucibleResource):
     sample_name: Optional[str] = None
     sample_type: Optional[str] = None
@@ -78,6 +90,7 @@ class Instrument(CrucibleResource):
     other_id: Optional[str] = None
     other_id_source: Optional[str] = None
     status: Optional[str] = None
+    capabilities: Optional[ResourceCapabilities] = None
 
 
 class Project(BaseModel):
@@ -95,6 +108,7 @@ class Project(BaseModel):
     creation_time: Optional[str] = None
     modification_time: Optional[str] = None
     members: Optional[List['ProjectMember']] = None
+    capabilities: Optional[ResourceCapabilities] = None
 
     model_config = ConfigDict(from_attributes=True, extra='allow')
 

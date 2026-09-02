@@ -15,8 +15,10 @@ from crucible.models import (
     EffectiveResourceAccess,
     Instrument,
     OwnershipTransfer,
+    Project,
     ProjectMember,
     ProjectReassignment,
+    ResourceCapabilities,
 )
 from crucible.resources.datasets import DatasetOperations
 from crucible.resources.instruments import InstrumentOperations
@@ -54,6 +56,69 @@ def user_ops():
     ops = UserOperations(client)
     ops._client = client
     return ops
+
+
+class TestResourceCapabilities:
+    def test_optional_capabilities_accept_absent_and_null(self):
+        assert Instrument().capabilities is None
+        assert Project(
+            project_id='example',
+            organization='LBNL',
+            capabilities=None,
+        ).capabilities is None
+
+    def test_capabilities_parse_named_maximum_grant_role(self):
+        capabilities = ResourceCapabilities(
+            can_edit=True,
+            can_manage_access=True,
+            can_change_status=False,
+            can_transfer=False,
+            max_grant_role='editor',
+        )
+
+        instrument = Instrument(capabilities=capabilities)
+
+        assert instrument.capabilities.max_grant_role == 'editor'
+
+    def test_capabilities_reject_owner_as_normal_grant_role(self):
+        with pytest.raises(ValueError):
+            ResourceCapabilities(
+                can_edit=True,
+                can_manage_access=True,
+                can_change_status=True,
+                can_transfer=True,
+                max_grant_role='owner',
+            )
+
+    def test_project_create_omits_response_capabilities(self, project_ops):
+        project_ops._request = MagicMock(return_value={
+            'unique_id': '0tkn2knjast3h0008nyq9zps2c',
+            'project_id': 'example',
+        })
+        project = Project(
+            project_id='example',
+            organization='LBNL',
+            project_lead='alice',
+            capabilities=ResourceCapabilities(
+                can_edit=True,
+                can_manage_access=True,
+                can_change_status=True,
+                can_transfer=True,
+                max_grant_role='admin',
+            ),
+        )
+
+        project_ops.create(project)
+
+        assert 'capabilities' not in project_ops._request.call_args.kwargs['json']
+
+    def test_project_update_rejects_response_capabilities(self, project_ops):
+        project_ops._request = MagicMock()
+
+        with pytest.raises(ValueError, match='response-only'):
+            project_ops.update('example', capabilities={})
+
+        project_ops._request.assert_not_called()
 
 
 class TestListAccess:

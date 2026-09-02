@@ -8,7 +8,7 @@ import pytest
 
 from crucible.cli import instrument as instrument_cli
 from crucible.cli import term
-from crucible.models import Instrument, ProjectMember
+from crucible.models import Instrument, ProjectMember, ResourceCapabilities
 from crucible.resources.instruments import InstrumentOperations
 
 
@@ -195,6 +195,13 @@ def test_create_omits_inherited_response_fields():
         instrument_id='team-i',
         instrument_name='TEAM I',
         location='72-150',
+        capabilities=ResourceCapabilities(
+            can_edit=True,
+            can_manage_access=True,
+            can_change_status=True,
+            can_transfer=True,
+            max_grant_role='admin',
+        ),
     ))
 
     assert operations._request.call_args.kwargs['json'] == {
@@ -202,6 +209,39 @@ def test_create_omits_inherited_response_fields():
         'instrument_name': 'TEAM I',
         'location': '72-150',
     }
+
+
+def test_create_dict_omits_response_capabilities():
+    operations = make_ops()
+    operations._request = MagicMock(side_effect=[
+        {'total': 0, 'items': []},
+        {'unique_id': MFID, 'instrument_id': 'team-i'},
+    ])
+
+    operations.create({
+        'instrument_id': 'team-i',
+        'instrument_name': 'TEAM I',
+        'location': '72-150',
+        'capabilities': {
+            'can_edit': True,
+            'can_manage_access': True,
+            'can_change_status': True,
+            'can_transfer': True,
+            'max_grant_role': 'admin',
+        },
+    })
+
+    assert 'capabilities' not in operations._request.call_args.kwargs['json']
+
+
+def test_update_rejects_response_capabilities():
+    operations = make_ops()
+    operations._request = MagicMock()
+
+    with pytest.raises(ValueError, match='response-only'):
+        operations.update(MFID, capabilities={})
+
+    operations._request.assert_not_called()
 
 
 def test_mfid_backed_owner_is_not_linked_to_orcid(monkeypatch):
