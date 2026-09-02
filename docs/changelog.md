@@ -18,6 +18,7 @@
 - Project listing, resource searches, user discovery, and service-account retrieval now support raw JSON output with structured JSON validation errors.
 - Empty CLI listings now identify the resource or request type instead of displaying generic placeholder text.
 - CLI mutations now use consistent `Success:` messages, while compact status checks retain TTY-only symbols with text fallbacks for redirected output.
+- `crucible status` now shows the configured endpoint, readiness state, client and API versions, deployed branch and commit, database latency and schema revisions, and authenticated identity.
 
 ### Fixed
 

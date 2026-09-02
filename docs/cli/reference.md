@@ -263,7 +263,7 @@ Configuration values can come from environment variables, the platform-specific 
 
 | Command | Description |
 |---|---|
-| `status` | Check API reachability, database health, and authentication |
+| `status` | Show endpoint reachability, deployment provenance, database readiness, and authentication identity |
 | `whoami` | Show the identity associated with the configured key |
 | `get MFID` | Show a dataset or sample after detecting its resource type |
 | `edit MFID` | Edit a dataset, sample, or instrument after detecting its type |
