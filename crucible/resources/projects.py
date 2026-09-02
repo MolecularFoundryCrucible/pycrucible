@@ -296,7 +296,8 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
                     username: Optional[str] = None) -> List[ProjectMember]:
         """Remove a user from a project.
 
-        **Requires admin permissions.**
+        Project owners and platform administrators may remove members. A member
+        may also remove themselves.
 
         Email and username inputs are resolved before the canonical membership request.
 
@@ -319,9 +320,11 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
                 role: Optional[str] = None) -> List[ProjectMember]:
         """Add a user to a project.
 
-        **Requires editor or above in the project.** You may only grant a role
-        at or below your own - an editor can seat a contributor but never an
-        admin. Cannot seat someone as owner (use transfer_ownership() instead).
+        **Requires editor or above in the project.** The granted role must be
+        strictly below the caller's role. Editors may grant contributor or
+        viewer, admins may also grant editor, and owners may also grant admin.
+        Platform administrators retain their bypass. Ownership changes use
+        transfer_ownership().
 
         Email and username inputs are resolved before the canonical membership request.
 
@@ -346,10 +349,10 @@ class ProjectOperations(OwnershipMixin, AccessControlMixin, BaseResource):
                          role: str) -> List[ProjectMember]:
         """Change a member's role in a project.
 
-        **Requires editor or above in the project.** The cap binds on both
-        ends: you may not grant a role above your own, nor change a member who
-        already holds one above your own. Cannot touch owner standing at all
-        (use transfer_ownership() instead).
+        **Requires editor or above in the project.** Both the member's current
+        role and their requested role must be strictly below the caller's role.
+        Platform administrators retain their bypass. Ownership changes use
+        transfer_ownership().
 
         Args:
             project_id (str): Unique project identifier

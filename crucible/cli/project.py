@@ -262,7 +262,7 @@ def _register_add_user(subparsers):
     parser = subparsers.add_parser(
         'add-user',
         help='Add a user to a project',
-        description='Add a user to a project by ORCID, MFID, username, or email (requires editor or above; grants are capped at your role)',
+        description='Add a user to a project by ORCID, MFID, username, or email (requires editor or above; the granted role must be below your role)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -327,7 +327,7 @@ def _register_remove_user(subparsers):
     parser = subparsers.add_parser(
         'remove-user',
         help='Remove a user from a project',
-        description='Remove a user from a project by ORCID, MFID, username, or email (requires admin permissions)',
+        description='Remove yourself from a project, or remove a member as project owner or platform administrator',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
@@ -737,7 +737,7 @@ def _register_update_user_role(subparsers):
     parser = subparsers.add_parser(
         'update-user-role',
         help="Change a member's role in a project",
-        description='Change a project member\'s role (requires editor or above; cannot grant/change owner)',
+        description='Change a project member\'s role (current and requested roles must both be below your role; ownership is transfer-only)',
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:

@@ -11,6 +11,7 @@ from crucible.cli.project import (
     _execute_add_user,
     _register_add_user,
     _register_get,
+    _register_remove_user,
     _register_update_user_role,
 )
 
@@ -66,6 +67,19 @@ def test_update_user_role_rejects_owner():
             '0000-0001-6402-3752',
             'owner',
         )
+
+
+@pytest.mark.parametrize(('register', 'command', 'expected'), [
+    (_register_add_user, 'add-user', 'granted role must be below your role'),
+    (_register_update_user_role, 'update-user-role', 'must both be below your role'),
+    (_register_remove_user, 'remove-user', 'project owner or platform administrator'),
+])
+def test_membership_help_describes_current_hierarchy(register, command, expected):
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='command')
+    register(subparsers)
+
+    assert expected in subparsers.choices[command].description
 
 
 def test_add_user_dispatches_named_role_and_username(monkeypatch):

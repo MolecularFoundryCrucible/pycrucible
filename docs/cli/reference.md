@@ -107,7 +107,9 @@ Fields normally updated through `sample update` include `sample_name`, `sample_t
 | `project publish ID` | Make a project publicly viewable |
 | `project unpublish ID` | Remove public access from a project |
 
-`project add-user` requires editor or above and accepts `viewer`, `contributor`, `editor`, or `admin`. Grants cannot exceed the caller's role. Use `project update-user-role` to change an existing member and `project transfer-ownership` to change ownership.
+`project add-user` and `project update-user-role` require editor or above and accept `viewer`, `contributor`, `editor`, or `admin`. The target member's current role and requested role must both be below the caller's role. Editors can manage viewers and contributors, admins can also manage editors, and owners can also manage admins. Platform administrators retain their bypass. Use `project transfer-ownership` to change ownership.
+
+`project remove-user` permits project owners and platform administrators to remove members, while any member may remove themselves.
 
 Project member tables sort by standing from lead through viewer, display the API `owner` role as `lead`, and use distinct role colors when terminal color is enabled.
 

@@ -41,6 +41,8 @@ Use `include_members=True` to request the member list. Members and administrator
 
 Exact MFID and slug lookups include caller-specific `capabilities` when the server has calculated them. General lists and searches normally return `capabilities=None`, which means the guidance was not calculated rather than that every action is denied. The API remains authoritative for each mutation.
 
+Project capabilities expose the strict membership hierarchy through `max_grant_role`: editors receive `contributor`, admins receive `editor`, and owners receive `admin`. The value is guidance for the highest role the caller may grant, while the API still validates the target member and current project state.
+
 ```python
 project = client.projects.get("MFP12345", include_metadata=True, include_members=True)
 ```
@@ -85,7 +87,7 @@ Project lead, member, and operator records are public-safe and do not expose ema
 members = client.projects.add_user(user_unique_id="0000-0002-3456-7890", project_id="MFP12345", role="contributor")
 ```
 
-Member roles are the lowercase strings `viewer`, `contributor`, `editor`, and `admin`. Adding a member requires editor or above, and the granted role cannot exceed the caller's role. Ownership is changed only through `transfer_ownership()`.
+Member roles are the lowercase strings `viewer`, `contributor`, `editor`, and `admin`. Adding or managing a member requires editor or above, and both the target member's current role and requested role must be strictly below the caller's role. Editors can manage viewers and contributors, admins can also manage editors, and owners can also manage admins. Platform administrators retain their bypass. Ownership is changed only through `transfer_ownership()`.
 
 Adding an existing member at a different role returns 409. Use `update_user_role()` to change existing standing.
 
@@ -100,6 +102,8 @@ members = client.projects.update_user_role("MFP12345", "0000-0002-3456-7890", "e
 ```python
 members = client.projects.remove_user(project_id="MFP12345", user_unique_id="0000-0002-3456-7890")
 ```
+
+Project owners and platform administrators may remove members. Any member may remove themselves. Other member removal is not governed by the add and role-update hierarchy.
 
 All three member mutations return the updated `list[ProjectMember]`.
 
