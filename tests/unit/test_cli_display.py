@@ -248,6 +248,54 @@ def test_missing_public_value_is_not_rendered_as_false(show, record, capsys):
     assert public_line.rstrip().endswith('-')
 
 
+def test_dataset_detail_prefers_embedded_reference_labels(capsys):
+    dataset_cli._show_dataset(
+        {
+            'unique_id': MFID,
+            'dataset_name': 'Dataset',
+            'instrument_name': 'Legacy Instrument',
+            'project_id': 'legacy-project',
+            'instrument': {
+                'unique_id': MFID,
+                'instrument_id': 'xrd-1',
+                'instrument_name': 'Current Instrument',
+            },
+            'project': {
+                'unique_id': MFID,
+                'project_id': 'current-project',
+                'title': 'Current Project',
+            },
+        },
+        SimpleNamespace(),
+        prefetched={'keywords': [], 'af_list': [], 'link_map': {}},
+    )
+
+    output = capsys.readouterr().out
+    assert 'Current Instrument' in output
+    assert 'Current Project' in output
+    assert 'Legacy Instrument' not in output
+    assert 'legacy-project' not in output
+
+
+def test_dataset_detail_falls_back_to_flat_reference_fields(capsys):
+    dataset_cli._show_dataset(
+        {
+            'unique_id': MFID,
+            'dataset_name': 'Dataset',
+            'instrument_name': 'Legacy Instrument',
+            'project_id': 'legacy-project',
+            'instrument': None,
+            'project': None,
+        },
+        SimpleNamespace(),
+        prefetched={'keywords': [], 'af_list': [], 'link_map': {}},
+    )
+
+    output = capsys.readouterr().out
+    assert 'Legacy Instrument' in output
+    assert 'legacy-project' in output
+
+
 def test_table_fits_terminal_and_preserves_protected_identifiers(monkeypatch, capsys):
     slug = 'i' * 25
     monkeypatch.setattr(term, '_table_output_width', lambda: 80)

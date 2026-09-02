@@ -8,6 +8,8 @@
 | `data_type` | Institution-specific data organization descriptor (e.g. `"ScopeFoundry H5 file"`) | create, update |
 | `instrument_name` | Name of the instrument as registered in Crucible | create |
 | `instrument_id` | Instrument identifier | create |
+| `instrument` | Current instrument identity and display fields, including its canonical MFID | server-assigned |
+| `project` | Current project identity and display fields, including its canonical MFID | server-assigned |
 | `data_format` | File type or extension (e.g. `"h5"`, `"dat"`) | create, update |
 | `session_name` | Optional tag grouping datasets collected in the same session | create, update |
 | `timestamp` | When the data was collected (ISO 8601 format) | create, update |
@@ -96,6 +98,8 @@ Datasets are retrieved only by their canonical 26-character MFID. Dataset names 
 Singleton retrieval expands `owner` by default as a public-safe user record containing `unique_id`, `username`, `first_name`, and `last_name`. Pass `include_owner=False` to suppress expansion. List operations remain opt-in with `include_owner=True`. The canonical owner identifier remains available as `owner_orcid`.
 
 Canonical detail responses include caller-specific `capabilities` when the server has calculated them. Dataset capabilities always report `can_change_status=False` because datasets have no lifecycle-status operation. Collections and search results normally return `capabilities=None`, which means the guidance was not calculated rather than that every action is denied. The API remains authoritative for each mutation.
+
+Dataset responses include lightweight `instrument` and `project` references when those canonical relationships resolve. Use `dataset["instrument"]["unique_id"]` and `dataset["project"]["unique_id"]` for stable navigation. The flat `instrument_id`, `instrument_name`, and `project_id` fields remain available and provide display fallbacks for legacy records whose canonical relationship is unresolved. A reference exposes identity and display information only and does not imply access to the complete instrument or project.
 
 ## Listing datasets
 

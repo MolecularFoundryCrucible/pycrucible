@@ -6,13 +6,22 @@ from unittest.mock import MagicMock
 import pytest
 
 from crucible.client import CrucibleClient
-from crucible.models import Dataset, Instrument, PublicUser, ResourceCapabilities, Sample
+from crucible.models import (
+    Dataset,
+    Instrument,
+    InstrumentReference,
+    ProjectReference,
+    PublicUser,
+    ResourceCapabilities,
+    Sample,
+)
 from crucible.resources.datasets import DatasetOperations
 from crucible.resources.instruments import InstrumentOperations
 from crucible.resources.samples import SampleOperations
 
 
 MFID = '0tkn2knjast3h0008nyq9zps2c'
+SECOND_MFID = '0td7evvtg5wb90005k1j97ak94'
 ORCID = '0000-0001-6402-3752'
 PUBLIC_OWNER = {
     'unique_id': ORCID,
@@ -85,6 +94,27 @@ def test_dataset_and_sample_capabilities_are_typed(model):
     assert isinstance(resource.capabilities, ResourceCapabilities)
     assert resource.capabilities.can_change_status is False
     assert resource.capabilities.max_grant_role == 'editor'
+
+
+def test_dataset_response_uses_typed_resource_references():
+    resource = Dataset.model_validate({
+        'unique_id': MFID,
+        'instrument': {
+            'unique_id': SECOND_MFID,
+            'instrument_id': 'xrd-1',
+            'instrument_name': 'High Resolution XRD',
+        },
+        'project': {
+            'unique_id': SECOND_MFID,
+            'project_id': 'project-one',
+            'title': 'Project One',
+        },
+    })
+
+    assert isinstance(resource.instrument, InstrumentReference)
+    assert isinstance(resource.project, ProjectReference)
+    assert resource.instrument.unique_id == SECOND_MFID
+    assert resource.project.project_id == 'project-one'
 
 
 @pytest.mark.parametrize(
@@ -211,11 +241,44 @@ def test_create_omits_response_capabilities(operations_class, resource):
     assert 'capabilities' not in operations._request.call_args.kwargs['json']
 
 
+def test_dataset_create_omits_response_references():
+    operations = make_ops(DatasetOperations, {'unique_id': MFID})
+    dataset = Dataset(
+        unique_id=MFID,
+        dataset_name='test',
+        instrument={
+            'unique_id': SECOND_MFID,
+            'instrument_id': 'xrd-1',
+            'instrument_name': 'High Resolution XRD',
+        },
+        project={
+            'unique_id': SECOND_MFID,
+            'project_id': 'project-one',
+        },
+    )
+
+    operations.create(dataset)
+
+    payload = operations._request.call_args.kwargs['json']
+    assert 'instrument' not in payload
+    assert 'project' not in payload
+
+
 def test_dataset_update_rejects_response_capabilities():
     operations = make_ops(DatasetOperations, {'unique_id': MFID})
 
     with pytest.raises(ValueError, match='response-only'):
         operations.update(MFID, capabilities=CAPABILITIES)
+
+    operations._request.assert_not_called()
+
+
+@pytest.mark.parametrize('field', ['instrument', 'project'])
+def test_dataset_update_rejects_response_references(field):
+    operations = make_ops(DatasetOperations, {'unique_id': MFID})
+
+    with pytest.raises(ValueError, match=field):
+        operations.update(MFID, **{field: {}})
 
     operations._request.assert_not_called()
 

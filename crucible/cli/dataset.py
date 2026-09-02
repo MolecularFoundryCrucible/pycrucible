@@ -66,6 +66,11 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
 
     term.header("Dataset")
 
+    instrument = dataset.get('instrument') or {}
+    project = dataset.get('project') or {}
+    instrument_name = instrument.get('instrument_name') or dataset.get('instrument_name')
+    project_label = project.get('title') or project.get('project_id') or dataset.get('project_id')
+
     dr = dataset.get('deletion_request')
     if dr:
         status = dr.get('status', '')
@@ -84,9 +89,9 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
     _p("Measurement", dataset.get('measurement'))
     _p("Data Type",   dataset.get('data_type'))
     _p("Session",     dataset.get('session_name'))
-    _p("Instrument",  dataset.get('instrument_name'))
+    _p("Instrument",  instrument_name)
     _p("Public",      term.fmt_bool(dataset.get('public')))
-    _p("Project",     dataset.get('project_id'))
+    _p("Project",     project_label)
     _p("Timestamp",   term.fmt_ts(dataset.get('timestamp')))
     _p("Owner",       term.fmt_owner(dataset))
     _p("Description", dataset.get('description'))

@@ -208,7 +208,8 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         if files is None:
             files = []
 
-        dataset_details = dataset.model_dump(exclude={'capabilities'})
+        dataset_details = dataset.model_dump(
+            exclude={'capabilities', 'instrument', 'project'})
 
         if dataset_details.get('owner') is not None and dataset_details.get('owner_orcid') is not None:
             raise ValueError("Pass either 'owner' or 'owner_orcid', not both.")
@@ -287,9 +288,12 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         Example:
             >>> client.datasets.update("my-dataset-id", dataset_name="Updated Name", public=True)
         """
-        if 'capabilities' in updates:
-            raise ValueError("Dataset capabilities are response-only.")
-        return self._request('patch', f'/datasets/{dataset_mfid}', json=updates)
+        response_only = {'capabilities', 'instrument', 'project'} & updates.keys()
+        if response_only:
+            fields = ', '.join(sorted(response_only))
+            raise ValueError(f"Dataset fields are response-only: {fields}.")
+        return self._parse(
+            self._request('patch', f'/datasets/{dataset_mfid}', json=updates))
 
     @_deprecated_parameter('dsid', 'dataset_mfid')
     def list_files(self, dataset_mfid: str) -> List[Dict]:
@@ -325,7 +329,8 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         if project_id:
             params['project_id'] = project_id
         result = self._request('get', '/datasets/search', params=params)
-        return result.get('items', result) if isinstance(result, dict) else result
+        raw = result.get('items', result) if isinstance(result, dict) else result
+        return [self._parse(dataset) for dataset in raw]
 
     # Keyword Methods
     @_deprecated_parameter('dsid', 'dataset_mfid')
@@ -438,8 +443,9 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             List[Dict]: Children datasets
         """
         params = {k: v for k, v in kwargs.items() if v is not None}
-        return self._paginate(
+        raw = self._paginate(
             f"/datasets/{parent_mfid}/children", params, limit, offset)
+        return [self._parse(dataset) for dataset in raw]
 
     @_deprecated_parameter('child_dataset_id', 'child_mfid')
     @_deprecated_parameter('child_dataset_mfid', 'child_mfid')
@@ -457,8 +463,9 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             List[Dict]: Parent datasets
         """
         params = {k: v for k, v in kwargs.items() if v is not None}
-        return self._paginate(
+        raw = self._paginate(
             f"/datasets/{child_mfid}/parents", params, limit, offset)
+        return [self._parse(dataset) for dataset in raw]
 
     # Special Processing Methods
     @_deprecated_parameter('dsid', 'dataset_mfid')

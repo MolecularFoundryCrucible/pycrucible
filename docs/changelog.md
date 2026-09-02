@@ -4,6 +4,7 @@
 
 ### Added
 
+- Dataset responses expose typed project and instrument references with canonical MFIDs while retaining legacy flat fields.
 - The CLI supports `--no-color` and the standard `NO_COLOR` environment variable.
 - Instrument operations can list bound service accounts and change lifecycle status through the dedicated API routes.
 - Dataset listing accepts a canonical instrument MFID in the Python client and CLI without implicitly narrowing to the configured default project.

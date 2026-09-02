@@ -47,6 +47,26 @@ class ResourceCapabilities(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra='allow')
 
 
+class InstrumentReference(BaseModel):
+    """Lightweight instrument identity embedded in dataset responses."""
+
+    unique_id: str
+    instrument_id: Optional[str] = None
+    instrument_name: str
+
+    model_config = ConfigDict(from_attributes=True, extra='allow')
+
+
+class ProjectReference(BaseModel):
+    """Lightweight project identity embedded in dataset responses."""
+
+    unique_id: str
+    project_id: str
+    title: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True, extra='allow')
+
+
 class Sample(CrucibleResource):
     sample_name: Optional[str] = None
     sample_type: Optional[str] = None
@@ -68,6 +88,8 @@ class Dataset(CrucibleResource):
     project_id: Optional[str] = None
     instrument_name: Optional[str] = None
     instrument_id: Optional[str] = None
+    instrument: Optional[InstrumentReference] = None
+    project: Optional[ProjectReference] = None
     measurement: Optional[str] = None
     data_type: Optional[str] = None
     session_name: Optional[str] = None
