@@ -13,6 +13,7 @@
 
 ### Changed
 
+- CLI user identifiers and owner names now link to Crucible Explorer profiles instead of external ORCID pages.
 - Resource detail views group identity, project, instrument, access, and timing fields; related labels link to the Explorer without displaying related MFIDs, and human names use given-name initials.
 - Generic `crucible get MFID` now renders projects in addition to datasets, samples, and instruments.
 - CLI project and sample-type options use consistent canonical flags, and interactive completion now discovers flags and searches resource endpoints for identifier values.

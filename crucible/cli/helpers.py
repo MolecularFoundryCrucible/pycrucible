@@ -536,6 +536,14 @@ def instrument_explorer_url(instrument_mfid: str) -> str:
     return f"{base}/instrument/{instrument_mfid}"
 
 
+def user_explorer_url(user_unique_id: str) -> str:
+    """Build the Graph Explorer URL for a user."""
+    base = _graph_explorer_base()
+    if not base or not user_unique_id:
+        return None
+    return f"{base}/user/{user_unique_id}"
+
+
 def project_reference(resource):
     """Return the display title, project ID, and Explorer URL for a resource."""
     reference = resource.get('project') or {}

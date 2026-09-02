@@ -407,11 +407,17 @@ def _execute_list(args):
 def _lead_name(project):
     """Return the lead's display name or canonical identifier."""
     lead = project.get('lead') or {}
-    return term.fmt_name(
+    user_id = (
+        lead.get('unique_id')
+        or project.get('project_lead')
+        or project.get('project_lead_orcid')
+    )
+    name = term.fmt_name(
         lead,
-        default=project.get('project_lead_orcid'),
+        default=user_id,
         fallback_username=False,
     )
+    return term.user_link(name, user_id)
 
 
 def _show_project(project, include_metadata=False, include_members=False):
@@ -457,8 +463,14 @@ def _show_project(project, include_metadata=False, include_members=False):
         if not members:
             print(f"  {term.dim('No members found.')}")
             return
-        rows = [(m.get('username') or '-', term.fmt_name(m, default='-', fallback_username=False),
-                 term.role_label(m.get('role'))) for m in members]
+        rows = [(
+            m.get('username') or '-',
+            term.user_link(
+                term.fmt_name(m, default='-', fallback_username=False),
+                m.get('unique_id'),
+            ),
+            term.role_label(m.get('role')),
+        ) for m in members]
         term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
 
 
@@ -578,7 +590,11 @@ def _execute_list_users(args):
         else:
             rows = []
             for u in users:
-                name     = term.fmt_name(u.model_dump(), default='-', fallback_username=False)
+                name = term.user_link(
+                    term.fmt_name(
+                        u.model_dump(), default='-', fallback_username=False),
+                    u.unique_id,
+                )
                 username = u.username or '-'
                 role     = term.role_label(u.role)
                 rows.append((username, name, role))
@@ -786,8 +802,15 @@ def _execute_update_user_role(args):
             args.project_id, args.user_unique_id, args.role))
         term.success(
             f"{args.user_unique_id} is now '{args.role}' in project '{args.project_id}'", args)
-        rows = [(u.username or '-', term.fmt_name(u.model_dump(), default='-', fallback_username=False),
-                 term.role_label(u.role)) for u in users]
+        rows = [(
+            u.username or '-',
+            term.user_link(
+                term.fmt_name(
+                    u.model_dump(), default='-', fallback_username=False),
+                u.unique_id,
+            ),
+            term.role_label(u.role),
+        ) for u in users]
         term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
     except Exception as e:
         fail("updating user role", e, args)

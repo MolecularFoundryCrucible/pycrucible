@@ -92,10 +92,19 @@ def orcid_link(orcid: str) -> str | None:
 
 
 def user_id_link(user_id: str) -> str | None:
-    """Render a canonical user ORCID or MFID with the appropriate link style."""
+    """Render a canonical user ID linked to its Crucible Explorer profile."""
     if not user_id:
         return None
-    return orcid_link(user_id) if is_orcid(user_id) else mfid_link(user_id)
+    return user_link(user_id, user_id, identifier=True)
+
+
+def user_link(label: str, user_id: str, identifier: bool = False) -> str | None:
+    """Link a user label to its Crucible Explorer profile."""
+    if not label:
+        return None
+    from .helpers import user_explorer_url
+    text = cyan(label) if identifier else label
+    return hyperlink(text, user_explorer_url(user_id))
 
 
 def user_id_label(user_id: str) -> str:
@@ -128,8 +137,8 @@ def fmt_owner(resource: dict) -> str | None:
     """Format the owner of a resource.
 
     If include_owner was used and the owner object is present, returns
-    'F. Lastname (@username)' and links it only when the canonical owner ID is
-    an ORCID. Falls back to the canonical owner identifier.
+    'F. Lastname (@username)' linked to the Crucible Explorer profile. Falls
+    back to the canonical owner identifier.
     """
     owner = resource.get('owner')
     owner_id = resource.get('owner_orcid')
@@ -137,9 +146,7 @@ def fmt_owner(resource: dict) -> str | None:
         name = fmt_name(owner, default=owner_id or '-')
         uname = owner.get('username')
         label = f"{name}  {dim(f'(@{uname})')}" if uname else name
-        if is_orcid(owner_id):
-            return hyperlink(label, f"https://orcid.org/{owner_id}")
-        return label
+        return user_link(label, owner_id)
     return user_id_link(owner_id)
 
 

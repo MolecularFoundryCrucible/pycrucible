@@ -229,13 +229,13 @@ def execute(args):
         sys.exit(1)
 
     user = info.get('user_info', {})
-    first = user.get('first_name', '')
-    last = user.get('last_name', '')
-    name = f'{first} {last}'.strip() or None
+    user_id = user.get('unique_id')
+    name = term.fmt_name(user, fallback_username=False)
     username = user.get('username')
     identity = name or username or user.get('unique_id') or 'authenticated user'
     if username and username != identity:
-        identity += f' (@{username})'
+        identity += f'  {term.dim(f"(@{username})")}'
+    identity = term.user_link(identity, user_id)
 
     printer(
         "Status",

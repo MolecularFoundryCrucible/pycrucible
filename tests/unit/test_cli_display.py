@@ -155,6 +155,20 @@ def test_person_names_use_all_given_name_initials():
     }) == 'J. P. Dupont'
 
 
+def test_orcid_user_ids_link_to_explorer(monkeypatch):
+    from crucible.config import config
+
+    orcid = '0000-0001-6402-3752'
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    monkeypatch.setitem(
+        config._data, 'graph_explorer_url', 'https://example.org/explore')
+
+    rendered = term.user_id_link(orcid)
+
+    assert f'https://example.org/explore/user/{orcid}' in rendered
+    assert 'orcid.org' not in rendered
+
+
 def test_hyphenated_given_names_preserve_each_initial():
     assert term.fmt_name({
         'first_name': 'Jean-Pierre',

@@ -123,7 +123,10 @@ def _execute_search(args):
         rows = []
         for u in users:
             username = u.get('username') or '-'
-            name  = term.fmt_name(u, default='-', fallback_username=False)
+            name = term.user_link(
+                term.fmt_name(u, default='-', fallback_username=False),
+                u.get('unique_id'),
+            )
             user_id = term.user_id_link(u.get('unique_id')) or '-'
             rows.append((username, name, user_id))
         term.table(
@@ -212,7 +215,7 @@ def _show_user(user):
 
     term.header("User")
     _p("Username", user.get('username') or term.dim('(not set)'))
-    _p("Name",     full_name)
+    _p("Name",     term.user_link(full_name, uid))
     _p(term.user_id_label(uid), term.user_id_link(uid))
     if 'email' in user:
         email = term.dim('(not set)') if user['email'] is None else user['email']
@@ -587,7 +590,10 @@ def _execute_list(args):
 
         rows = []
         for user in users:
-            name     = term.fmt_name(user, default='-', fallback_username=False)
+            name = term.user_link(
+                term.fmt_name(user, default='-', fallback_username=False),
+                user.get('unique_id'),
+            )
             user_id  = term.user_id_link(user.get('unique_id')) or '-'
             username = user.get('username') or '-'
             rows.append((username, name, user_id))
