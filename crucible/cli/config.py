@@ -269,7 +269,7 @@ def cmd_init(args):
 
     # Get current project
     print("\n5. Default Project ID (optional)")
-    print("   Project ID to use when -pid is not specified")
+    print("   Project ID to use when --project-id is not specified")
     current_project = prompt_optional(
         "Project ID", validator=lambda value: validate_slug(value, 'project'))
 
@@ -285,7 +285,7 @@ def cmd_init(args):
         print()
         term.success(f"Configuration saved to: {created_path}", args)
         print("\nYou can now use crucible commands!")
-        print("Example: crucible upload -i input.lmp -t lammps -pid my-project")
+        print("Example: crucible dataset create -i input.lmp -t lammps --project-id my-project")
     except Exception as e:
         logger.error(f"Error creating configuration: {e}")
         sys.exit(1)

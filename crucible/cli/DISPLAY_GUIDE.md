@@ -29,9 +29,13 @@ display_meta=_HTML(' | '.join([
 ]))
 ```
 
-**Applied to:** `use PROJECT_ID`, `config set current_project`, `deletion approve/reject ID`
+**Applied to:** project, instrument, user, dataset, sample, service-account, deletion-request, and join-request identifiers.
 
 For completions with no meaningful metadata (e.g. subcommand names, flag choices), plain `Completion(name + ' ', ...)` without `display`/`display_meta` is fine.
+
+Use the resource search endpoint for user, project, instrument, dataset, and sample completion after the API's three-character minimum. Cache results by the complete search context for the shell session. Dataset and sample searches should include the active project when one is configured. Below the search minimum, use an already-loaded bounded cache such as active projects or recent MFIDs rather than fetching an entire resource collection solely for completion.
+
+After a positional value has been completed, fall through to the matched argparse subparser so its flags remain discoverable. Complete argparse `choices` values directly and return the canonical identifier required by the target argument, such as a project ID, instrument ID, instrument MFID, username, or dataset/sample MFID.
 
 ---
 

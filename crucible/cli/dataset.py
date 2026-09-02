@@ -6,6 +6,7 @@ Dataset subcommand for Crucible CLI.
 Provides dataset-related operations: list, get, create, update-metadata, link, etc.
 """
 
+import argparse
 import sys
 import json
 from pathlib import Path
@@ -277,23 +278,34 @@ def _register_list(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset list -pid my-project
-    crucible dataset list -pid my-project -m XRD
-    crucible dataset list -pid my-project -k silicon --limit 20
+    crucible dataset list --project-id my-project
+    crucible dataset list --project-id my-project -m XRD
+    crucible dataset list --project-id my-project -k silicon --limit 20
     crucible dataset list --instrument-mfid 0tkn2knjast3h0008nyq9zps2c
     crucible dataset list --session 2024-01-15-run
-    crucible dataset list -pid my-project --group-by measurement
-    crucible dataset list -pid my-project --include "run-*" "*XRD*"
-    crucible dataset list -pid my-project --exclude "*test*"
+    crucible dataset list --project-id my-project --group-by measurement
+    crucible dataset list --project-id my-project --include "run-*" "*XRD*"
+    crucible dataset list --project-id my-project --exclude "*test*"
 """
     )
 
+    from .helpers import DeprecatedAliasAction
     parser.add_argument(
-        '-pid', '--project-id',
+        '--project-id', '-p',
         required=False,
         default=None,
         metavar='ID',
         help='Crucible project ID (uses config current_project if not specified)'
+    )
+    parser.add_argument(
+        '-pid',
+        action=DeprecatedAliasAction,
+        deprecated_options={'-pid'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(
@@ -449,27 +461,27 @@ def _register_create(subparsers):
         epilog="""
 Examples:
     # Preview what would be uploaded (dry run)
-    crucible dataset create -i file1.dat -pid my-project --dry-run
+    crucible dataset create -i file1.dat --project-id my-project --dry-run
 
     # Generic upload (server assigns mfid)
-    crucible dataset create -i file1.dat file2.csv -pid my-project
+    crucible dataset create -i file1.dat file2.csv --project-id my-project
 
     # Upload with locally generated mfid
-    crucible dataset create -i data.csv -pid my-project --mfid
+    crucible dataset create -i data.csv --project-id my-project --mfid
 
     # Upload with explicit mfid (e.g., re-uploading same dataset)
-    crucible dataset create -i data.csv -pid my-project --mfid 0tcxz5xs5xr6q0002vmzmp3beg
+    crucible dataset create -i data.csv --project-id my-project --mfid 0tcxz5xs5xr6q0002vmzmp3beg
 
     # Generic upload with metadata and keywords
-    crucible dataset create -i data.csv -pid my-project \\
+    crucible dataset create -i data.csv --project-id my-project \\
         --metadata '{"temperature": 300, "pressure": 1.0}' \\
         --keywords "experiment,thermal" -m "thermal_analysis"
 
     # Upload multiple files using wildcards
-    crucible dataset create -i *.dat -pid my-project -m "raw_data"
+    crucible dataset create -i *.dat --project-id my-project -m "raw_data"
 
     # Parse and upload LAMMPS simulation
-    crucible dataset create -i input.lmp -t lammps -pid my-project
+    crucible dataset create -i input.lmp -t lammps --project-id my-project
 """
     )
 
@@ -498,12 +510,23 @@ Examples:
         type_arg.completer = lambda **kwargs: sorted(PARSER_REGISTRY.keys())
 
     # Project ID
+    from .helpers import DeprecatedAliasAction
     parser.add_argument(
-        '-pid', '--project-id',
+        '--project-id', '-p',
         required=False,
         default=None,
         metavar='ID',
         help='Crucible project ID (uses config current_project if not specified)'
+    )
+    parser.add_argument(
+        '-pid',
+        action=DeprecatedAliasAction,
+        deprecated_options={'-pid'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
     )
 
     # Unique ID / mfid
@@ -1446,13 +1469,29 @@ def _register_search(subparsers):
         epilog="""
 Examples:
     crucible dataset search perovskite
-    crucible dataset search "silicon wafer" --project my-project
+    crucible dataset search "silicon wafer" --project-id my-project
     crucible dataset search XRD --limit 10
 """,
     )
     parser.add_argument('query', metavar='QUERY', help='Search term (min 3 chars)')
-    parser.add_argument('--project', '-pid', dest='project_id', default=None, metavar='ID',
-                        help='Scope to a specific project')
+    from .helpers import DeprecatedAliasAction
+    parser.add_argument(
+        '--project-id', '-p',
+        dest='project_id',
+        default=None,
+        metavar='ID',
+        help='Scope to a specific project',
+    )
+    parser.add_argument(
+        '--project', '-pid',
+        action=DeprecatedAliasAction,
+        deprecated_options={'--project', '-pid'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument('--limit', '-l', type=int, default=20, metavar='N',
                         help='Maximum results (default: 20, max: 50)')
     parser.add_argument('--json', action='store_true', default=False,
@@ -1848,7 +1887,7 @@ def _execute_create(args):
         project_id = config.current_project
         project_from_config = True
         if project_id is None:
-            logger.error("Project ID required. Specify with -pid or set current_project in config.")
+            logger.error("Project ID required. Specify with --project-id or set current_project in config.")
             sys.exit(1)
 
     # Validate the project exists before doing any expensive work

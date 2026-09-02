@@ -12,6 +12,7 @@
 
 ### Changed
 
+- CLI project and sample-type options use consistent canonical flags, and interactive completion now discovers flags and searches resource endpoints for identifier values.
 - CLI failures now preserve HTTP status codes while formatting API validation details and warnings for readable terminal and JSON output.
 - Human and service-account creation now normalize usernames and validate the API's complete username rules before submitting a request, with immediate retry prompts during interactive creation.
 - Project membership methods and commands validate named roles before requests, document strict lower-role management and owner-or-self removal, and `project add-user` reports API errors through the shared status-preserving formatter.

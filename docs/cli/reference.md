@@ -2,6 +2,8 @@
 
 This page is the canonical command inventory for the Crucible CLI. Use `crucible <command> --help` or `crucible <resource> <action> --help` for the exact arguments, aliases, defaults, and examples supported by the installed version.
 
+Project options use `--project-id` with the conventional `-p` short alias. Sample type options use `--type` with `-t`. Older spellings remain temporarily accepted with a deprecation warning but are omitted from current examples.
+
 ## Global options
 
 | Option | Description |
@@ -52,7 +54,7 @@ Running `crucible` without a command starts the interactive shell. See the [CLI 
 Common creation example:
 
 ```bash
-crucible dataset create -i data.csv -pid my-project \
+crucible dataset create -i data.csv --project-id my-project \
     -n "XRD measurement" -m "X-ray diffraction" \
     --metadata '{"temperature_K": 300}' --keywords "XRD,powder"
 ```

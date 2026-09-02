@@ -323,15 +323,15 @@ Once registered, your parser is automatically available in the CLI:
 
 ```bash
 # Upload XRD data
-crucible dataset create -i sample.xrd -t xrd -pid my-project
+crucible dataset create -i sample.xrd -t xrd --project-id my-project
 
 # Add user metadata/keywords
-crucible dataset create -i sample.xrd -t xrd -pid my-project \
+crucible dataset create -i sample.xrd -t xrd --project-id my-project \
     --metadata '{"sample_id": "XRD-001"}' \
     --keywords "validated,published"
 
 # Make it public
-crucible dataset create -i sample.xrd -t xrd -pid my-project --public
+crucible dataset create -i sample.xrd -t xrd --project-id my-project --public
 ```
 
 ## Available Parsers

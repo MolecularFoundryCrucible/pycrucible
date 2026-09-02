@@ -180,12 +180,23 @@ Examples:
 """
     )
 
+    from .helpers import DeprecatedAliasAction
     parser.add_argument(
-        '--project-id', '-id',
+        '--project-id', '-i',
         required=False,
         default=None,
         metavar='ID',
         help='Unique project identifier (e.g., "my-project"). If not provided, will prompt interactively.'
+    )
+    parser.add_argument(
+        '-id',
+        action=DeprecatedAliasAction,
+        deprecated_options={'-id'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(

@@ -93,6 +93,8 @@ crucible completion fish    # fish
 
 Follow the printed instructions to activate it in your shell.
 
+The interactive Crucible shell completes command flags and fixed choices. It searches users, projects, instruments, datasets, and samples after three typed characters, returning canonical usernames, project or instrument IDs, and resource MFIDs as appropriate. Searches are scoped to the active project for dataset and sample suggestions.
+
 ## First-time setup
 
 ```bash

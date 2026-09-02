@@ -129,7 +129,7 @@ Normal access grants accept `viewer`, `contributor`, `editor`, or `admin`. Use `
 
 ## Setting a default project in the CLI
 
-Set a default project so you don't have to pass `-pid` on every command:
+Set a default project so you don't have to pass `--project-id` on every command:
 
 ```bash
 crucible config set current_project MFP12345

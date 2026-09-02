@@ -127,15 +127,15 @@ Examples:
     crucible config init
 
     # Dataset operations
-    crucible dataset list -pid my-project
+    crucible dataset list --project-id my-project
     crucible dataset get <dataset-id>
-    crucible dataset create -i data.csv -pid my-project
+    crucible dataset create -i data.csv --project-id my-project
     crucible dataset update <dataset-id> --set measurement=XRD
     crucible dataset update <dataset-id> --metadata '{"temperature": 300}'
 
     # Sample operations
-    crucible sample list -pid my-project
-    crucible sample create -n "My Sample" -pid my-project
+    crucible sample list --project-id my-project
+    crucible sample create -n "My Sample" --project-id my-project
     crucible sample update <sample-id> --set sample_type=substrate
 
     # Project / instrument / user operations

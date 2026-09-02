@@ -6,6 +6,7 @@ Sample subcommand for Crucible CLI.
 Provides sample-related operations: list, get, create, link, etc.
 """
 
+import argparse
 import sys
 import json
 import logging
@@ -73,20 +74,31 @@ def _register_list(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sample list -pid my-project
-    crucible sample list -pid my-project --type wafer
-    crucible sample list -pid my-project --group-by type
-    crucible sample list -pid my-project --include "Silicon*" "Wafer*"
-    crucible sample list -pid my-project --exclude "*test*" "*dummy*"
+    crucible sample list --project-id my-project
+    crucible sample list --project-id my-project --type wafer
+    crucible sample list --project-id my-project --group-by type
+    crucible sample list --project-id my-project --include "Silicon*" "Wafer*"
+    crucible sample list --project-id my-project --exclude "*test*" "*dummy*"
 """
     )
 
+    from .helpers import DeprecatedAliasAction
     parser.add_argument(
-        '-pid', '--project-id',
+        '--project-id', '-p',
         required=False,
         default=None,
         metavar='ID',
         help='Crucible project ID (uses config current_project if not specified)'
+    )
+    parser.add_argument(
+        '-pid',
+        action=DeprecatedAliasAction,
+        deprecated_options={'-pid'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(
@@ -214,8 +226,8 @@ Examples:
     crucible sample create
 
     # Command-line mode
-    crucible sample create -n "Silicon Wafer A" -pid my-project
-    crucible sample create -n "Sample 001" -pid my-project --description "Test sample" -t substrate
+    crucible sample create -n "Silicon Wafer A" --project-id my-project
+    crucible sample create -n "Sample 001" --project-id my-project --description "Test sample" --type substrate
 """
     )
 
@@ -227,12 +239,23 @@ Examples:
         help='Sample name. If not provided, will prompt interactively.'
     )
 
+    from .helpers import DeprecatedAliasAction
     parser.add_argument(
-        '-pid', '--project-id',
+        '--project-id', '-p',
         required=False,
         default=None,
         metavar='ID',
         help='Crucible project ID (uses config current_project if not specified)'
+    )
+    parser.add_argument(
+        '-pid',
+        action=DeprecatedAliasAction,
+        deprecated_options={'-pid'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(
@@ -243,11 +266,21 @@ Examples:
     )
 
     parser.add_argument(
-        '-t', '--sample-type',
+        '--type', '-t',
         dest='sample_type',
         default=None,
         metavar='TYPE',
         help='Sample type/category (optional)'
+    )
+    parser.add_argument(
+        '--sample-type',
+        action=DeprecatedAliasAction,
+        deprecated_options={'--sample-type'},
+        replacement='--type',
+        dest='sample_type',
+        default=argparse.SUPPRESS,
+        metavar='TYPE',
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(
@@ -660,7 +693,7 @@ def _execute_list(args):
     if project_id is None:
         project_id = config.current_project
         if project_id is None:
-            logger.error("Error: Project ID required. Specify with -pid or set current_project in config.")
+            logger.error("Error: Project ID required. Specify with --project-id or set current_project in config.")
             sys.exit(1)
 
     filters = {}
@@ -1127,12 +1160,28 @@ def _register_search(subparsers):
         epilog="""
 Examples:
     crucible sample search silicon
-    crucible sample search "wafer" --project my-project
+    crucible sample search "wafer" --project-id my-project
 """,
     )
     parser.add_argument('query', metavar='QUERY', help='Search term (min 3 chars)')
-    parser.add_argument('--project', '-pid', dest='project_id', default=None, metavar='ID',
-                        help='Scope to a specific project')
+    from .helpers import DeprecatedAliasAction
+    parser.add_argument(
+        '--project-id', '-p',
+        dest='project_id',
+        default=None,
+        metavar='ID',
+        help='Scope to a specific project',
+    )
+    parser.add_argument(
+        '--project', '-pid',
+        action=DeprecatedAliasAction,
+        deprecated_options={'--project', '-pid'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument('--limit', '-l', type=int, default=20, metavar='N',
                         help='Maximum results (default: 20, max: 50)')
     parser.add_argument('--json', action='store_true', default=False,

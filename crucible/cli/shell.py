@@ -7,6 +7,7 @@ Starts when `crucible` is invoked with no arguments.
 Uses prompt_toolkit if available, falls back to readline + input().
 """
 
+import argparse
 import os
 import sys
 import re as _re
@@ -61,17 +62,18 @@ try:
         """Three-level argparse completer: resource -> subcommand -> flags."""
 
         def __init__(self, parser, client=None, projects=None, deletions=None,
-                     join_requests=None, service_accounts=None, instruments=None, state=None):
+                     join_requests=None, service_accounts=None, state=None):
             self._top               = _get_subparser_map(parser)
             self._client            = client
             self._projects          = projects  or []
             self._deletions         = deletions or []
             self._join_requests     = join_requests or []
             self._service_accounts  = service_accounts or []
-            self._instruments       = instruments or []
             self._unlink_cache      = {}  # mfid -> [(uid, name, entity_type), ...]
             self._user_search_cache = {}  # query -> [(username, name, orcid), ...]
             self._entity_search_cache = {}  # (entity_type, project_id, query) -> [(uid, name), ...]
+            self._project_search_cache = {}
+            self._instrument_search_cache = {}
             self._state             = state or {}
 
         def _lazy_projects(self):
@@ -79,12 +81,6 @@ try:
                 from .helpers import fetch_projects
                 self._projects = fetch_projects(self._client)
             return self._projects
-
-        def _lazy_instruments(self):
-            if not self._instruments and self._client is not None:
-                from .helpers import fetch_instruments
-                self._instruments = fetch_instruments(self._client)
-            return self._instruments
 
         def _search_users(self, query):
             """Search users by name/username via the public search endpoint (no admin required).
@@ -136,6 +132,83 @@ try:
                     start_position=-len(prefix),
                     display=_HTML(f'<b>{_html.escape(identifier)}</b>'),
                     display_meta=_HTML(f'<ansibrightblack>{_html.escape(meta)}{_html.escape(meta_orcid)}</ansibrightblack>'),
+                )
+
+        def _search_projects(self, query):
+            if query in self._project_search_cache:
+                return self._project_search_cache[query]
+            results = []
+            if self._client is not None:
+                try:
+                    for project in self._client.projects.search(query, limit=20):
+                        project_id = project.get('project_id') or ''
+                        if project_id:
+                            results.append((
+                                project_id,
+                                project.get('title') or '-',
+                                project.get('unique_id') or '',
+                            ))
+                except Exception:
+                    pass
+            self._project_search_cache[query] = results
+            return results
+
+        def _yield_project_completions(self, prefix, use_search=True):
+            if use_search and len(prefix) >= 3:
+                candidates = self._search_projects(prefix)
+            else:
+                prefix_lower = prefix.lower()
+                candidates = [
+                    (project_id, title, '')
+                    for project_id, title in self._lazy_projects()
+                    if project_id.lower().startswith(prefix_lower)
+                ]
+            for project_id, title, unique_id in candidates:
+                metadata = title
+                if unique_id:
+                    metadata = f'{metadata}  {unique_id}'
+                yield Completion(
+                    project_id + ' ',
+                    start_position=-len(prefix),
+                    display=_HTML(f'<b>{_html.escape(project_id)}</b>'),
+                    display_meta=_HTML(
+                        f'<ansibrightblack>{_html.escape(metadata)}</ansibrightblack>'
+                    ),
+                )
+
+        def _search_instruments(self, query):
+            if query in self._instrument_search_cache:
+                return self._instrument_search_cache[query]
+            results = []
+            if self._client is not None:
+                try:
+                    for instrument in self._client.instruments.search(query, limit=20):
+                        unique_id = instrument.get('unique_id') or ''
+                        instrument_id = instrument.get('instrument_id') or ''
+                        if unique_id and instrument_id:
+                            results.append((
+                                instrument_id,
+                                instrument.get('instrument_name') or '-',
+                                unique_id,
+                            ))
+                except Exception:
+                    pass
+            self._instrument_search_cache[query] = results
+            return results
+
+        def _yield_instrument_completions(self, prefix, use_mfid=False):
+            if len(prefix) < 3:
+                return
+            for instrument_id, name, unique_id in self._search_instruments(prefix):
+                value = unique_id if use_mfid else instrument_id
+                metadata = f'{name}  {instrument_id if use_mfid else unique_id}'
+                yield Completion(
+                    value + ' ',
+                    start_position=-len(prefix),
+                    display=_HTML(f'<b>{_html.escape(value)}</b>'),
+                    display_meta=_HTML(
+                        f'<ansibrightblack>{_html.escape(metadata)}</ansibrightblack>'
+                    ),
                 )
 
         def _search_entities(self, entity_type, query, project_id=None):
@@ -291,11 +364,7 @@ try:
             if len(words) > 2 or (trailing_space and len(words) == 2):
                 return True
             prefix = words[1] if len(words) == 2 else ''
-            for pid, title in self._lazy_projects():
-                if pid.startswith(prefix):
-                    yield Completion(pid + ' ', start_position=-len(prefix),
-                                     display=_HTML(f'<b>{pid}</b>'),
-                                     display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'))
+            yield from self._yield_project_completions(prefix, use_search=False)
             return True
 
         def _complete_deletion(self, ctx):
@@ -358,14 +427,7 @@ try:
                     prefix = words[2]
                 else:
                     return True  # GROUP already filled
-                for pid, title in self._lazy_projects():
-                    if pid.startswith(prefix):
-                        yield Completion(
-                            pid + ' ',
-                            start_position=-len(prefix),
-                            display=_HTML(f'<b>{pid}</b>'),
-                            display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'),
-                        )
+                yield from self._yield_project_completions(prefix)
                 return True
 
             return False
@@ -384,7 +446,11 @@ try:
             elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
                 prefix = words[2]
             else:
-                return True  # SA already filled
+                return False
+            yield from self._yield_service_account_completions(prefix)
+            return True
+
+        def _yield_service_account_completions(self, prefix):
             prefix_lower = prefix.lower()
             for sa in self._service_accounts:
                 username = sa.get('username') or ''
@@ -397,7 +463,6 @@ try:
                     display=_HTML(f'<b>{_html.escape(username)}</b>'),
                     display_meta=_HTML(f'<ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
                 )
-            return True
 
         def _complete_unlink(self, ctx):
             text, words, trailing_space, resource = ctx
@@ -479,7 +544,7 @@ try:
             elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
                 prefix = words[2]
             else:
-                return True  # USER already filled
+                return False
             yield from self._yield_user_completions(prefix)
             return True
 
@@ -488,48 +553,86 @@ try:
             if len(words) < 2:
                 return False
             # Complete the PROJECT_ID positional for subcommands that take one.
-            _PID_SUBS = {'get', 'update', 'list-users', 'add-user', 'remove-user',
-                         'request-join', 'list-join-requests'}
+            _PID_SUBS = {
+                'get', 'update', 'list-users', 'add-user', 'remove-user',
+                'update-user-role', 'transfer-ownership', 'request-join',
+                'list-join-requests',
+            }
             if words[1] not in _PID_SUBS:
                 return False
+            subcommand = words[1]
             if trailing_space and len(words) == 2:
                 prefix = ''
             elif not trailing_space and len(words) == 3 and not words[2].startswith('-'):
                 prefix = words[2]
             else:
-                return True  # project ID already filled
-            for pid, title in self._lazy_projects():
-                if pid.startswith(prefix):
-                    yield Completion(
-                        pid + ' ',
-                        start_position=-len(prefix),
-                        display=_HTML(f'<b>{pid}</b>'),
-                        display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'),
-                    )
+                if subcommand in {'transfer-ownership', 'update-user-role'}:
+                    if not trailing_space and len(words) == 4:
+                        yield from self._yield_user_completions(words[3])
+                        return True
+                    if subcommand == 'update-user-role':
+                        roles = ('viewer', 'contributor', 'editor', 'admin')
+                        if trailing_space and len(words) == 4:
+                            for role in roles:
+                                yield Completion(role + ' ', start_position=0)
+                            return True
+                        if not trailing_space and len(words) == 5:
+                            for role in roles:
+                                if role.startswith(words[4]):
+                                    yield Completion(
+                                        role + ' ', start_position=-len(words[4]))
+                            return True
+                return False
+            yield from self._yield_project_completions(prefix)
             return True
 
         def _complete_instrument(self, ctx):
             text, words, trailing_space, resource = ctx
-            if not (len(words) >= 2 and words[1] == 'get'):
+            if len(words) < 2:
                 return False
-            # Complete the canonical instrument slug used by identifier dispatch.
-            span = self._multiword_arg(text, 2)
-            if span is None:
-                return True  # already past the positional (a flag was typed)
-            arg_text, query = span
-            query_lower = query.lower()
-            for slug, name, uid in self._lazy_instruments():
-                if query_lower not in slug.lower() and query_lower not in name.lower():
-                    continue
-                yield Completion(
-                    slug + ' ',
-                    start_position=-len(arg_text),
-                    display=_HTML(f'<b>{_html.escape(slug)}</b>'),
-                    display_meta=_HTML(
-                        f'<ansibrightblack>{_html.escape(name)}  {_html.escape(uid)}</ansibrightblack>'
-                    ),
-                )
-            return True
+            subcommand = words[1]
+            mfid_subcommands = {
+                'update', 'edit', 'transfer-ownership', 'set-status',
+                'list-service-accounts', 'bind-sa', 'unbind-sa',
+            }
+            if subcommand == 'get':
+                span = self._multiword_arg(text, 2)
+                if span is None:
+                    return False
+                _, query = span
+                yield from self._yield_instrument_completions(query)
+                return True
+            if subcommand not in mfid_subcommands:
+                return False
+            if trailing_space and len(words) == 2:
+                yield from self._yield_instrument_completions('', use_mfid=True)
+                return True
+            if not trailing_space and len(words) == 3 and not words[2].startswith('-'):
+                yield from self._yield_instrument_completions(words[2], use_mfid=True)
+                return True
+            if subcommand == 'transfer-ownership' and not trailing_space and len(words) == 4:
+                yield from self._yield_user_completions(words[3])
+                return True
+            if subcommand in {'bind-sa', 'unbind-sa'}:
+                if trailing_space and len(words) == 3:
+                    yield from self._yield_service_account_completions('')
+                    return True
+                if not trailing_space and len(words) == 4:
+                    yield from self._yield_service_account_completions(words[3])
+                    return True
+            if subcommand == 'set-status':
+                statuses = ('active', 'maintenance', 'decommissioned')
+                if trailing_space and len(words) == 3:
+                    for status in statuses:
+                        yield Completion(status + ' ', start_position=0)
+                    return True
+                if not trailing_space and len(words) == 4:
+                    for status in statuses:
+                        if status.startswith(words[3]):
+                            yield Completion(
+                                status + ' ', start_position=-len(words[3]))
+                    return True
+            return False
 
         def _complete_dataset_or_sample(self, ctx):
             text, words, trailing_space, resource = ctx
@@ -537,9 +640,26 @@ try:
                 return False
             # Complete the ID positional (by name, resolving to MFID) for
             # every subcommand except the handful that don't take one.
-            _NO_ID_SUBS = {'list', 'create', 'search', 'search-metadata', 'search-md',
-                           'parsers', 'ingestors'}
+            _NO_ID_SUBS = {
+                'list', 'create', 'search', 'search-metadata', 'search-md',
+                'link', 'parsers', 'ingestors',
+            }
             if words[1] in _NO_ID_SUBS:
+                return False
+            from ..utils.identifiers import is_mfid
+            subcommand = words[1]
+            if len(words) >= 3 and is_mfid(words[2]):
+                if subcommand == 'reassign-project':
+                    if trailing_space and len(words) == 3:
+                        yield from self._yield_project_completions('')
+                        return True
+                    if not trailing_space and len(words) == 4:
+                        yield from self._yield_project_completions(words[3])
+                        return True
+                if subcommand == 'transfer-ownership':
+                    if not trailing_space and len(words) == 4:
+                        yield from self._yield_user_completions(words[3])
+                        return True
                 return False
             span = self._multiword_arg(text, 2)
             if span is None:
@@ -654,11 +774,7 @@ try:
                             yield Completion(key + ' ', start_position=-len(prefix))
                 elif len(words) >= 3 and words[2] == 'current_project':
                     prefix = words[3] if len(words) == 4 and not trailing_space else ''
-                    for pid, title in self._lazy_projects():
-                        if pid.startswith(prefix):
-                            yield Completion(pid + ' ', start_position=-len(prefix),
-                                             display=_HTML(f'<b>{pid}</b>'),
-                                             display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'))
+                    yield from self._yield_project_completions(prefix, use_search=False)
                 return
 
             sub_parser  = sub_map.get(subcommand)
@@ -668,45 +784,76 @@ try:
             current_word = '' if trailing_space else words[-1]
             prev = (words[-1] if trailing_space else words[-2]) if len(words) >= 2 else ''
 
-            _PROJECT_FLAGS = ('--project', '-pid', '--project-id')
+            _PROJECT_FLAGS = ('--project-id', '--project', '-pid')
+            if subcommand in {'list', 'create', 'search'}:
+                _PROJECT_FLAGS += ('-p',)
+            _USER_FLAGS = ('--user', '-u', '--owner', '--lead', '-e', '--orcid')
+            _INSTRUMENT_MFID_FLAGS = ('--instrument-mfid',)
             # Flags whose value is a dataset or sample MFID, by resource context.
             # Values here can't contain unquoted spaces (argparse flag values are
             # single tokens), so completion is a plain prefix/substring search
             # rather than the multi-word span logic used for positionals.
             _ENTITY_FLAGS = {
-                'dataset': {'-s': 'samples', '--sample': 'samples', '-c': 'datasets', '--child': 'datasets'},
-                'sample':  {'-d': 'datasets', '--dataset': 'datasets', '-c': 'samples', '--child': 'samples'},
-            }.get(resource, {})
+                ('dataset', 'link'): {
+                    '-p': 'datasets', '--parent': 'datasets',
+                    '-c': 'datasets', '--child': 'datasets',
+                },
+                ('dataset', 'add-sample'): {
+                    '-s': 'samples', '--sample': 'samples',
+                },
+                ('dataset', 'remove-sample'): {
+                    '-s': 'samples', '--sample': 'samples',
+                },
+                ('dataset', 'remove-child'): {
+                    '-c': 'datasets', '--child': 'datasets',
+                },
+                ('sample', 'link'): {
+                    '-p': 'samples', '--parent': 'samples',
+                    '-c': 'samples', '--child': 'samples',
+                },
+                ('sample', 'add-dataset'): {
+                    '-d': 'datasets', '--dataset': 'datasets',
+                },
+                ('sample', 'remove-dataset'): {
+                    '-d': 'datasets', '--dataset': 'datasets',
+                },
+                ('sample', 'remove-child'): {
+                    '-c': 'samples', '--child': 'samples',
+                },
+            }.get((resource, subcommand), {})
 
             if current_word and not current_word.startswith('-'):
                 # Mid-typing a flag value.
-                if prev == '--orcid':
+                if prev in _USER_FLAGS:
                     yield from self._yield_user_completions(current_word)
                 elif prev in _PROJECT_FLAGS:
-                    for pid, title in self._lazy_projects():
-                        if pid.startswith(current_word):
-                            yield Completion(
-                                pid + ' ', start_position=-len(current_word),
-                                display=_HTML(f'<b>{pid}</b>'),
-                                display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'),
-                            )
+                    yield from self._yield_project_completions(current_word)
+                elif prev in _INSTRUMENT_MFID_FLAGS:
+                    yield from self._yield_instrument_completions(current_word, use_mfid=True)
                 elif prev in _ENTITY_FLAGS:
                     entity_type = _ENTITY_FLAGS[prev]
                     icon = _ENTITY_ICONS.get(entity_type.rstrip('s'), '')
                     yield from self._yield_entity_completions(entity_type, current_word, current_word, icon)
+                else:
+                    action = sub_parser._option_string_actions.get(prev)
+                    if action is not None and action.choices:
+                        for choice in action.choices:
+                            choice = str(choice)
+                            if choice.startswith(current_word):
+                                yield Completion(
+                                    choice + ' ', start_position=-len(current_word))
                 return
 
-            if not current_word and prev == '--orcid':
+            if not current_word and prev in _USER_FLAGS:
                 yield from self._yield_user_completions('')
                 return
 
             if not current_word and prev in _PROJECT_FLAGS:
-                for pid, title in self._lazy_projects():
-                    yield Completion(
-                        pid + ' ', start_position=0,
-                        display=_HTML(f'<b>{pid}</b>'),
-                        display_meta=_HTML(f'<ansibrightblack>{_html.escape(title)}</ansibrightblack>'),
-                    )
+                yield from self._yield_project_completions('')
+                return
+
+            if not current_word and prev in _INSTRUMENT_MFID_FLAGS:
+                yield from self._yield_instrument_completions('', use_mfid=True)
                 return
 
             if not current_word and prev in _ENTITY_FLAGS:
@@ -715,7 +862,16 @@ try:
                 yield from self._yield_entity_completions(entity_type, '', '', icon)
                 return
 
-            for flag in sub_parser._option_string_actions:
+            if not current_word:
+                action = sub_parser._option_string_actions.get(prev)
+                if action is not None and action.choices:
+                    for choice in action.choices:
+                        yield Completion(str(choice) + ' ', start_position=0)
+                    return
+
+            for flag, action in sub_parser._option_string_actions.items():
+                if action.help == argparse.SUPPRESS:
+                    continue
                 if flag.startswith(current_word):
                     yield Completion(flag + ' ', start_position=-len(current_word))
 
@@ -860,6 +1016,10 @@ class CrucibleShell:
             self.completer._deletions        = new_deletions
             self.completer._join_requests    = new_join_requests
             self.completer._service_accounts = new_service_accounts
+            self.completer._user_search_cache.clear()
+            self.completer._entity_search_cache.clear()
+            self.completer._project_search_cache.clear()
+            self.completer._instrument_search_cache.clear()
         print(f"Refreshed: {len(new_projects)} projects, user info reloaded.")
 
     def _toolbar(self):
@@ -1187,7 +1347,10 @@ class CrucibleShell:
                 if self.completer is not None:
                     self.completer._client       = self.client
                     self.completer._unlink_cache = {}
-                    self.completer._users        = []
+                    self.completer._user_search_cache.clear()
+                    self.completer._entity_search_cache.clear()
+                    self.completer._project_search_cache.clear()
+                    self.completer._instrument_search_cache.clear()
             except Exception:
                 pass
             self.refresh()

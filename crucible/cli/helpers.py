@@ -8,6 +8,7 @@ shell, keybindings, etc.) and don't belong in term.py (display-only) or
 shell.py (which would create circular imports).
 """
 
+import argparse
 import json
 import logging
 import re
@@ -20,6 +21,26 @@ logger = logging.getLogger(__name__)
 
 _MFID_RE = MFID_PATTERN
 _NO_DEFAULT = object()
+
+
+class DeprecatedAliasAction(argparse.Action):
+    """Store an option value and warn when a deprecated spelling was used."""
+
+    def __init__(self, option_strings, dest, deprecated_options=(), replacement=None, **kwargs):
+        self.deprecated_options = set(deprecated_options)
+        self.replacement = replacement
+        super().__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if option_string in self.deprecated_options:
+            from . import term
+
+            label = term.yellow('Warning:', stream=sys.stderr)
+            print(
+                f"{label} {option_string} is deprecated; use {self.replacement} instead.",
+                file=sys.stderr,
+            )
+        setattr(namespace, self.dest, values)
 
 
 def _error_details(error):
@@ -418,26 +439,6 @@ def fetch_service_accounts(client):
         return client.service_accounts.list()
     except Exception:
         return None
-
-
-def fetch_instruments(client):
-    """Return [(instrument_id, instrument_name, unique_id), ...] for instruments.
-
-    Instruments are a small, globally-readable set (not admin-gated),
-    so fetch-all-once is appropriate here rather than live search.
-    """
-    try:
-        return [
-            (
-                i.get('instrument_id') or '',
-                i.get('instrument_name') or '',
-                i.get('unique_id') or '',
-            )
-            for i in client.instruments.list()
-            if i.get('instrument_id') and i.get('unique_id')
-        ]
-    except Exception:
-        return []
 
 
 def resolve_usernames(client, orcids):
