@@ -18,7 +18,7 @@ Running `crucible` without a command starts the interactive shell. See the [CLI 
 
 | Command | Description |
 |---|---|
-| `dataset list` | List datasets with project, measurement, keyword, session, format, type, instrument, and name-pattern filters |
+| `dataset list` | List datasets with project, canonical instrument MFID, measurement, keyword, session, format, type, instrument name, and name-pattern filters |
 | `dataset get MFID` | Show a dataset, its files, and linked resources |
 | `dataset create -i FILE` | Create a dataset and upload or catalog files |
 | `dataset update MFID` | Update model fields or scientific metadata |

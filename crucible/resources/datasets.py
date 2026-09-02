@@ -94,6 +94,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
              limit: int = DEFAULT_LIMIT, offset: int = 0,
              accessible_to_user: Optional[Union[str, Sequence[str]]] = None,
              accessible_to_project: Optional[Union[str, Sequence[str]]] = None,
+             instrument_mfid: Optional[str] = None,
              **kwargs) -> List[Dict]:
         """List datasets with optional filtering and automatic pagination.
 
@@ -112,6 +113,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
                                 must include every result
             accessible_to_project: Project reference or references whose direct access
                                    must include every result
+            instrument_mfid: Canonical instrument MFID assigned to every result
             **kwargs (Any): Query parameters for filtering. Supported fields include:
                 keyword, unique_id, public, dataset_name, owner_orcid, project_id,
                 instrument_name, timestamp, size, data_format, data_type, measurement,
@@ -124,9 +126,12 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         params = {k: v for k, v in kwargs.items() if v is not None}
         selectors = self._access_selector_params(
             accessible_to_user, accessible_to_project)
-        if sample_mfid and selectors:
-            raise ValueError("Access selectors are supported only by the top-level dataset list")
+        if sample_mfid and (selectors or instrument_mfid):
+            raise ValueError(
+                "Access selectors and instrument_mfid are supported only by the top-level dataset list")
         params.update(selectors)
+        if instrument_mfid is not None:
+            params['instrument_mfid'] = instrument_mfid
         if include_metadata:
             params['include_metadata'] = True
         if include_links:

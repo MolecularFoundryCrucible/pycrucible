@@ -275,6 +275,7 @@ Examples:
     crucible dataset list -pid my-project
     crucible dataset list -pid my-project -m XRD
     crucible dataset list -pid my-project -k silicon --limit 20
+    crucible dataset list --instrument-mfid 0tkn2knjast3h0008nyq9zps2c
     crucible dataset list --session 2024-01-15-run
     crucible dataset list -pid my-project --group-by measurement
     crucible dataset list -pid my-project --include "run-*" "*XRD*"
@@ -333,6 +334,13 @@ Examples:
         dest='instrument_name',
         metavar='NAME',
         help='Filter by instrument name (exact match)'
+    )
+
+    parser.add_argument(
+        '--instrument-mfid',
+        default=None,
+        metavar='MFID',
+        help='Filter by canonical instrument MFID across accessible projects'
     )
 
     parser.add_argument(
@@ -1686,12 +1694,14 @@ def _execute_list(args):
     """Execute the 'dataset list' subcommand."""
     from crucible.config import config
     from crucible.client import CrucibleClient
-    # Get project_id
     project_id = args.project_id
-    if project_id is None:
+    instrument_mfid = getattr(args, 'instrument_mfid', None)
+    if project_id is None and instrument_mfid is None:
         project_id = config.current_project
         if project_id is None:
-            logger.error("Error: Project ID required. Specify with -pid or set current_project in config.")
+            logger.error(
+                "Error: Project ID or instrument MFID required. Specify --project-id, "
+                "--instrument-mfid, or set current_project in config.")
             sys.exit(1)
 
     # Build optional filters
@@ -1708,6 +1718,8 @@ def _execute_list(args):
         filters['data_type'] = args.data_type
     if args.instrument_name:
         filters['instrument_name'] = args.instrument_name
+    if instrument_mfid:
+        filters['instrument_mfid'] = instrument_mfid
 
     try:
         import fnmatch
@@ -1730,7 +1742,12 @@ def _execute_list(args):
             print(json.dumps(datasets, indent=2, default=str))
             return
 
-        title = f"Datasets · {project_id} ({len(datasets)})" if project_id else f"Datasets ({len(datasets)})"
+        if project_id:
+            title = f"Datasets · {project_id} ({len(datasets)})"
+        elif instrument_mfid:
+            title = f"Datasets · instrument {instrument_mfid} ({len(datasets)})"
+        else:
+            title = f"Datasets ({len(datasets)})"
         term.header(title)
         if filters:
             logger.info(f"Filters: {', '.join(f'{k}={v}' for k, v in filters.items())}")

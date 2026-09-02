@@ -56,3 +56,34 @@ def test_rejects_selectors_on_nested_collection():
 
     with pytest.raises(ValueError, match='top-level sample list'):
         operations.list(dataset_mfid='dataset', accessible_to_user='alice')
+
+
+def test_dataset_list_filters_by_instrument_mfid():
+    operations = DatasetOperations(MagicMock())
+    operations._request = MagicMock(return_value={
+        'total': 0,
+        'limit': 5,
+        'offset': 0,
+        'items': [],
+    })
+
+    operations.list(instrument_mfid='0tkn2knjast3h0008nyq9zps2c', limit=5)
+
+    operations._request.assert_called_once_with(
+        'get',
+        '/datasets',
+        params={
+            'instrument_mfid': '0tkn2knjast3h0008nyq9zps2c',
+            'limit': 5,
+        },
+    )
+
+
+def test_rejects_instrument_filter_on_nested_dataset_collection():
+    operations = DatasetOperations(MagicMock())
+
+    with pytest.raises(ValueError, match='top-level dataset list'):
+        operations.list(
+            sample_mfid='0tkn2knjast3h0008nyq9zps2c',
+            instrument_mfid='0tk8pf1me0h3h0003fp91vr037',
+        )
