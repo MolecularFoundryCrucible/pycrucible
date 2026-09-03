@@ -294,13 +294,17 @@ def test_shell_leaves_color_depth_automatic_without_true_color(monkeypatch):
 
 def test_shell_banner_is_packaged_and_uses_requested_colors():
     banner = shell_cli._load_shell_banner()
-    fragments = shell_cli._shell_banner_fragments('.%= ')
+    fragments = shell_cli._shell_banner_fragments('.%■')
 
     assert len(banner.splitlines()) == 14
     assert max(map(len, banner.splitlines())) == 31
     assert ('bg:#031e2d fg:#ffffff bold', '.') in fragments
     assert ('bg:#031e2d fg:#031e2d', '%') in fragments
-    assert ('bg:#a8c4cd fg:#ff6600 bold', '=') in fragments
+    assert ('bg:#031e2d fg:#ffffff bold', '■') in fragments
+
+    for glyph in shell_cli._BANNER_ACCENT_GLYPHS:
+        accent_fragments = shell_cli._shell_banner_fragments(glyph)
+        assert ('bg:#a8c4cd fg:#ff6600 bold', glyph) in accent_fragments
 
 
 def test_shell_banner_panel_has_consistent_width():
@@ -322,10 +326,10 @@ def test_shell_banner_panel_has_requested_edge_padding():
 
 
 def test_shell_banner_orange_uses_row_context():
-    fragments = list(shell_cli._shell_banner_fragments('=\n='))
+    fragments = list(shell_cli._shell_banner_fragments('▄\n█'))
 
-    assert ('bg:#a8c4cd fg:#ff6600 bold', '=') in fragments
-    assert ('bg:#031e2d fg:#ff6600 bold', '=') in fragments
+    assert ('bg:#a8c4cd fg:#ff6600 bold', '▄') in fragments
+    assert ('bg:#031e2d fg:#ff6600 bold', '█') in fragments
 
 
 def test_shell_banner_is_skipped_on_narrow_terminals(monkeypatch):

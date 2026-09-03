@@ -33,6 +33,8 @@ _BRAND_ORANGE = '#ff6600'
 _BRAND_WHITE = '#ffffff'
 _BANNER_MIN_WIDTH = 36
 _BANNER_VERTICAL_PADDING = 1
+_BANNER_ACCENT_GLYPHS = frozenset('=▄█▒')
+_BANNER_DETAIL_GLYPHS = frozenset('.■')
 
 
 def _get_subparser_map(parser):
@@ -125,23 +127,26 @@ try:
 
         panel = _shell_banner_panel(banner)
         background = f'bg:{_BRAND_LIGHT_BLUE}'
-        styles = {
-            '.': f'bg:{_BRAND_DARK_BLUE} fg:{_BRAND_WHITE} bold',
-            '%': f'bg:{_BRAND_DARK_BLUE} fg:{_BRAND_DARK_BLUE}',
-            ' ': background,
-        }
+        detail_style = f'bg:{_BRAND_DARK_BLUE} fg:{_BRAND_WHITE} bold'
+        dark_blue_style = f'bg:{_BRAND_DARK_BLUE} fg:{_BRAND_DARK_BLUE}'
         fragments = []
         row = 0
         for character in panel:
-            if character == '=':
+            if character in _BANNER_ACCENT_GLYPHS:
                 accent_background = (
                     _BRAND_LIGHT_BLUE
                     if row == _BANNER_VERTICAL_PADDING
                     else _BRAND_DARK_BLUE
                 )
                 style = f'bg:{accent_background} fg:{_BRAND_ORANGE} bold'
+            elif character in _BANNER_DETAIL_GLYPHS:
+                style = detail_style
+            elif character == '%':
+                style = dark_blue_style
+            elif character == ' ':
+                style = background
             else:
-                style = styles.get(character, '')
+                style = ''
             if fragments and fragments[-1][0] == style:
                 previous_style, previous_text = fragments[-1]
                 fragments[-1] = (previous_style, previous_text + character)
