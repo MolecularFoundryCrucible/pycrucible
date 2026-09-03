@@ -49,6 +49,16 @@ def _build_file_display(af_list, link_map, dsid):
     return result
 
 
+def _format_file_label(item):
+    name = item['name']
+    backend = item['backend']
+    if backend != 'gcs':
+        return f"{name} {term.dim(f'({backend})')}"
+    if item['ingested']:
+        return term.navigation_link(name, item['url']) if item['url'] else name
+    return f"{name} {term.yellow('(pending ingestion)')}"
+
+
 def _show_scientific_metadata(sci_md):
     """Display scientific metadata. Delegates to helpers.show_scientific_metadata."""
     from .helpers import show_scientific_metadata
@@ -81,7 +91,10 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
             msg += '  ' + term.dim(f"(request #{rid})")
         print(f"  {msg}")
 
-    _p("Name",        term.bold(dataset.get('dataset_name') or '(unnamed)'))
+    project_title, project_id, project_url = project_reference(dataset)
+    dataset_url = explorer_url(dataset.get('unique_id'), project_id, 'dataset')
+    _p("Name",        term.navigation_link(
+        dataset.get('dataset_name') or '(unnamed)', dataset_url, emphasized=True))
     _p("MFID",        _ds_link(dataset))
     _p("Measurement", dataset.get('measurement'))
     _p("Data Type",   dataset.get('data_type'))
@@ -94,11 +107,10 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
         _p("Data Format", dataset.get('data_format'))
         _p("Size",        term.fmt_size(dataset.get('size')))
 
-    project_title, project_id, project_url = project_reference(dataset)
     if project_title or project_id:
         term.subheader("Project")
         if project_title:
-            _p("Title", term.hyperlink(project_title, project_url))
+            _p("Title", term.navigation_link(project_title, project_url))
         if project_id:
             _p("Project ID", term.project_link(project_id, project_url))
 
@@ -106,9 +118,9 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
     if instrument_name or instrument_id:
         term.subheader("Instrument")
         if instrument_name:
-            _p("Name", term.hyperlink(instrument_name, instrument_url))
+            _p("Name", term.navigation_link(instrument_name, instrument_url))
         if instrument_id:
-            _p("Instrument ID", term.hyperlink(term.cyan(instrument_id), instrument_url))
+            _p("Instrument ID", term.identifier_link(instrument_id, instrument_url))
 
     term.subheader("Access")
     _p("Owner",  term.fmt_owner(dataset))
@@ -162,16 +174,8 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
         term.subheader(f"Files ({len(file_display)})")
         rows = []
         for item in sorted(file_display, key=lambda x: x['name']):
-            name    = item['name']
-            backend = item['backend']
             size    = term.fmt_size(item['size']) if item['size'] is not None else '-'
-            if backend != 'gcs':
-                label = f"{term.dim(name)} {term.cyan(f'({backend})')}"
-            elif item['ingested']:
-                label = term.hyperlink(term.cyan(name), item['url']) if item['url'] else term.cyan(name)
-            else:
-                label = f"{term.dim(name)} {term.yellow('(pending ingestion)')}"
-            rows.append((item['mfid'], label, size))
+            rows.append((term.cyan(item['mfid']), _format_file_label(item), size))
         term.table(rows, ['MFID', 'File', 'Size'], max_widths=[26, 60, 10])
 
     if graph:
@@ -1412,16 +1416,8 @@ def _execute_list_files(args):
 
         rows = []
         for item in sorted(file_display, key=lambda x: x['name']):
-            name    = item['name']
-            backend = item['backend']
             size    = term.fmt_size(item['size']) if item['size'] is not None else '-'
-            if backend != 'gcs':
-                label = f"{term.dim(name)} {term.cyan(f'({backend})')}"
-            elif item['ingested']:
-                label = term.hyperlink(term.cyan(name), item['url']) if item['url'] else term.cyan(name)
-            else:
-                label = f"{term.dim(name)} {term.yellow('(pending)')}"
-            rows.append((item['mfid'], label, size))
+            rows.append((term.cyan(item['mfid']), _format_file_label(item), size))
 
         term.table(rows, ['MFID', 'File', 'Size'], max_widths=[26, 60, 10])
 
@@ -1466,7 +1462,7 @@ def _execute_ingestion(args):
                 str(r.get('id', '-')),
                 term.status_label(r.get('status')),
                 r.get('ingestion_class') or '-',
-                r.get('file_id') or '-',
+                term.cyan(r.get('file_id')) if r.get('file_id') else '-',
                 term.fmt_ts(r.get('created_at') or r.get('creation_time')) or '-',
             ))
         term.table(rows, ['ID', 'Status', 'Class', 'File MFID', 'Created'],
@@ -2151,7 +2147,8 @@ def _execute_list_parents(args):
         if not parents:
             print(f"  {term.dim('No parent datasets found.')}")
             return
-        rows = [(ds.get('dataset_name') or '(unnamed)', ds.get('unique_id') or '-',
+        rows = [(ds.get('dataset_name') or '(unnamed)',
+                 term.cyan(ds.get('unique_id')) if ds.get('unique_id') else '-',
                  ds.get('measurement') or '-') for ds in parents]
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 15])
 
@@ -2172,7 +2169,8 @@ def _execute_list_children(args):
         if not children:
             print(f"  {term.dim('No child datasets found.')}")
             return
-        rows = [(ds.get('dataset_name') or '(unnamed)', ds.get('unique_id') or '-',
+        rows = [(ds.get('dataset_name') or '(unnamed)',
+                 term.cyan(ds.get('unique_id')) if ds.get('unique_id') else '-',
                  ds.get('measurement') or '-') for ds in children]
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 15])
 
@@ -2193,7 +2191,8 @@ def _execute_list_samples(args):
         if not samples:
             print(f"  {term.dim('No samples linked.')}")
             return
-        rows = [(s.get('sample_name') or '(unnamed)', s.get('unique_id') or '-',
+        rows = [(s.get('sample_name') or '(unnamed)',
+                 term.cyan(s.get('unique_id')) if s.get('unique_id') else '-',
                  s.get('sample_type') or '-') for s in samples]
         term.table(rows, ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
 

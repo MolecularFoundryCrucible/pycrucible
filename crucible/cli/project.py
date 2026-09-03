@@ -430,7 +430,9 @@ def _show_project(project, include_metadata=False, include_members=False):
     pid = project.get('project_id')
     uid = project.get('unique_id')
     project_url = project_explorer_url(pid)
-    _p("Title",        term.hyperlink(term.bold(project.get('title') or '-'), project_url))
+    title = project.get('title')
+    _p("Title",        term.navigation_link(title, project_url, emphasized=True)
+       if title else term.dim('-'))
     _p("Project ID",   term.project_link(pid, project_url))
     _p("MFID",         term.mfid_link(uid, project_url))
     _p("Organization", project.get('organization'))
@@ -1050,8 +1052,14 @@ def _execute_search(args):
         if not results:
             print(f"  {term.dim('No results found.')}")
             return
-        rows = [(r.get('project_id', '-'), r.get('title') or '-',
-                 r.get('organization') or '-') for r in results]
+        from .helpers import project_explorer_url
+        rows = [(
+            term.project_link(
+                r.get('project_id'), project_explorer_url(r.get('project_id')),
+            ) or '-',
+            r.get('title') or '-',
+            r.get('organization') or '-',
+        ) for r in results]
         term.table(
             rows,
             ['Project ID', 'Title', 'Organization'],

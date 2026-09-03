@@ -1,10 +1,12 @@
 import json
+import logging
 from types import SimpleNamespace
 
 import pytest
 import requests
 
 from crucible.cli import term
+from crucible.cli import _CliFormatter
 from crucible.cli.helpers import fail, format_cli_error, print_cli_error, show_warning
 
 
@@ -108,6 +110,19 @@ def test_error_and_warning_colors_use_stderr_tty(monkeypatch, capsys):
     assert '\033[33mWarning:\033[0m Configured API is deprecated.' in output
 
 
+@pytest.mark.parametrize(('level', 'message', 'styled_prefix'), [
+    (logging.ERROR, 'Request failed', '\033[31mError:\033[0m'),
+    (logging.WARNING, 'Retrying request', '\033[33mWarning:\033[0m'),
+])
+def test_cli_logging_uses_semantic_prefixes(level, message, styled_prefix, monkeypatch):
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    record = logging.LogRecord('crucible', level, '', 0, message, (), None)
+
+    rendered = _CliFormatter('%(message)s').format(record)
+
+    assert rendered == f'{styled_prefix} {message}'
+
+
 def test_no_color_environment_disables_ansi(monkeypatch):
     class Tty:
         def isatty(self):
@@ -115,10 +130,14 @@ def test_no_color_environment_disables_ansi(monkeypatch):
 
     original = term._COLOR_ENABLED
     monkeypatch.setenv('NO_COLOR', '1')
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: True)
     term.configure_color(True)
 
     try:
         assert term.red('Error', stream=Tty()) == 'Error'
-        assert term.hyperlink('MFID', 'https://example.invalid') == 'MFID'
+        rendered = term.navigation_link('MFID', 'https://example.invalid')
+        assert '\033[36m' not in rendered
+        assert '\033[4m' not in rendered
+        assert '\033]8;;https://example.invalid\007MFID\033]8;;\007' == rendered
     finally:
         term._COLOR_ENABLED = original

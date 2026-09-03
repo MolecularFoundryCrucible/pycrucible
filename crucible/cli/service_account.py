@@ -243,7 +243,8 @@ def _execute_list(args):
             return
         rows = []
         for sa in accounts:
-            rows.append((sa.get('username') or '-', sa.get('unique_id') or '-'))
+            rows.append((sa.get('username') or '-',
+                         term.cyan(sa.get('unique_id')) if sa.get('unique_id') else '-'))
         term.table(rows, ['Username', 'MFID'], max_widths=[30, 30])
     except Exception as e:
         from .helpers import fail

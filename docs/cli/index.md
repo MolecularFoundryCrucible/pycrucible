@@ -45,14 +45,14 @@ Shell-specific commands:
 | Flag | Effect |
 |---|---|
 | `--debug` | Print HTTP calls, raw responses, and tracebacks. Must come **before** the resource name. |
-| `--no-color` | Disable ANSI colors and terminal hyperlinks. Must come **before** the resource name. |
+| `--no-color` | Disable ANSI colors while retaining interactive terminal hyperlinks. Must come **before** the resource name. |
 | `--version` | Print version and exit. |
 
 ```bash
 crucible --debug dataset list   # --debug must precede the subcommand
 ```
 
-Colors are enabled only for interactive terminals. Set the standard `NO_COLOR` environment variable or use `--no-color` to disable them explicitly.
+Colors are enabled only for interactive terminals. Set the standard `NO_COLOR` environment variable or use `--no-color` to disable them explicitly. Clickable links remain available in interactive terminals and are omitted from redirected output.
 
 Tables adapt to the terminal width. Descriptive columns shrink before protected usernames, resource slugs, and MFIDs whenever space permits. Redirected table output uses a stable 100-column layout.
 

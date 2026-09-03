@@ -48,15 +48,37 @@ def _vlen(s):
 
 
 _ENTITY_ICONS = {
-    'dataset':    '<ansired><b>[ds]</b></ansired>',
-    'sample':     '<ansimagenta><b>[s]</b></ansimagenta>',
-    'instrument': '<ansicyan><b>[i]</b></ansicyan>',
+    'dataset':    '<ansibrightblack><b>[ds]</b></ansibrightblack>',
+    'sample':     '<ansibrightblack><b>[s]</b></ansibrightblack>',
+    'instrument': '<ansibrightblack><b>[i]</b></ansibrightblack>',
 }
 
 
 try:
     from prompt_toolkit.completion     import Completer, Completion
     from prompt_toolkit.formatted_text import HTML as _HTML
+
+    def _shell_html(markup):
+        if not term.color_enabled():
+            markup = _re.sub(r'</?[^>]+>', '', markup)
+        return _HTML(markup)
+
+    def _shell_style_rules():
+        if not term.color_enabled():
+            return {
+                'bottom-toolbar':      'noinherit',
+                'bottom-toolbar.text': 'noinherit',
+                'tb-project':          'noinherit',
+                'tb-clock':            'noinherit',
+                'tb-debug':            'noinherit',
+            }
+        return {
+            'bottom-toolbar':      'noinherit bg:#1c9aad fg:#E8F4F7',
+            'bottom-toolbar.text': 'noinherit bg:#1c9aad fg:#E8F4F7',
+            'tb-project':          'noinherit bg:#A8C4CD fg:#0D2B35',
+            'tb-clock':            'noinherit bg:#A8C4CD fg:#0D2B35',
+            'tb-debug':            'noinherit bg:#E8820A fg:#1C1C1C bold',
+        }
 
     class _CrucibleCompleter(Completer):
         """Three-level argparse completer: resource -> subcommand -> flags."""
@@ -130,8 +152,8 @@ try:
                 yield Completion(
                     identifier + ' ',
                     start_position=-len(prefix),
-                    display=_HTML(f'<b>{_html.escape(identifier)}</b>'),
-                    display_meta=_HTML(f'<ansibrightblack>{_html.escape(meta)}{_html.escape(meta_orcid)}</ansibrightblack>'),
+                    display=_shell_html(f'<b>{_html.escape(identifier)}</b>'),
+                    display_meta=_shell_html(f'<ansibrightblack>{_html.escape(meta)}{_html.escape(meta_orcid)}</ansibrightblack>'),
                 )
 
         def _search_projects(self, query):
@@ -170,8 +192,8 @@ try:
                 yield Completion(
                     project_id + ' ',
                     start_position=-len(prefix),
-                    display=_HTML(f'<b>{_html.escape(project_id)}</b>'),
-                    display_meta=_HTML(
+                    display=_shell_html(f'<b>{_html.escape(project_id)}</b>'),
+                    display_meta=_shell_html(
                         f'<ansibrightblack>{_html.escape(metadata)}</ansibrightblack>'
                     ),
                 )
@@ -205,8 +227,8 @@ try:
                 yield Completion(
                     value + ' ',
                     start_position=-len(prefix),
-                    display=_HTML(f'<b>{_html.escape(value)}</b>'),
-                    display_meta=_HTML(
+                    display=_shell_html(f'<b>{_html.escape(value)}</b>'),
+                    display_meta=_shell_html(
                         f'<ansibrightblack>{_html.escape(metadata)}</ansibrightblack>'
                     ),
                 )
@@ -246,8 +268,8 @@ try:
                         yield Completion(
                             uid + ' ',
                             start_position=-len(arg_text),
-                            display=_HTML(f'<b>{_html.escape(uid)}</b>'),
-                            display_meta=_HTML(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
+                            display=_shell_html(f'<b>{_html.escape(uid)}</b>'),
+                            display_meta=_shell_html(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
                         )
                 return
             project_id = self._state.get('project')
@@ -255,8 +277,8 @@ try:
                 yield Completion(
                     uid + ' ',
                     start_position=-len(arg_text),
-                    display=_HTML(f'<b>{_html.escape(uid)}</b>'),
-                    display_meta=_HTML(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
+                    display=_shell_html(f'<b>{_html.escape(uid)}</b>'),
+                    display_meta=_shell_html(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
                 )
 
         @staticmethod
@@ -390,8 +412,8 @@ try:
                 yield Completion(
                     did + ' ',
                     start_position=-len(prefix),
-                    display=_HTML(f'<b>{did}</b>'),
-                    display_meta=_HTML(' | '.join(parts)),
+                    display=_shell_html(f'<b>{did}</b>'),
+                    display_meta=_shell_html(' | '.join(parts)),
                 )
             return True
 
@@ -414,8 +436,8 @@ try:
                     yield Completion(
                         jid + ' ',
                         start_position=-len(prefix),
-                        display=_HTML(f'<b>{jid}</b>'),
-                        display_meta=_HTML(' | '.join(parts)),
+                        display=_shell_html(f'<b>{jid}</b>'),
+                        display_meta=_shell_html(' | '.join(parts)),
                     )
                 return True
 
@@ -460,8 +482,8 @@ try:
                 yield Completion(
                     username + ' ',
                     start_position=-len(prefix),
-                    display=_HTML(f'<b>{_html.escape(username)}</b>'),
-                    display_meta=_HTML(f'<ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
+                    display=_shell_html(f'<b>{_html.escape(username)}</b>'),
+                    display_meta=_shell_html(f'<ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
                 )
 
         def _complete_unlink(self, ctx):
@@ -486,8 +508,8 @@ try:
                     yield Completion(
                         uid + ' ',
                         start_position=-len(prefix),
-                        display=_HTML(f'<b>{_html.escape(uid)}</b>'),
-                        display_meta=_HTML(meta),
+                        display=_shell_html(f'<b>{_html.escape(uid)}</b>'),
+                        display_meta=_shell_html(meta),
                     )
             return True
 
@@ -502,8 +524,8 @@ try:
                         yield Completion(
                             uid + ' ',
                             start_position=-len(prefix),
-                            display=_HTML(f'<b>{_html.escape(uid)}</b>'),
-                            display_meta=_HTML(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
+                            display=_shell_html(f'<b>{_html.escape(uid)}</b>'),
+                            display_meta=_shell_html(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
                         )
                 return True
             elif not trailing_space and len(words) == 2 and not words[1].startswith('-'):
@@ -514,8 +536,8 @@ try:
                         yield Completion(
                             uid + ' ',
                             start_position=-len(prefix),
-                            display=_HTML(f'<b>{_html.escape(uid)}</b>'),
-                            display_meta=_HTML(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
+                            display=_shell_html(f'<b>{_html.escape(uid)}</b>'),
+                            display_meta=_shell_html(f'{icon} <ansibrightblack>{_html.escape(name)}</ansibrightblack>'),
                         )
                 return True
             # ID already filled — complete flags from the top-level parser
@@ -689,7 +711,7 @@ try:
                     results.append((False, '', Completion(
                         remaining + '/',
                         start_position=0,
-                        display=_HTML('<ansiblue><b>../</b></ansiblue>'),
+                        display=_shell_html('<ansicyan><b>../</b></ansicyan>'),
                     )))
 
                 try:
@@ -713,9 +735,9 @@ try:
                         esc = _html.escape(display_name)
 
                         if is_dir:
-                            disp = f'<ansiblue><b>{esc}</b></ansiblue>'
+                            disp = f'<ansicyan><b>{esc}</b></ansicyan>'
                         elif is_crux:
-                            disp = f'<ansiyellow><b>{esc}</b></ansiyellow>'
+                            disp = f'<b>{esc}</b>'
                         elif is_hidden:
                             disp = f'<ansibrightblack>{esc}</ansibrightblack>'
                         else:
@@ -724,7 +746,7 @@ try:
                         results.append((is_hidden, display_name.lower(), Completion(
                             completion_text,
                             start_position=0,
-                            display=_HTML(disp),
+                            display=_shell_html(disp),
                         )))
 
                 results.sort(key=lambda x: (x[0], x[1]))
@@ -1043,10 +1065,9 @@ class CrucibleShell:
         except Exception:
             term_width = 80
 
-        from prompt_toolkit.formatted_text import HTML
         pad = ' ' * max(0, term_width - _vlen(left_str) - _vlen(mid_str)
                         - len(debug_str) - _vlen(right_str))
-        return HTML(
+        return _shell_html(
             f'<tb-project>{left_str}</tb-project>'
             f'{mid_str}{pad}'
             f'<tb-debug>{debug_str}</tb-debug>'
@@ -1402,13 +1423,7 @@ class CrucibleShell:
             complete_while_typing=True,
             key_bindings=kb,
             bottom_toolbar=self._toolbar,
-            style=Style.from_dict({
-                'bottom-toolbar':      'noinherit bg:#1c9aad fg:#E8F4F7',
-                'bottom-toolbar.text': 'noinherit bg:#1c9aad fg:#E8F4F7',
-                'tb-project':          'noinherit bg:#A8C4CD fg:#0D2B35',
-                'tb-clock':            'noinherit bg:#A8C4CD fg:#0D2B35',
-                'tb-debug':            'noinherit bg:#E8820A fg:#1C1C1C bold',
-            }),
+            style=Style.from_dict(_shell_style_rules()),
         )
 
         threading.Thread(target=self._clock_tick, daemon=True).start()

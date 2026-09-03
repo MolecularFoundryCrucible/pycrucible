@@ -10,7 +10,7 @@ Project options use `--project-id` with the conventional `-p` short alias. Sampl
 |---|---|
 | `--version` | Print the installed client version and exit |
 | `--debug` | Enable Crucible debug logging; place it before the command |
-| `--no-color` | Disable ANSI colors and terminal hyperlinks; place it before the command |
+| `--no-color` | Disable ANSI colors while retaining interactive terminal hyperlinks; place it before the command |
 
 Running `crucible` without a command starts the interactive shell. See the [CLI overview](index.md) for setup, shell completion, and interactive usage.
 
@@ -113,7 +113,7 @@ Fields normally updated through `sample update` include `sample_name`, `sample_t
 
 `project remove-user` permits project owners and platform administrators to remove members, while any member may remove themselves.
 
-Project member tables sort by standing from lead through viewer, display the API `owner` role as `lead`, and use distinct role colors when terminal color is enabled.
+Project member tables sort by standing from lead through viewer, display the API `owner` role as `lead`, and use semantic role colors when terminal color is enabled: gold for lead, magenta for admin, blue for editor, the default foreground for contributor, and gray for viewer.
 
 The `access grant` commands accept `viewer`, `contributor`, `editor`, or `admin`. Use the resource's `transfer-ownership` command to change ownership.
 

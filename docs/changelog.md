@@ -13,6 +13,7 @@
 
 ### Changed
 
+- CLI colors now consistently distinguish clickable navigation, identifiers, statuses, roles, and secondary context, while monochrome shell output and truncated links preserve their intended behavior.
 - CLI user identifiers and owner names now link to Crucible Explorer profiles instead of external ORCID pages.
 - Resource detail views group identity, project, instrument, access, and timing fields; related labels link to the Explorer without displaying related MFIDs, and human names use given-name initials.
 - Generic `crucible get MFID` now renders projects in addition to datasets, samples, and instruments.
@@ -30,7 +31,7 @@
 - `crucible status` now shows the configured endpoint, readiness state, client and API versions, deployed branch and commit, database latency and schema revisions, and authenticated identity.
 - Instrument search accepts an optional lifecycle-status filter in the Python client and CLI.
 - Instrument creation guidance now reflects that human callers may register instruments while service accounts may not.
-- Project member tables use role-priority ordering and distinct role colors, display the owner as the project lead, and the interactive shell status bar again identifies project, user, and API context with symbols.
+- Project member tables use role-priority ordering and semantic role colors, display the owner as the project lead, and the interactive shell status bar again identifies project, user, and API context with symbols.
 - Dataset and sample relationship listing now uses canonical collection filters with cursor pagination instead of deprecated nested read routes.
 
 ### Fixed

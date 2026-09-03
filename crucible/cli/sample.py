@@ -808,16 +808,18 @@ def _show_sample(sample, client, verbose=False, graph=False, include_metadata=Fa
             msg += '  ' + term.dim(f"(request #{rid})")
         print(f"  {msg}")
 
-    _p("Name",        term.bold(sample.get('sample_name') or '(unnamed)'))
+    project_title, project_id, project_url = project_reference(sample)
+    sample_url = explorer_url(sample.get('unique_id'), project_id, 'sample')
+    _p("Name",        term.navigation_link(
+        sample.get('sample_name') or '(unnamed)', sample_url, emphasized=True))
     _p("MFID",        _s_link(sample))
     _p("Type",        sample.get('sample_type'))
     _p("Description", sample.get('description'))
 
-    project_title, project_id, project_url = project_reference(sample)
     if project_title or project_id:
         term.subheader("Project")
         if project_title:
-            _p("Title", term.hyperlink(project_title, project_url))
+            _p("Title", term.navigation_link(project_title, project_url))
         if project_id:
             _p("Project ID", term.project_link(project_id, project_url))
 
@@ -1048,7 +1050,8 @@ def _execute_list_parents(args):
         if not parents:
             print(f"  {term.dim('No parent samples found.')}")
             return
-        rows = [(s.get('sample_name') or '(unnamed)', s.get('unique_id') or '-',
+        rows = [(s.get('sample_name') or '(unnamed)',
+                 term.cyan(s.get('unique_id')) if s.get('unique_id') else '-',
                  s.get('sample_type') or '-') for s in parents]
         term.table(rows, ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
     except Exception as e:
@@ -1067,7 +1070,8 @@ def _execute_list_children(args):
         if not children:
             print(f"  {term.dim('No child samples found.')}")
             return
-        rows = [(s.get('sample_name') or '(unnamed)', s.get('unique_id') or '-',
+        rows = [(s.get('sample_name') or '(unnamed)',
+                 term.cyan(s.get('unique_id')) if s.get('unique_id') else '-',
                  s.get('sample_type') or '-') for s in children]
         term.table(rows, ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
     except Exception as e:
@@ -1086,7 +1090,8 @@ def _execute_list_datasets(args):
         if not datasets:
             print(f"  {term.dim('No datasets linked.')}")
             return
-        rows = [(ds.get('dataset_name') or '(unnamed)', ds.get('unique_id') or '-',
+        rows = [(ds.get('dataset_name') or '(unnamed)',
+                 term.cyan(ds.get('unique_id')) if ds.get('unique_id') else '-',
                  ds.get('measurement') or '-') for ds in datasets]
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 15])
     except Exception as e:

@@ -309,16 +309,23 @@ def _execute_list(args):
         if not instruments:
             print(f"  {term.dim('No instruments found.')}")
         else:
-            rows = [
-                (
-                    i.get('instrument_name') or '-',
-                    i.get('instrument_id') or '-',
-                    i.get('unique_id') or '-',
-                    term.fmt_owner(i) or '-',
-                    term.status_label(i.get('status')),
+            from .helpers import instrument_explorer_url
+            def _instrument_row(instrument):
+                uid = instrument.get('unique_id')
+                instrument_id = instrument.get('instrument_id')
+                url = instrument_explorer_url(uid)
+                return (
+                    instrument.get('instrument_name') or '-',
+                    term.identifier_link(
+                        instrument_id, url,
+                    ) or '-',
+                    term.mfid_link(
+                        uid, None if instrument_id else url,
+                    ) or '-',
+                    term.fmt_owner(instrument) or '-',
+                    term.status_label(instrument.get('status')),
                 )
-                for i in instruments
-            ]
+            rows = [_instrument_row(instrument) for instrument in instruments]
             term.table(rows, ['Name', 'Instrument ID', 'MFID', 'Owner', 'Status'],
                        max_widths=[24, 25, 26, 25, 12],
                        min_widths=[4, 25, 26, 5, 6])
@@ -337,8 +344,10 @@ def _show_instrument(instrument, include_metadata=False):
     term.header("Instrument")
     uid = instrument.get('unique_id')
     instrument_url = instrument_explorer_url(uid)
-    _p("Name",          term.hyperlink(term.bold(instrument.get('instrument_name') or '-'), instrument_url))
-    _p("Instrument ID", term.hyperlink(term.cyan(instrument.get('instrument_id')), instrument_url)
+    name = instrument.get('instrument_name')
+    _p("Name",          term.navigation_link(name, instrument_url, emphasized=True)
+       if name else term.dim('-'))
+    _p("Instrument ID", term.identifier_link(instrument.get('instrument_id'), instrument_url)
        if instrument.get('instrument_id') else None)
     _p("MFID",          term.mfid_link(uid, instrument_url))
     _p("Type",         instrument.get('instrument_type'))
@@ -577,6 +586,18 @@ Examples:
     parser.set_defaults(func=_execute_list_service_accounts)
 
 
+def _service_account_rows(members):
+    return [
+        (
+            member.username or '-',
+            term.fmt_name(member.model_dump(), default='-', fallback_username=False),
+            term.cyan(member.unique_id) if member.unique_id else '-',
+            member.role or '-',
+        )
+        for member in members
+    ]
+
+
 def _execute_list_service_accounts(args):
     from crucible.client import CrucibleClient
     from .helpers import fail, sort_members
@@ -588,15 +609,7 @@ def _execute_list_service_accounts(args):
         if not members:
             print(f"  {term.dim('No service accounts found.')}")
             return
-        rows = [
-            (
-                member.username or '-',
-                term.fmt_name(member.model_dump(), default='-', fallback_username=False),
-                member.unique_id or '-',
-                member.role or '-',
-            )
-            for member in members
-        ]
+        rows = _service_account_rows(members)
         term.table(
             rows,
             ['Username', 'Name', 'MFID', 'Role'],
@@ -637,8 +650,7 @@ def _execute_bind_sa(args):
         client = CrucibleClient()
         members = sort_members(client.instruments.bind_service_account(args.instrument_mfid, args.sa_id))
         term.success(f"Service account {args.sa_id} bound to instrument {args.instrument_mfid}", args)
-        rows = [(m.username or '-', term.fmt_name(m.model_dump(), default='-', fallback_username=False),
-                 m.unique_id or '-', m.role or '-') for m in members]
+        rows = _service_account_rows(members)
         term.table(rows, ['Username', 'Name', 'ID', 'Role'], max_widths=[25, 25, 30, 12])
     except Exception as e:
         fail("binding service account", e, args)
@@ -674,8 +686,7 @@ def _execute_unbind_sa(args):
         client = CrucibleClient()
         members = sort_members(client.instruments.unbind_service_account(args.instrument_mfid, args.sa_id))
         term.success(f"Service account {args.sa_id} unbound from instrument {args.instrument_mfid}", args)
-        rows = [(m.username or '-', term.fmt_name(m.model_dump(), default='-', fallback_username=False),
-                 m.unique_id or '-', m.role or '-') for m in members]
+        rows = _service_account_rows(members)
         term.table(rows, ['Username', 'Name', 'ID', 'Role'], max_widths=[25, 25, 30, 12])
     except Exception as e:
         fail("unbinding service account", e, args)
@@ -812,8 +823,11 @@ def _execute_search(args):
         if not results:
             print(f"  {term.dim('No results found.')}")
             return
+        from .helpers import instrument_explorer_url
         rows = [(r.get('instrument_name', '-'), r.get('instrument_type') or '-',
-                 r.get('manufacturer') or '-', r.get('unique_id', '-')) for r in results]
+                 r.get('manufacturer') or '-',
+                 term.mfid_link(r.get('unique_id'), instrument_explorer_url(r.get('unique_id'))) or '-')
+                for r in results]
         term.table(rows, ['Name', 'Type', 'Manufacturer', 'MFID'],
                    max_widths=[25, 20, 20, 26])
     except Exception as e:

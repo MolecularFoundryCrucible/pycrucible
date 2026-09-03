@@ -248,6 +248,7 @@ def test_mfid_backed_owner_is_not_linked_to_orcid(monkeypatch):
     from crucible.config import config
 
     monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: True)
     monkeypatch.setitem(
         config._data, 'graph_explorer_url', 'https://example.org/explore')
     rendered = term.fmt_owner({

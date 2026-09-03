@@ -36,6 +36,10 @@ def configure_color(enabled: bool = True) -> None:
     _COLOR_ENABLED = bool(enabled) and 'NO_COLOR' not in os.environ
 
 
+def color_enabled() -> bool:
+    return _COLOR_ENABLED
+
+
 def _tty(stream=None) -> bool:
     stream = stream or sys.stdout
     return _COLOR_ENABLED and hasattr(stream, 'isatty') and stream.isatty()
@@ -62,6 +66,9 @@ def cyan(s: str, stream=None) -> str:
 def blue(s: str, stream=None) -> str:
     return _styled(s, '34', stream)
 
+def magenta(s: str, stream=None) -> str:
+    return _styled(s, '35', stream)
+
 def gold(s: str, stream=None) -> str:
     return _styled(s, '38;5;220', stream)
 
@@ -77,34 +84,56 @@ def yellow(s: str, stream=None) -> str:
 def red(s: str, stream=None) -> str:
     return _styled(s, '31', stream)
 
+def underline(s: str, stream=None) -> str:
+    return _styled(s, '4', stream)
+
 def hyperlink(text: str, url: str | None) -> str:
-    """Wrap *text* in an OSC 8 clickable hyperlink when stdout is a TTY."""
-    if url and _tty():
+    """Wrap *text* in an OSC 8 hyperlink for interactive terminal output."""
+    if url and _interactive():
         return f"\033]8;;{url}\007{text}\033]8;;\007"
     return text
+
+
+def navigation_link(text: str, url: str | None, *, emphasized: bool = False) -> str | None:
+    """Render a navigable value with consistent color and link affordance."""
+    if not text:
+        return None
+    rendered = cyan(str(text)) if url else str(text)
+    if emphasized:
+        rendered = bold(rendered)
+    if url and _interactive():
+        rendered = underline(rendered)
+    return hyperlink(rendered, url)
+
+
+def identifier_link(identifier: str, url: str | None = None) -> str | None:
+    """Render an identifier in cyan and link it when a destination is available."""
+    if not identifier:
+        return None
+    return navigation_link(identifier, url) if url else cyan(identifier)
 
 
 def orcid_link(orcid: str) -> str | None:
     """Render an ORCID in cyan as a clickable link to https://orcid.org/."""
     if not orcid:
         return None
-    return hyperlink(cyan(orcid), f"https://orcid.org/{orcid}")
+    return identifier_link(orcid, f"https://orcid.org/{orcid}")
 
 
 def user_id_link(user_id: str) -> str | None:
     """Render a canonical user ID linked to its Crucible Explorer profile."""
     if not user_id:
         return None
-    return user_link(user_id, user_id, identifier=True)
+    from .helpers import user_explorer_url
+    return identifier_link(user_id, user_explorer_url(user_id))
 
 
-def user_link(label: str, user_id: str, identifier: bool = False) -> str | None:
+def user_link(label: str, user_id: str) -> str | None:
     """Link a user label to its Crucible Explorer profile."""
     if not label:
         return None
     from .helpers import user_explorer_url
-    text = cyan(label) if identifier else label
-    return hyperlink(text, user_explorer_url(user_id))
+    return navigation_link(label, user_explorer_url(user_id))
 
 
 def user_id_label(user_id: str) -> str:
@@ -145,8 +174,8 @@ def fmt_owner(resource: dict) -> str | None:
     if owner:
         name = fmt_name(owner, default=owner_id or '-')
         uname = owner.get('username')
-        label = f"{name}  {dim(f'(@{uname})')}" if uname else name
-        return user_link(label, owner_id)
+        linked_name = user_link(name, owner_id)
+        return f"{linked_name}  {dim(f'(@{uname})')}" if uname else linked_name
     return user_id_link(owner_id)
 
 
@@ -154,7 +183,7 @@ def project_link(pid: str, url: str | None = None) -> str | None:
     """Render a project ID in cyan, optionally as a clickable OSC 8 hyperlink."""
     if not pid:
         return None
-    return hyperlink(cyan(pid), url)
+    return identifier_link(pid, url)
 
 
 def mfid_link(uid: str, url: str | None = None) -> str | None:
@@ -164,7 +193,7 @@ def mfid_link(uid: str, url: str | None = None) -> str | None:
     """
     if not uid:
         return None
-    return hyperlink(cyan(uid), url)
+    return identifier_link(uid, url)
 
 def dim(s: str, stream=None) -> str:
     return _styled(s, '2', stream)
@@ -189,20 +218,29 @@ def status_marker(status: str, stream=None) -> str:
     return style(symbol if _interactive(stream) else label, stream=stream)
 
 
-def role_label(role: str, stream=None) -> str:
-    """Color a project membership role while preserving plain redirected output."""
-    if not role:
+def _standing_label(standing: str, *, owner_label: str, stream=None) -> str:
+    if not standing:
         return '-'
-    normalized = role.lower()
+    normalized = standing.lower()
     styles = {
         'owner': gold,
-        'admin': red,
+        'admin': magenta,
         'editor': blue,
-        'contributor': cyan,
+        'contributor': lambda value, stream=None: value,
         'viewer': gray,
     }
-    display_role = 'lead' if normalized == 'owner' else role
-    return styles.get(normalized, dim)(display_role, stream=stream)
+    display = owner_label if normalized == 'owner' else standing
+    return styles.get(normalized, dim)(display, stream=stream)
+
+
+def role_label(role: str, stream=None) -> str:
+    """Color a project role while preserving plain redirected output."""
+    return _standing_label(role, owner_label='lead', stream=stream)
+
+
+def permission_label(permission: str, stream=None) -> str:
+    """Color an ACL permission while preserving its canonical name."""
+    return _standing_label(permission, owner_label='owner', stream=stream)
 
 
 # ── Structural helpers ─────────────────────────────────────────────────────────
@@ -470,20 +508,38 @@ def open_editor_json(data: dict) -> dict | None:
 
 # ── Table renderer ─────────────────────────────────────────────────────────────
 
+def _truncate_styled_text(text: str, width: int) -> str:
+    remaining = max(0, width - 1)
+    parts = []
+    for token in re.split(r'(\033\[[0-9;]*m)', text):
+        if not token:
+            continue
+        if token.startswith('\033['):
+            if remaining:
+                parts.append(token)
+            continue
+        if remaining:
+            visible = token[:remaining]
+            parts.append(visible)
+            remaining -= len(visible)
+            if not remaining:
+                break
+    truncated = ''.join(parts) + '…'
+    if '\033[' in text:
+        truncated += '\033[0m'
+    return truncated
+
+
 def _truncate_cell(s: str, width: int) -> str:
-    """Truncate *s* to *width* visible chars, preserving OSC 8 hyperlinks."""
+    """Truncate *s* while preserving terminal styles and hyperlinks."""
     m = _OSC8_RE.search(s)
     if m:
-        url  = m.group(1)
-        plain = _ANSI_RE.sub('', s)        # visible text only
-        if len(plain) > width - 1:
-            plain = plain[:width - 1] + '…'
-        colored = cyan(plain)
-        if url and _tty():
-            return f"\033]8;;{url}\007{colored}\033]8;;\007"
-        return colored
-    # No OSC 8 — strip ANSI and truncate plainly
-    return _ANSI_RE.sub('', s)[:width - 1] + '…'
+        url = m.group(1)
+        truncated = _truncate_styled_text(m.group(2), width)
+        if url and _interactive():
+            return f"\033]8;;{url}\007{truncated}\033]8;;\007"
+        return truncated
+    return _truncate_styled_text(s, width)
 
 
 def _table_output_width() -> int:

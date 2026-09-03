@@ -130,16 +130,23 @@ def test_project_members_sort_by_role_then_name():
 
 @pytest.mark.parametrize(('role', 'code'), [
     ('owner', '38;5;220'),
-    ('admin', '31'),
+    ('admin', '35'),
     ('editor', '34'),
-    ('contributor', '36'),
+    ('contributor', None),
     ('viewer', '90'),
 ])
-def test_project_role_labels_have_distinct_colors(role, code, monkeypatch):
+def test_project_role_labels_follow_semantic_palette(role, code, monkeypatch):
     monkeypatch.setattr(term, '_tty', lambda stream=None: True)
 
     display_role = 'lead' if role == 'owner' else role
-    assert term.role_label(role) == f'\033[{code}m{display_role}\033[0m'
+    expected = f'\033[{code}m{display_role}\033[0m' if code else display_role
+    assert term.role_label(role) == expected
+
+
+def test_acl_owner_permission_keeps_canonical_label(monkeypatch):
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+
+    assert term.permission_label('owner') == '\033[38;5;220mowner\033[0m'
 
 
 def test_project_role_labels_remain_plain_when_redirected(monkeypatch):
@@ -160,6 +167,7 @@ def test_orcid_user_ids_link_to_explorer(monkeypatch):
 
     orcid = '0000-0001-6402-3752'
     monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: True)
     monkeypatch.setitem(
         config._data, 'graph_explorer_url', 'https://example.org/explore')
 
@@ -167,6 +175,44 @@ def test_orcid_user_ids_link_to_explorer(monkeypatch):
 
     assert f'https://example.org/explore/user/{orcid}' in rendered
     assert 'orcid.org' not in rendered
+    assert '\033[36m' in rendered
+    assert '\033[4m' in rendered
+
+
+def test_navigation_and_identifier_styles_distinguish_clickability(monkeypatch):
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: True)
+
+    linked = term.navigation_link('Project One', 'https://example.org/project')
+    identifier = term.identifier_link('project-one')
+
+    assert '\033[36m' in linked
+    assert '\033[4m' in linked
+    assert '\033]8;;https://example.org/project\007' in linked
+    assert identifier == '\033[36mproject-one\033[0m'
+
+
+def test_dataset_file_labels_reserve_cyan_for_download_links(monkeypatch):
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: True)
+
+    remote = dataset_cli._format_file_label({
+        'name': 'remote.dat',
+        'backend': 'globus',
+        'ingested': True,
+        'url': None,
+    })
+    downloadable = dataset_cli._format_file_label({
+        'name': 'result.dat',
+        'backend': 'gcs',
+        'ingested': True,
+        'url': 'https://example.org/download',
+    })
+
+    assert '\033[36m' not in remote
+    assert '\033[2m(globus)\033[0m' in remote
+    assert '\033[36m' in downloadable
+    assert '\033[4m' in downloadable
 
 
 def test_hyphenated_given_names_preserve_each_initial():
@@ -196,6 +242,25 @@ def test_shell_toolbar_restores_context_symbols(monkeypatch):
     assert '🔬 example-project' in rendered
     assert '🧸 Test User' in rendered
     assert '🔗 api: testapi-staging' in rendered
+
+
+def test_shell_html_removes_styles_when_color_is_disabled(monkeypatch):
+    from prompt_toolkit.formatted_text import to_formatted_text
+
+    monkeypatch.setattr(term, '_COLOR_ENABLED', False)
+
+    fragments = to_formatted_text(
+        shell_cli._shell_html('<ansicyan><b>project-one</b></ansicyan>'))
+
+    assert fragments == [('', 'project-one')]
+
+
+def test_shell_toolbar_style_is_monochrome_when_color_is_disabled(monkeypatch):
+    monkeypatch.setattr(term, '_COLOR_ENABLED', False)
+
+    rules = shell_cli._shell_style_rules()
+
+    assert set(rules.values()) == {'noinherit'}
 
 
 def test_project_detail_distinguishes_slug_and_mfid_and_shows_empty_members(capsys):
@@ -237,7 +302,7 @@ def test_project_detail_sorts_and_colors_member_roles(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert output.index('lead-user') < output.index('admin-user') < output.index('viewer-user')
     assert '\033[38;5;220mlead\033[0m' in output
-    assert '\033[31madmin\033[0m' in output
+    assert '\033[35madmin\033[0m' in output
     assert '\033[90mviewer\033[0m' in output
 
 
@@ -337,6 +402,7 @@ def test_dataset_reference_fields_link_to_explorer(monkeypatch, capsys):
     monkeypatch.setitem(
         config._data, 'graph_explorer_url', 'https://example.org/explore')
     monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: True)
     instrument_mfid = '0td7evvtg5wb90005k1j97ak94'
 
     dataset_cli._show_dataset(
@@ -511,8 +577,9 @@ def test_table_without_minimums_remains_responsive(monkeypatch, capsys):
 def test_table_preserves_hyperlink_sequences_when_truncating(monkeypatch, capsys):
     monkeypatch.setattr(term, '_table_output_width', lambda: 24)
     monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: True)
     url = 'https://example.org/resource'
-    linked = term.hyperlink(term.cyan('a-very-long-resource-name'), url)
+    linked = term.navigation_link('a-very-long-resource-name', url, emphasized=True)
 
     term.table(
         [(linked, 'complete')],
@@ -523,7 +590,25 @@ def test_table_preserves_hyperlink_sequences_when_truncating(monkeypatch, capsys
     output = capsys.readouterr().out
     assert f'\033]8;;{url}\007' in output
     assert '\033]8;;\007' in output
+    assert '\033[1m' in output
+    assert '\033[36m' in output
+    assert '\033[4m' in output
     assert all(term._dlen(line) <= 24 for line in output.splitlines())
+
+
+def test_table_preserves_non_link_color_when_truncating(monkeypatch, capsys):
+    monkeypatch.setattr(term, '_table_output_width', lambda: 12)
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+
+    term.table(
+        [(term.cyan('long-identifier'),)],
+        ['MFID'],
+        max_widths=[20],
+    )
+
+    output = capsys.readouterr().out
+    assert '\033[36m' in output
+    assert '…' in output
 
 
 def test_redirected_table_width_is_deterministic(monkeypatch):

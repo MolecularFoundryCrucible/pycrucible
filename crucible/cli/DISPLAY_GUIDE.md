@@ -33,6 +33,8 @@ display_meta=_HTML(' | '.join([
 
 For completions with no meaningful metadata (e.g. subcommand names, flag choices), plain `Completion(name + ' ', ...)` without `display`/`display_meta` is fine.
 
+Keep resource-type badges such as `[ds]`, `[s]`, and `[i]` dim so they do not compete with status or navigation colors. In path completion, render directories bold cyan, `.crux` files bold in the default foreground, hidden files dim, and ordinary files in the default foreground.
+
 Use the resource search endpoint for user, project, instrument, dataset, and sample completion after the API's three-character minimum. Cache results by the complete search context for the shell session. Dataset and sample searches should include the active project when one is configured. Below the search minimum, use an already-loaded bounded cache such as active projects or recent MFIDs rather than fetching an entire resource collection solely for completion.
 
 After a positional value has been completed, fall through to the matched argparse subparser so its flags remain discoverable. Complete argparse `choices` values directly and return the canonical identifier required by the target argument, such as a project ID, instrument ID, instrument MFID, username, or dataset/sample MFID.
@@ -106,12 +108,15 @@ Use `term.*` helpers. They are TTY-safe no-ops when output is redirected and res
 
 | Color | Use case | Helper |
 |-------|----------|--------|
-| Cyan | IDs (MFID, ORCID, project IDs) | `term.cyan(s)` / `term.mfid_link()` / `term.orcid_link()` |
+| Cyan | Identifiers, command flags, and navigable references | `term.cyan(s)` / `term.identifier_link()` |
+| Cyan + underline | Clickable terminal hyperlinks | `term.navigation_link()` / `term.mfid_link()` / `term.project_link()` / `term.user_link()` |
 | Dim / grey | Supplementary info, empty placeholders, timestamps | `term.dim(s)` |
-| Bold | Section headers | `term.bold(s)` / `term.header()` |
+| Bold | Section headers and primary resource names or titles | `term.bold(s)` / `term.header()` |
 | Yellow | Status: pending or warning | `term.yellow(s)` |
 | Green | Status: approved or success | `term.green(s)` |
 | Red | Status: rejected or error | `term.red(s)` |
+| Gold | Project lead or resource owner standing | `term.gold(s)` |
+| Magenta | Project administrator standing | `term.magenta(s)` |
 
 Pass lifecycle and workflow statuses through `term.status_label()`. Active states are green, maintenance and pending states are yellow, decommissioned states are dim, and rejected or failed states are red.
 
@@ -128,18 +133,28 @@ Pass project membership roles through `term.role_label()`. Member tables are ord
 | API role | Display | Color |
 |---|---|---|
 | `owner` | `lead` | Gold |
-| `admin` | `admin` | Red |
+| `admin` | `admin` | Magenta |
 | `editor` | `editor` | Blue |
-| `contributor` | `contributor` | Cyan |
+| `contributor` | `contributor` | Default foreground |
 | `viewer` | `viewer` | Gray |
 
 Label resource slugs explicitly as `Project ID` or `Instrument ID`, and label canonical identifiers as `MFID`. Detail views for slug-addressable resources should show both when available.
 
 Singleton resource views use this section order when the data applies: primary identity and scientific fields, project, instrument, access, timing, then files, relationships, and scientific metadata. The inspected resource keeps its own MFID visible. Embedded project and instrument references show their title or name and public ID without exposing the related MFID. Use the related MFID internally when the Explorer route requires it.
 
-Project titles, instrument names, and human names remain plain text and may be hyperlinked. Project IDs, instrument IDs, user IDs, and MFIDs are cyan and hyperlinked when a stable Explorer route is available. User labels and canonical IDs link to the Crucible Explorer profile rather than the external ORCID record. Do not make an additional API request solely to enrich a label or construct a link.
+Project titles, instrument names, human names, project IDs, instrument IDs, user IDs, and MFIDs use cyan underlined text when a stable Explorer route is available. Identifiers without a stable destination remain cyan without underlining. User labels and canonical IDs link to the Crucible Explorer profile rather than the external ORCID record. Do not make an additional API request solely to enrich a label or construct a link.
+
+Use one primary navigational link per table row when possible: Project ID for projects, Instrument ID with an MFID fallback for instruments, MFID for datasets and samples, filename for signed downloads, and the human name for users. Detail views may link both the primary name and identifiers because their field structure keeps the repeated destination clear.
+
+Keep ordinary filenames, storage backends, scientific values, and descriptive text in the default foreground. File MFIDs and dataset MFIDs remain cyan identifiers. Use the filename itself for a signed download link instead of a generic `link` label.
+
+Hyperlink color and underline are presentation enhancements, not the only indication of meaning. Preserve explicit field labels, role names, and status words. Table truncation must preserve the link's original styles and destination.
 
 Format human names using every given-name initial followed by the complete family name, such as `Jean Pierre Dupont` as `J. P. Dupont`. Keep usernames as dim supplementary text when shown beside a name. JSON output preserves the API values unchanged.
+
+Use bold cyan underlined text for the selected resource in graph displays. Do not use green for selection because green is reserved for successful or healthy states.
+
+`--no-color` and `NO_COLOR` disable color and emphasis in both standard output and the interactive shell. Interactive OSC 8 hyperlinks remain available because they are navigation rather than color. Redirected output contains neither terminal styling nor hyperlinks.
 
 ## Interactive prompts
 

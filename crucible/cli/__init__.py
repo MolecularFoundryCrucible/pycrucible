@@ -43,7 +43,8 @@ def _remap_deprecated(argv):
     key = (resource, args[sub_idx])
     if key in _DEPRECATED_SUBCOMMANDS:
         new_name = _DEPRECATED_SUBCOMMANDS[key]
-        print(f"Warning: '{resource} {args[sub_idx]}' is deprecated, "
+        warning = term.yellow('Warning:', stream=sys.stderr)
+        print(f"{warning} '{resource} {args[sub_idx]}' is deprecated, "
               f"use '{resource} {new_name}' instead.", file=sys.stderr)
         args[sub_idx] = new_name
     return args
@@ -85,6 +86,20 @@ class _CleanRetryFilter(logging.Filter):
         return True
 
 
+class _CliFormatter(logging.Formatter):
+    def format(self, record):
+        message = super().format(record)
+        if record.levelno >= logging.ERROR:
+            if message.startswith('Error:'):
+                message = message[6:].lstrip()
+            return f"{term.red('Error:', stream=sys.stderr)} {message}"
+        if record.levelno >= logging.WARNING:
+            if message.startswith('Warning:'):
+                message = message[8:].lstrip()
+            return f"{term.yellow('Warning:', stream=sys.stderr)} {message}"
+        return message
+
+
 def setup_logging(debug=False):
     """
     Configure logging for CLI usage.
@@ -98,7 +113,7 @@ def setup_logging(debug=False):
     if not root.handlers:
         # First call — set up the handler from scratch.
         handler = logging.StreamHandler(sys.stderr)
-        handler.setFormatter(logging.Formatter('%(message)s'))
+        handler.setFormatter(_CliFormatter('%(message)s'))
         handler.addFilter(_CleanRetryFilter())
         root.addHandler(handler)
 
@@ -165,7 +180,7 @@ Examples:
         '--no-color',
         action='store_true',
         default=False,
-        help='Disable ANSI colors and terminal hyperlinks'
+        help='Disable ANSI colors while retaining interactive terminal hyperlinks'
     )
 
     # Subcommand parsers

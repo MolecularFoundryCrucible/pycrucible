@@ -79,6 +79,19 @@ def _ops(args):
     return getattr(client, args._resource_ops_name)
 
 
+def _principal_link(grant):
+    from .helpers import instrument_explorer_url, project_explorer_url, user_explorer_url
+
+    principal_id = grant.principal_id
+    if grant.principal_type == 'user':
+        return term.navigation_link(principal_id, user_explorer_url(principal_id))
+    if grant.principal_type == 'project' and grant.slug:
+        return term.identifier_link(principal_id, project_explorer_url(grant.slug))
+    if grant.principal_type == 'instrument':
+        return term.identifier_link(principal_id, instrument_explorer_url(principal_id))
+    return term.cyan(principal_id)
+
+
 def _execute_list(args):
     try:
         ops = _ops(args)
@@ -87,7 +100,8 @@ def _execute_list(args):
         if not grants:
             print(f"  {term.dim('No access grants found.')}")
         else:
-            rows = [(g.principal_id, g.principal_type, g.permission, g.display_name or '-')
+            rows = [(_principal_link(g), g.principal_type,
+                     term.permission_label(g.permission), g.display_name or '-')
                     for g in grants]
             term.table(rows, ['Principal', 'Kind', 'Permission', 'Name'], max_widths=[30, 16, 14, 30])
     except Exception as e:

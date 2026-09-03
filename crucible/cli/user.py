@@ -127,7 +127,7 @@ def _execute_search(args):
                 term.fmt_name(u, default='-', fallback_username=False),
                 u.get('unique_id'),
             )
-            user_id = term.user_id_link(u.get('unique_id')) or '-'
+            user_id = term.cyan(u.get('unique_id')) if u.get('unique_id') else '-'
             rows.append((username, name, user_id))
         term.table(
             rows,
@@ -594,7 +594,7 @@ def _execute_list(args):
                 term.fmt_name(user, default='-', fallback_username=False),
                 user.get('unique_id'),
             )
-            user_id  = term.user_id_link(user.get('unique_id')) or '-'
+            user_id  = term.cyan(user.get('unique_id')) if user.get('unique_id') else '-'
             username = user.get('username') or '-'
             rows.append((username, name, user_id))
         term.table(
@@ -772,9 +772,12 @@ def _execute_list_projects(args):
             print(f"  {term.dim('No projects found.')}")
             return
 
+        from .helpers import project_explorer_url
         rows = [
             (
-                p.get('project_id') or '-',
+                term.project_link(
+                    p.get('project_id'), project_explorer_url(p.get('project_id')),
+                ) or '-',
                 p.get('title') or '-',
                 p.get('organization') or '-',
             )
