@@ -253,9 +253,9 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
                 file_results.append(self.add_remote_file(dataset_mfid, file))
             elif upload_files:
                 file_results.append(self.add_file(dataset_mfid,
-                                                  file, 
+                                                  file,
                                                   ingestion_class=ingestor,
-                                                  wait_for_ingestion_response=wait_for_ingestion_response,
+                                                  wait_for_ingestion_response=False,
                                                   skip_ingestion = skip_ingestion))
 
             else:
@@ -268,6 +268,13 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
                 )
                 file_results.append(self.add_remote_file(dataset_mfid, remote))
 
+        if wait_for_ingestion_response and not skip_ingestion:
+            pending = [r['ingestion_request']['id'] for r in file_results
+                       if isinstance(r, dict) and (r.get('ingestion_request') or {}).get('id')]
+            if pending:
+                logger.debug(f'Waiting on {len(pending)} ingestion request(s) for {dataset_mfid}')
+            for request_id in pending:
+                self._client.ingestions.wait(request_id)
 
         result = {"created_record": new_ds_record,
                   "scientific_metadata_record": scimd,
