@@ -64,9 +64,7 @@ def register(kb, shell):
 
         def _switch(pid, title):
             try:
-                shell.state['project_override'] = pid
-                shell.state['project'] = pid
-                print(f"  Switched to: {title}  ({pid})")
+                shell._activate_project(pid, title)
             except Exception as e:
                 logger.error(f"Error switching project: {e}")
 

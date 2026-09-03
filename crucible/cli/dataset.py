@@ -315,7 +315,7 @@ Examples:
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses the active shell project or configured default if omitted)'
+        help='Crucible project ID (uses the saved current project if omitted)'
     )
     parser.add_argument(
         '-pid',
@@ -536,7 +536,7 @@ Examples:
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses the active shell project or configured default if omitted)'
+        help='Crucible project ID (uses the saved current project if omitted)'
     )
     parser.add_argument(
         '-pid',
@@ -1492,7 +1492,7 @@ Examples:
         dest='project_id',
         default=None,
         metavar='ID',
-        help='Scope to a project (uses the active shell project or configured default if omitted)',
+        help='Scope to a project (uses the saved current project if omitted)',
     )
     parser.add_argument(
         '--project', '-pid',
@@ -2030,8 +2030,8 @@ def _execute_create(args):
 
     term.header("Dataset")
     project_context = {
-        'shell': 'active project',
-        'config': 'from config',
+        'environment': 'from environment',
+        'config file': 'current project',
     }.get(project_source)
     proj_label = f"{project_id} {term.dim(f'({project_context})')}" if project_context else project_id
     _p("Project",     proj_label)

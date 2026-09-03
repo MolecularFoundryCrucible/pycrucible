@@ -88,7 +88,7 @@ Examples:
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses the active shell project or configured default if omitted)'
+        help='Crucible project ID (uses the saved current project if omitted)'
     )
     parser.add_argument(
         '-pid',
@@ -245,7 +245,7 @@ Examples:
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses the active shell project or configured default if omitted)'
+        help='Crucible project ID (uses the saved current project if omitted)'
     )
     parser.add_argument(
         '-pid',
@@ -925,7 +925,7 @@ def _execute_create(args):
     name        = args.name
     project_id  = args.project_id
     default_project, project_source = resolve_project_context(args, project_id)
-    if project_source == 'shell':
+    if default_project:
         project_id = default_project
     description = args.description
     sample_type = args.sample_type
@@ -1190,7 +1190,7 @@ Examples:
         dest='project_id',
         default=None,
         metavar='ID',
-        help='Scope to a project (uses the active shell project or configured default if omitted)',
+        help='Scope to a project (uses the saved current project if omitted)',
     )
     parser.add_argument(
         '--project', '-pid',

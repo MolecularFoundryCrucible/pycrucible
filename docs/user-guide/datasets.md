@@ -30,7 +30,7 @@ List datasets assigned to a canonical instrument across every project visible to
 datasets = client.datasets.list(instrument_mfid="0tkn2knjast3h0008nyq9zps2c")
 ```
 
-The equivalent CLI command is `crucible dataset list --instrument-mfid 0tkn2knjast3h0008nyq9zps2c`. Supplying this explicit filter does not apply the configured default project, while combining it with `--project-id` intentionally narrows the results to that project. Legacy datasets without a canonical instrument MFID are not included.
+The equivalent CLI command is `crucible dataset list --instrument-mfid 0tkn2knjast3h0008nyq9zps2c`. Supplying this explicit filter does not apply the saved current project, while combining it with `--project-id` intentionally narrows the results to that project. Legacy datasets without a canonical instrument MFID are not included.
 
 ### Relationships
 

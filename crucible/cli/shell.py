@@ -989,18 +989,19 @@ class CrucibleShell:
         """Populate self.state from startup data."""
         from .helpers import (
             fetch_projects, fetch_deletions, fetch_join_requests, fetch_service_accounts,
-            fetch_user_label, fetch_current_project, fetch_api_label,
+            fetch_user_label, fetch_project_context, fetch_api_label,
         )
         deletions     = fetch_deletions(self.client)
         join_requests = fetch_join_requests(self.client)
         self.is_admin = deletions is not None
         service_accounts = fetch_service_accounts(self.client) if self.is_admin else None
 
+        project_id, project_source = fetch_project_context()
         self.state = {
             'user_label':        fetch_user_label(self.client, whoami_info),
             'projects':          fetch_projects(self.client),
-            'project':           fetch_current_project(),
-            'project_override':  None,
+            'project':           project_id,
+            'project_source':    project_source,
             'api_label':         fetch_api_label(),
             'debug':             False,
             'deletions':         deletions or [],
@@ -1013,7 +1014,7 @@ class CrucibleShell:
         """Re-fetch projects, user info, deletions, join requests, and service accounts. Updates state + completer."""
         from .helpers import (
             fetch_projects, fetch_deletions, fetch_join_requests, fetch_service_accounts,
-            fetch_user_label, fetch_current_project, fetch_api_label,
+            fetch_user_label, fetch_project_context, fetch_api_label,
         )
         with ThreadPoolExecutor(max_workers=4) as pool:
             proj_f = pool.submit(fetch_projects,      self.client)
@@ -1027,7 +1028,9 @@ class CrucibleShell:
         self.is_admin = new_deletions is not None
         self.state['projects']         = new_projects
         self.state['user_label']       = fetch_user_label(self.client)
-        self.state['project']          = self.state.get('project_override') or fetch_current_project()
+        project_id, project_source = fetch_project_context()
+        self.state['project']          = project_id
+        self.state['project_source']   = project_source
         self.state['api_label']        = fetch_api_label()
         self.state['deletions']        = new_deletions or []
         self.state['join_requests']    = new_join_requests or []
@@ -1048,7 +1051,9 @@ class CrucibleShell:
         label = self.state.get('project') or '(no project set)'
         if len(label) > 22:
             label = label[:21] + '…'
-        project_label = f'🔬 {label}'
+        source = self.state.get('project_source')
+        source_label = ' [env]' if source == 'environment' else ''
+        project_label = f'🔬 {label}{source_label}'
         proj_content = project_label + ' ' * max(0, 25 - _vlen(project_label))
         clock        = datetime.now().strftime('%H:%M')
 
@@ -1124,6 +1129,23 @@ class CrucibleShell:
         except Exception as e:
             logger.error(f"Error rendering resource: {e}")
 
+    def _activate_project(self, project_id, title=None):
+        """Persist a project selection and apply it to the running shell."""
+        if os.environ.get('CRUCIBLE_CURRENT_PROJECT') is not None:
+            from .helpers import show_warning
+            show_warning(
+                "CRUCIBLE_CURRENT_PROJECT controls the current project. "
+                "Unset it before using the shell project selector."
+            )
+            return False
+        from .config import set_config_value
+        set_config_value('current_project', project_id)
+        self.state['project'] = project_id
+        self.state['project_source'] = 'config file'
+        label = f"{project_id} - {title}" if title else project_id
+        print(f"Using project: {label} (remembered)")
+        return True
+
     def _dispatch(self, line):
         """Parse and execute one command line. Returns False to signal exit."""
         from . import _remap_deprecated, setup_logging
@@ -1139,8 +1161,8 @@ class CrucibleShell:
             print()
             term.header("Shell commands")
             for _cmd, _desc in [
-                ('use PROJECT',   'switch active project'),
-                ('unuse',         'clear active project'),
+                ('use PROJECT',   'select and remember current project'),
+                ('unuse',         'clear the current project'),
                 ('refresh',       're-fetch projects, user info, deletions'),
                 ('reload',        'restart the shell process'),
                 ('debug on|off',  'toggle debug logging'),
@@ -1173,6 +1195,13 @@ class CrucibleShell:
                 print("Usage: use <project_id>")
                 return True
             project_id = parts[1].strip()
+            if os.environ.get('CRUCIBLE_CURRENT_PROJECT') is not None:
+                from .helpers import show_warning
+                show_warning(
+                    "CRUCIBLE_CURRENT_PROJECT controls the current project. "
+                    "Unset it before using the shell project selector."
+                )
+                return True
             try:
                 import requests as _req
                 project = self.client.projects.get(project_id)
@@ -1190,22 +1219,24 @@ class CrucibleShell:
                 return True
             try:
                 title = project.get('title') or ''
-                label = f"{project_id} - {title}" if title else project_id
-                print(f"Switched to project: {label}")
-                self.state['project_override'] = project_id
-                self.state['project'] = project_id
+                self._activate_project(project_id, title)
             except Exception as e:
                 logger.error(f"Error switching project: {e}")
             return True
 
         if line == 'unuse':
-            from .helpers import fetch_current_project
-            self.state['project_override'] = None
-            self.state['project'] = fetch_current_project()
-            if self.state['project']:
-                print(f"Returned to default project: {self.state['project']}")
-            else:
-                print("Cleared active project.")
+            if os.environ.get('CRUCIBLE_CURRENT_PROJECT') is not None:
+                from .helpers import show_warning
+                show_warning(
+                    "CRUCIBLE_CURRENT_PROJECT controls the current project. "
+                    "Unset it before clearing the shell project selection."
+                )
+                return True
+            from .config import unset_config_value
+            unset_config_value('current_project')
+            self.state['project'] = None
+            self.state['project_source'] = None
+            print("Cleared current project.")
             return True
 
         if line == 'refresh':
@@ -1314,6 +1345,10 @@ class CrucibleShell:
             if hasattr(args, 'func'):
                 args._shell_state = self.state
                 args.func(args)
+                from .helpers import fetch_project_context
+                project_id, project_source = fetch_project_context()
+                self.state['project'] = project_id
+                self.state['project_source'] = project_source
             else:
                 self.parser.print_help()
         except SystemExit:
@@ -1392,6 +1427,12 @@ class CrucibleShell:
                  info.get('access_group_name') or 'there'
         print(f"\nWelcome to the Crucible interactive shell, {_first}.\n"
               "(type 'help' for commands, 'exit' to quit)")
+        if self.state.get('project_source') == 'environment':
+            from .helpers import show_warning
+            show_warning(
+                "CRUCIBLE_CURRENT_PROJECT is controlling the current project and is deprecated. "
+                "Use 'use PROJECT_ID' to save a selection after unsetting the environment variable."
+            )
 
         self.completer = _CrucibleCompleter(
             self.parser,

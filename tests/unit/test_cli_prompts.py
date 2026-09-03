@@ -330,7 +330,7 @@ def test_sample_create_uses_active_shell_project_without_prompt(monkeypatch):
         debug=False,
         _shell_state={
             'project': 'shell-project',
-            'project_override': 'shell-project',
+            'project_source': 'config file',
         },
     ))
 

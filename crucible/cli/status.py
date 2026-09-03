@@ -134,6 +134,8 @@ def execute(args):
     term.header("Crucible Status")
     term.subheader("Endpoint")
     printer("URL", endpoint)
+    printer("Project", config.current_project)
+    printer("Project source", config.source('current_project'))
 
     def _health():
         return requests.get(

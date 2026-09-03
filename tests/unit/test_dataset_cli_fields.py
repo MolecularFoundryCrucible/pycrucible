@@ -94,7 +94,7 @@ def test_dataset_list_uses_shell_project_before_config(monkeypatch, capsys):
         debug=False,
         _shell_state={
             'project': 'shell-project',
-            'project_override': 'shell-project',
+            'project_source': 'config file',
         },
     )
 

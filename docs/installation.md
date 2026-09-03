@@ -57,7 +57,7 @@ Useful config keys:
 |---|---|
 | `api_key` | Your Crucible API key |
 | `api_url` | Optional API override (default: `https://crucible.lbl.gov/api/v3`) |
-| `current_project` | Default project ID used by CLI commands |
+| `current_project` | Current project ID used when a command omits `--project-id` |
 
 ### Alternative: pass credentials directly in Python
 
@@ -76,6 +76,8 @@ export CRUCIBLE_API_KEY="your-api-key"
 ```
 
 Set `CRUCIBLE_API_URL` only when targeting staging or another non-default deployment. Environment variables take priority over the config file when both are present.
+
+Use explicit `--project-id` arguments for automation. `CRUCIBLE_CURRENT_PROJECT` is deprecated because it can silently redirect operations away from the project saved by the interactive shell.
 
 If an older config explicitly selects API v1 or v2, Nano displays a migration warning. Run `crucible config unset api_url` to inherit the API v3 endpoint packaged with Nano, or set the override to the desired deployment explicitly.
 

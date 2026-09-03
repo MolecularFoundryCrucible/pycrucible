@@ -127,19 +127,21 @@ client.projects.revoke_access("MFP12345", "users", "0000-0002-1825-0097")
 Normal access grants accept `viewer`, `contributor`, `editor`, or `admin`. Use `transfer_ownership()` for ownership.
 
 
-## Setting a default project in the CLI
+## Selecting the current project in the CLI
 
-Set a default project so you don't have to pass `--project-id` on every command:
+Select a current project so you don't have to pass `--project-id` on every command:
 
 ```bash
 crucible config set current_project MFP12345
 ```
 
-Or switch the active project in the interactive shell:
+You can also select it from the interactive shell:
 
 ```bash
 crucible
 > use MFP12345
 ```
 
-The shell selection lasts until `unuse` or until the shell exits. It takes priority over the configured default without changing it. Use `crucible config set current_project PROJECT_ID` when you want to change the persistent default.
+The shell validates the project and saves the selection for future commands and shell sessions. Run `unuse` to clear it. An explicit `--project-id` applies only to that command and does not change the saved selection.
+
+`CRUCIBLE_CURRENT_PROJECT` remains available temporarily for compatibility, but it is deprecated because it can silently override the saved selection. Prefer an explicit `--project-id` in automation.

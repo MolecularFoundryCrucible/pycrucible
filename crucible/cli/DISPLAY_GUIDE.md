@@ -177,7 +177,7 @@ API operations that support a server-side preview should remain preview-only by 
 
 ## Shell project context
 
-Resolve project context in this order: an explicit command argument, the active interactive-shell project, then the configured `current_project` default. Use the shared project-context helper for commands that accept an omitted project. The `use PROJECT_ID` shell command changes only the running shell, and `unuse` returns to the configured default. Dataset sessions are resource metadata and must not be treated as shell context.
+Resolve project context in this order: an explicit command argument, the deprecated `CRUCIBLE_CURRENT_PROJECT` compatibility override, then the saved `current_project`. Use the shared project-context helper for commands that accept an omitted project. The `use PROJECT_ID` shell command validates and saves the current project for future commands and shell sessions. `unuse` clears it. Always display an active environment override and its source because it can redirect operations. Dataset sessions are resource metadata and must not be treated as shell context.
 
 ## Errors and warnings
 

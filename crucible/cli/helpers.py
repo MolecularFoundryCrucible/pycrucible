@@ -470,12 +470,22 @@ def fetch_user_label(client, whoami_info=None):
 
 
 def fetch_current_project():
-    """Return the default project ID from config."""
+    """Return the current project ID from config."""
     try:
         from crucible.config import config
         return config.current_project or None
     except Exception:
         return None
+
+
+def fetch_project_context():
+    """Return the configured project ID and its source."""
+    try:
+        from crucible.config import config
+        project_id = config.current_project or None
+        return project_id, config.source('current_project') if project_id else None
+    except Exception:
+        return None, None
 
 
 def resolve_project_context(args=None, project_id=None):
@@ -486,9 +496,17 @@ def resolve_project_context(args=None, project_id=None):
     if shell_state is not None:
         shell_project = shell_state.get('project')
         if shell_project:
-            source = 'shell' if shell_state.get('project_override') else 'config'
-            return shell_project, source
-    return fetch_current_project(), 'config'
+            return shell_project, shell_state.get('project_source') or 'config file'
+    project_id, source = fetch_project_context()
+    if project_id and source == 'environment':
+        import warnings
+        warnings.warn(
+            "CRUCIBLE_CURRENT_PROJECT is deprecated because it can silently redirect operations. "
+            "Use an explicit --project-id or save the current project with the interactive shell.",
+            FutureWarning,
+            stacklevel=2,
+        )
+    return project_id, source
 
 
 def fetch_api_label():

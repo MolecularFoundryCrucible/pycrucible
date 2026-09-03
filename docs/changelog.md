@@ -8,12 +8,12 @@
 - Dataset responses expose typed project and instrument references with canonical MFIDs while retaining legacy flat fields.
 - The CLI supports `--no-color` and the standard `NO_COLOR` environment variable.
 - Instrument operations can list bound service accounts and change lifecycle status through the dedicated API routes.
-- Dataset listing accepts a canonical instrument MFID in the Python client and CLI without implicitly narrowing to the configured default project.
+- Dataset listing accepts a canonical instrument MFID in the Python client and CLI without implicitly narrowing to the saved current project.
 - Exact dataset, sample, project, and instrument responses expose typed caller-specific resource capabilities when supplied by the API.
 
 ### Changed
 
-- The interactive shell now treats `use PROJECT_ID` as a runtime override above the configured default, `unuse` returns to that default, and the deprecated `current_session` value remains readable only for compatibility and is no longer used by the shell.
+- The interactive shell now remembers the project selected by `use PROJECT_ID`, `unuse` clears it, and project context sources are visible; `CRUCIBLE_CURRENT_PROJECT` is deprecated because it can silently redirect operations.
 - Sample detail methods can suppress the deprecated embedded dataset expansion; existing Python and JSON behavior remains compatible, while human CLI workflows avoid loading it.
 - CLI colors now consistently distinguish clickable navigation, identifiers, statuses, roles, and secondary context; project IDs, instrument IDs, and usernames are treated as plain slugs when another field carries navigation.
 - CLI user identifiers and owner names now link to Crucible Explorer profiles instead of external ORCID pages.

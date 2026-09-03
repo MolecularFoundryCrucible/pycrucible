@@ -28,14 +28,14 @@ crucible
 
 The status bar uses a microscope for the effective project, a bear for the authenticated user, and a link for the configured API.
 
-An explicit `--project-id` takes priority over the shell project. Inside the interactive shell, `use PROJECT_ID` sets a runtime project that takes priority over the configured default without rewriting the configuration file. `unuse` clears that runtime selection and returns to the configured default project.
+An explicit `--project-id` applies only to that command. Inside the interactive shell, `use PROJECT_ID` validates and saves the current project for future commands and shell sessions. `unuse` clears the saved project. The deprecated `CRUCIBLE_CURRENT_PROJECT` environment variable temporarily retains precedence, but the CLI displays a warning whenever it supplies project context.
 
 Shell-specific commands:
 
 | Command | Description |
 |---|---|
-| `use PROJECT_ID` | Set the active project for this shell (tab-completes project IDs) |
-| `unuse` | Clear the shell project and return to the configured default |
+| `use PROJECT_ID` | Validate and save the current project (tab-completes project IDs) |
+| `unuse` | Clear the saved current project |
 | `refresh` | Re-fetch project list and user info |
 | `reload` | Re-exec the process (picks up code changes) |
 | `debug on` / `debug off` | Toggle debug logging |

@@ -250,22 +250,36 @@ def test_project_context_precedence(monkeypatch):
     from crucible.config import config
 
     monkeypatch.setattr(config, '_data', {'current_project': 'configured-project'})
+    monkeypatch.setattr(config, '_sources', {'current_project': 'config file'})
     args = SimpleNamespace(_shell_state={
         'project': 'shell-project',
-        'project_override': 'shell-project',
+        'project_source': 'config file',
     })
 
     assert helpers.resolve_project_context(args, 'argument-project') == (
         'argument-project', 'argument')
-    assert helpers.resolve_project_context(args) == ('shell-project', 'shell')
-    assert helpers.resolve_project_context() == ('configured-project', 'config')
+    assert helpers.resolve_project_context(args) == ('shell-project', 'config file')
+    assert helpers.resolve_project_context() == ('configured-project', 'config file')
 
 
-def test_shell_use_overrides_and_unuse_restores_configured_project(
-        monkeypatch, capsys):
+def test_environment_project_context_warns(monkeypatch):
     from crucible.config import config
 
-    monkeypatch.setattr(config, '_data', {'current_project': 'configured-project'})
+    monkeypatch.setattr(config, '_data', {'current_project': 'environment-project'})
+    monkeypatch.setattr(config, '_sources', {'current_project': 'environment'})
+
+    with pytest.warns(FutureWarning, match='CRUCIBLE_CURRENT_PROJECT'):
+        assert helpers.resolve_project_context() == (
+            'environment-project', 'environment')
+
+
+def test_shell_use_remembers_and_unuse_clears_project(
+        monkeypatch, capsys):
+    set_value = MagicMock()
+    unset_value = MagicMock()
+    monkeypatch.delenv('CRUCIBLE_CURRENT_PROJECT', raising=False)
+    monkeypatch.setattr('crucible.cli.config.set_config_value', set_value)
+    monkeypatch.setattr('crucible.cli.config.unset_config_value', unset_value)
     shell = shell_cli.CrucibleShell.__new__(shell_cli.CrucibleShell)
     shell.client = SimpleNamespace(projects=SimpleNamespace(get=MagicMock(return_value={
         'project_id': 'shell-project',
@@ -273,18 +287,39 @@ def test_shell_use_overrides_and_unuse_restores_configured_project(
     })))
     shell.state = {
         'project': 'configured-project',
-        'project_override': None,
+        'project_source': 'config file',
     }
 
     assert shell._dispatch('use shell-project') is True
     assert shell.state['project'] == 'shell-project'
-    assert shell.state['project_override'] == 'shell-project'
-    assert config.current_project == 'configured-project'
+    assert shell.state['project_source'] == 'config file'
+    set_value.assert_called_once_with('current_project', 'shell-project')
 
     assert shell._dispatch('unuse') is True
-    assert shell.state['project'] == 'configured-project'
-    assert shell.state['project_override'] is None
-    assert 'Returned to default project: configured-project' in capsys.readouterr().out
+    assert shell.state['project'] is None
+    assert shell.state['project_source'] is None
+    unset_value.assert_called_once_with('current_project')
+    output = capsys.readouterr().out
+    assert 'Using project: shell-project - Shell Project (remembered)' in output
+    assert 'Cleared current project.' in output
+
+
+def test_shell_project_selection_is_blocked_by_environment(monkeypatch, capsys):
+    monkeypatch.setenv('CRUCIBLE_CURRENT_PROJECT', 'environment-project')
+    set_value = MagicMock()
+    monkeypatch.setattr('crucible.cli.config.set_config_value', set_value)
+    shell = shell_cli.CrucibleShell.__new__(shell_cli.CrucibleShell)
+    shell.client = SimpleNamespace(projects=SimpleNamespace(get=MagicMock()))
+    shell.state = {
+        'project': 'environment-project',
+        'project_source': 'environment',
+    }
+
+    assert shell._dispatch('use another-project') is True
+
+    shell.client.projects.get.assert_not_called()
+    set_value.assert_not_called()
+    assert 'CRUCIBLE_CURRENT_PROJECT controls the current project' in capsys.readouterr().err
 
 
 def test_shell_html_removes_styles_when_color_is_disabled(monkeypatch):

@@ -110,7 +110,7 @@ Examples:
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses the active shell project or configured default if omitted)'
+        help='Crucible project ID (uses the saved current project if omitted)'
     )
     parser.add_argument(
         '-pid',
@@ -342,8 +342,8 @@ def execute(args):
 
     # Project and Parser
     project_context = {
-        'shell': 'active project',
-        'config': 'from config',
+        'environment': 'from environment',
+        'config file': 'current project',
     }.get(project_source)
     suffix = f" ({project_context})" if project_context else ''
     logger.info(f"Project: {project_id}{suffix}")
