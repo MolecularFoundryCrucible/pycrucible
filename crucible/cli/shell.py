@@ -123,7 +123,7 @@ try:
         background = f'bg:{_BRAND_LIGHT_BLUE}'
         styles = {
             '.': f'{background} fg:{_BRAND_WHITE} bold',
-            '%': f'{background} fg:{_BRAND_DARK_BLUE}',
+            '%': f'{background} fg:{_BRAND_DARK_BLUE} bold',
             '=': f'{background} fg:{_BRAND_ORANGE} bold',
             ' ': background,
         }
