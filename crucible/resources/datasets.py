@@ -167,7 +167,8 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
                files_to_upload: Optional[List[str]] = None,
                ingestor: Optional[str] = None,
                verbose: bool = False,
-               wait_for_ingestion_response: bool = False) -> Dict:
+               wait_for_ingestion_response: bool = False,
+               skip_ingestion: bool = False) -> Dict:
         """Create a new dataset record with scientific metadata and keywords.
 
         Args:
@@ -256,8 +257,12 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             if isinstance(file, AssociatedFile):
                 file_results.append(self.add_remote_file(dataset_mfid, file))
             elif upload_files:
-                file_results.append(self.add_file(dataset_mfid, file, ingestion_class=ingestor,
-                                                  wait_for_ingestion_response=wait_for_ingestion_response))
+                file_results.append(self.add_file(dataset_mfid,
+                                                  file,
+                                                  ingestion_class=ingestor,
+                                                  wait_for_ingestion_response=False,
+                                                  skip_ingestion = skip_ingestion))
+
             else:
                 resolved = Path(file).resolve()
                 remote = AssociatedFile(
@@ -268,7 +273,16 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
                 )
                 file_results.append(self.add_remote_file(dataset_mfid, remote))
 
-        result = {"created_record": new_ds_record, "scientific_metadata_record": scimd,
+        if wait_for_ingestion_response and not skip_ingestion:
+            pending = [r['ingestion_request']['id'] for r in file_results
+                       if isinstance(r, dict) and (r.get('ingestion_request') or {}).get('id')]
+            if pending:
+                logger.debug(f'Waiting on {len(pending)} ingestion request(s) for {dataset_mfid}')
+            for request_id in pending:
+                self._client.ingestions.wait(request_id)
+
+        result = {"created_record": new_ds_record,
+                  "scientific_metadata_record": scimd,
                   "dataset_mfid": dataset_mfid, "dsid": dataset_mfid,
                   "files": file_results}
         return result
@@ -531,12 +545,16 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
     #%% Upload Methods
 
     @_deprecated_parameter('dsid', 'dataset_mfid')
-    def add_file(self, dataset_mfid: str, file_path: str,
-                            ingestion_class: Optional[str] = None,
-                            wait_for_ingestion_response: bool = False,
-                            multipart: bool = True,
-                            chunk_size_mb: Optional[int] = None,
-                            max_workers: Optional[int] = None) -> Dict:
+    def add_file(self, 
+                 dataset_mfid: str,
+                 file_path: str,
+                 ingestion_class: Optional[str] = None,
+                 wait_for_ingestion_response: bool = False,
+                 multipart: bool = True,
+                 chunk_size_mb: Optional[int] = None,
+                 max_workers: Optional[int] = None,
+                 skip_ingestion: bool = False) -> Dict:
+
         """Upload a file to a dataset and request ingestion.
 
         Args:
@@ -544,11 +562,14 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             file_path: Local path to the file
             ingestion_class: Ingestion class for the worker (e.g. 'lammps', 'nexus').
                 Defaults to the server-side default if omitted.
-            wait_for_ingestion_response: Block until ingestion completes.
+            wait_for_ingestion_response: Block until ingestion completes. Ignored if
+                skip_ingestion is True.
             multipart: Use parallel multipart upload (default: True). Set to False to
                 use the sequential resumable upload (slower but simpler).
             chunk_size_mb: Override chunk size in MiB (uses config/default if None).
             max_workers: Override number of upload threads (uses config/default if None).
+            skip_ingestion: Upload the file without requesting ingestion. Request it
+                later with client.files.request_ingestion(mfid). 
 
         Returns:
             Dict: {'associated_file': AssociatedFileRead, 'ingestion_request': IngestionRequest}
@@ -556,7 +577,9 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         file_size = os.path.getsize(file_path)
         filename  = os.path.basename(file_path)
 
-        file_record, was_existing = upload_file_gcs(self._client, dataset_mfid, file_path,
+        file_record, was_existing = upload_file_gcs(self._client, 
+                                                    dataset_mfid, 
+                                                    file_path,
                                                     multipart=multipart,
                                                     chunk_size_mb=chunk_size_mb,
                                                     max_workers=max_workers)
@@ -570,12 +593,15 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
                 f"{stored_filename} already exists in dataset {dataset_mfid}, skipping ingestion")
             return {'associated_file': file_record, 'ingestion_request': None}
 
-        ingestion_request = self._client.files.request_ingestion(
-            file_id,
-            ingestion_class=ingestion_class,
-            wait_for_response=wait_for_ingestion_response,
-        )
+        if skip_ingestion:
+            ingestion_request = self._client.files._skip_ingestion(file_id)
+            logger.info(f"Uploaded {stored_filename} to dataset {dataset_mfid}, ingestion not requested")
+
+        else:
+            ingestion_request = self._client.files.request_ingestion(file_id, ingestion_class, wait_for_ingestion_response)
+
         return {'associated_file': file_record, 'ingestion_request': ingestion_request}
+
 
     @_deprecated_parameter('dsid', 'dataset_mfid')
     def add_remote_file(self, dataset_mfid: str, file: AssociatedFile) -> Dict:
@@ -619,12 +645,14 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
                             multipart: bool = True,
                             chunk_size_mb: Optional[int] = None,
                             max_workers: Optional[int] = None) -> Dict:
+        
         return self.add_file(dataset_mfid=dataset_mfid, file_path=file_path,
                              ingestion_class=ingestion_class,
                              wait_for_ingestion_response=wait_for_ingestion_response,
                              multipart=multipart,
                              chunk_size_mb=chunk_size_mb,
-                             max_workers=max_workers)
+                             max_workers=max_workers,
+                             skip_ingestion = False)
 
 
     #%% Download Methods
