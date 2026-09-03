@@ -13,6 +13,7 @@
 
 ### Changed
 
+- Sample detail methods can suppress the deprecated embedded dataset expansion; existing Python and JSON behavior remains compatible, while human CLI workflows avoid loading it.
 - CLI colors now consistently distinguish clickable navigation, identifiers, statuses, roles, and secondary context; project IDs, instrument IDs, and usernames are treated as plain slugs when another field carries navigation.
 - CLI user identifiers and owner names now link to Crucible Explorer profiles instead of external ORCID pages.
 - Resource detail views group identity, project, instrument, access, and timing fields; related labels link to the Explorer without displaying related MFIDs, and human names use given-name initials.

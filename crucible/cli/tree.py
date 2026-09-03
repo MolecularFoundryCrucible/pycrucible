@@ -163,7 +163,7 @@ def execute(args):
     # Fetch root entity once for project_id (needed for explorer URLs)
     project_id = None
     try:
-        root_ent   = client.get(args.resource_id)
+        root_ent   = client.get(args.resource_id, include_datasets=False)
         project_id = root_ent.get('project_id')
     except Exception:
         pass

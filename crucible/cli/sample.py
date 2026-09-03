@@ -530,7 +530,7 @@ Examples:
 
 def _edit_sample(sid, client, debug=False):
     """Core edit logic for a sample — shared with the top-level 'crucible edit' command."""
-    sample = client.samples.get(sid, include_metadata=True)
+    sample = client.samples.get(sid, include_metadata=True, include_datasets=False)
     if sample is None:
         logger.error(f"Sample not found: {sid}")
         sys.exit(1)
@@ -895,7 +895,8 @@ def _execute_get(args):
         graph  = getattr(args, 'graph', False)
         client = CrucibleClient()
         sample = client.samples.get(args.sample_id, include_links=graph or _config.include_links,
-                                    include_metadata=include_metadata, include_owner=True)
+                                    include_metadata=include_metadata, include_owner=True,
+                                    include_datasets=as_json)
         if sample is None:
             logger.error(f"Sample not found: {args.sample_id}")
             sys.exit(1)

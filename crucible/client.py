@@ -209,7 +209,7 @@ class CrucibleClient:
     @_deprecated_parameter('resource_id', 'resource_mfid')
     def get(self, resource_mfid: str, resource_type: str = None,
             include_metadata: bool = False, include_links: bool = False,
-            include_owner: bool = True) -> Dict:
+            include_owner: bool = True, include_datasets: bool = True) -> Dict:
         """
         Get a resource by ID with automatic type detection.
 
@@ -221,6 +221,7 @@ class CrucibleClient:
             include_metadata (bool): Include scientific metadata
             include_links (bool): Include immediate parent/child/associated links
             include_owner (bool): Resolve owner_orcid into a public-safe user object (default: True)
+            include_datasets (bool): For samples, include deprecated embedded dataset records (default: True)
 
         Returns:
             Dict: Resource data
@@ -238,14 +239,21 @@ class CrucibleClient:
                 params['include_metadata'] = True
             if include_owner:
                 params['include_owner'] = True
+            if not include_datasets:
+                params['include_datasets'] = False
             raw = self._request(
                 'get', f"/resources/{resource_mfid}", params=params or None)
             return require_canonical_identifier(raw, 'resource')
 
         if resource_type == "sample":
-            return self.samples.get(resource_mfid, include_links=include_links,
-                                    include_metadata=include_metadata,
-                                    include_owner=include_owner)
+            sample_options = {
+                'include_links': include_links,
+                'include_metadata': include_metadata,
+                'include_owner': include_owner,
+            }
+            if not include_datasets:
+                sample_options['include_datasets'] = False
+            return self.samples.get(resource_mfid, **sample_options)
         elif resource_type == "dataset":
             return self.datasets.get(resource_mfid, include_metadata=include_metadata,
                                      include_links=include_links,

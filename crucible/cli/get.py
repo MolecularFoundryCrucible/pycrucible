@@ -83,7 +83,8 @@ def execute(args):
     try:
         client   = CrucibleClient()
         resource = client.get(args.resource_id, include_metadata=include_metadata,
-                              include_links=graph, include_owner=True)
+                              include_links=graph, include_owner=True,
+                              include_datasets=output == 'json')
         if resource is None:
             logger.error(f"Resource not found: {args.resource_id}")
             sys.exit(1)

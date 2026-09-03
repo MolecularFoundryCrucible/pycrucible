@@ -50,10 +50,13 @@ sample = client.samples.get("0td7evvtg5wb90005k1j97ak94")
 sample_with_details = client.samples.get(
     "0td7evvtg5wb90005k1j97ak94",
     include_links=True,
+    include_datasets=False,
 )
 ```
 
 Samples are retrieved only by their canonical 26-character MFID. Sample names are display values, not identifiers.
+
+Sample detail responses retain the legacy embedded `datasets` collection by default for compatibility. The field is deprecated. Pass `include_datasets=False` to avoid loading complete dataset records, use `include_links=True` for lightweight relationship references, or use `client.datasets.list(sample_mfid=sample_mfid)` for complete paginated dataset records.
 
 Singleton retrieval expands `owner` by default as a public-safe user record containing `unique_id`, `username`, `first_name`, and `last_name`. Pass `include_owner=False` to suppress expansion. List operations remain opt-in with `include_owner=True`. The canonical owner identifier remains available as `owner_orcid`.
 

@@ -165,6 +165,19 @@ def test_get_can_suppress_owner_expansion(operations_class, resource_name):
     )
 
 
+def test_sample_get_can_suppress_legacy_dataset_expansion():
+    operations = make_ops(SampleOperations, {'unique_id': MFID, 'datasets': None})
+
+    result = operations.get(MFID, include_datasets=False)
+
+    operations._request.assert_called_once_with(
+        'get',
+        f'/samples/{MFID}',
+        params={'include_owner': True, 'include_datasets': False},
+    )
+    assert result['datasets'] is None
+
+
 def test_generic_get_requests_owner_by_default():
     client = CrucibleClient(api_url='https://example.invalid', api_key='test')
     client._request = MagicMock(return_value={
@@ -190,6 +203,53 @@ def test_generic_get_can_suppress_owner_expansion():
     client.get(MFID, include_owner=False)
 
     client._request.assert_called_once_with('get', f'/resources/{MFID}', params=None)
+
+
+def test_generic_get_can_suppress_legacy_sample_dataset_expansion():
+    client = CrucibleClient(api_url='https://example.invalid', api_key='test')
+    client._request = MagicMock(return_value={
+        'unique_id': MFID,
+        'resource_type': 'sample',
+        'datasets': None,
+    })
+
+    result = client.get(MFID, include_datasets=False)
+
+    client._request.assert_called_once_with(
+        'get',
+        f'/resources/{MFID}',
+        params={'include_owner': True, 'include_datasets': False},
+    )
+    assert result['datasets'] is None
+
+
+def test_typed_generic_sample_get_propagates_include_datasets():
+    client = CrucibleClient(api_url='https://example.invalid', api_key='test')
+    client.samples.get = MagicMock(return_value={'unique_id': MFID})
+
+    client.get(MFID, resource_type='sample', include_datasets=False)
+
+    client.samples.get.assert_called_once_with(
+        MFID,
+        include_links=False,
+        include_metadata=False,
+        include_owner=True,
+        include_datasets=False,
+    )
+
+
+def test_typed_generic_sample_get_preserves_default_call_contract():
+    client = CrucibleClient(api_url='https://example.invalid', api_key='test')
+    client.samples.get = MagicMock(return_value={'unique_id': MFID})
+
+    client.get(MFID, resource_type='sample')
+
+    client.samples.get.assert_called_once_with(
+        MFID,
+        include_links=False,
+        include_metadata=False,
+        include_owner=True,
+    )
 
 
 def test_instrument_get_requests_and_preserves_public_owner_by_default():

@@ -35,7 +35,8 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
 
     @_deprecated_parameter('sample_id', 'sample_mfid')
     def get(self, sample_mfid: str, include_links: bool = False,
-            include_metadata: bool = False, include_owner: bool = True) -> Dict:
+            include_metadata: bool = False, include_owner: bool = True,
+            include_datasets: bool = True) -> Dict:
         """Get a sample by its canonical MFID.
 
         Args:
@@ -43,6 +44,7 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             include_links (bool): Whether to include immediate parent/child/associated links
             include_metadata (bool): Whether to include scientific metadata
             include_owner (bool): Resolve owner_orcid into a public-safe user object (default: True)
+            include_datasets (bool): Include deprecated embedded dataset records (default: True). Set False and use include_links or client.datasets.list(sample_mfid=...) instead.
 
         Returns:
             Dict: Sample information with optional links and metadata
@@ -52,11 +54,13 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             include_links=include_links,
             include_metadata=include_metadata,
             include_owner=include_owner,
+            include_datasets=include_datasets,
         )
 
     def _get_by_mfid(self, sample_mfid: str, include_links: bool = False,
                      include_metadata: bool = False,
-                     include_owner: bool = True) -> Dict:
+                     include_owner: bool = True,
+                     include_datasets: bool = True) -> Dict:
         """Get a sample through its canonical single-resource route."""
         if not is_mfid(sample_mfid):
             raise ValueError("sample_mfid must be an exact 26-character MFID.")
@@ -67,6 +71,8 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             params['include_metadata'] = True
         if include_owner:
             params['include_owner'] = True
+        if not include_datasets:
+            params['include_datasets'] = False
         raw = self._request('get', f"/samples/{sample_mfid}", params=params or None)
         if raw is None:
             return None

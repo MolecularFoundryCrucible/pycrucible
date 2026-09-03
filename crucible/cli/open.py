@@ -65,7 +65,7 @@ def execute(args):
         url = graph_explorer_url
     else:
         try:
-            resource = config.client.get(mfid)
+            resource = config.client.get(mfid, include_datasets=False)
         except Exception as e:
             logger.error(f"Resource '{mfid}' not found: {e}")
             sys.exit(1)
