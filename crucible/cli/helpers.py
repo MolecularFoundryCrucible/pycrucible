@@ -522,6 +522,16 @@ def fetch_api_label():
         return 'api: ?'
 
 
+def fetch_api_attention():
+    """Return whether the configured API differs from the package default."""
+    try:
+        from crucible.config import config
+        from crucible.config.config import Config
+        return config.api_url.rstrip('/') != Config.DEFAULT_API_URL.rstrip('/')
+    except Exception:
+        return False
+
+
 def explorer_url(resource_id: str, project_id: str, resource_type: str) -> str:
     """Build a graph explorer URL for a dataset or sample.
 

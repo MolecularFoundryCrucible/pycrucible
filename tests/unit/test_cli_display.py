@@ -232,6 +232,7 @@ def test_shell_toolbar_restores_context_symbols(monkeypatch):
         'session': 'deprecated-session',
         'user_label': 'Test User',
         'api_label': 'api: testapi-staging',
+        'api_attention': True,
         'debug': False,
     }
     app = SimpleNamespace(output=SimpleNamespace(
@@ -243,7 +244,57 @@ def test_shell_toolbar_restores_context_symbols(monkeypatch):
     assert '🔬 example-project' in rendered
     assert '🧸 Test User' in rendered
     assert '🔗 api: testapi-staging' in rendered
+    assert rendered.count('│') == 3
     assert 'deprecated-session' not in rendered
+
+
+def test_shell_toolbar_uses_brand_palette_without_completion_styles(monkeypatch):
+    monkeypatch.setattr(term, '_COLOR_ENABLED', True)
+
+    rules = shell_cli._shell_style_rules()
+
+    assert rules['bottom-toolbar'] == 'noinherit bg:#031e2d fg:#a8c4cd'
+    assert rules['tb-project'] == 'noinherit bg:#a8c4cd fg:#031e2d'
+    assert rules['tb-separator'] == 'noinherit bg:#031e2d fg:#ff6600'
+    assert rules['tb-api-attention'] == 'noinherit bg:#031e2d fg:#ff6600 bold'
+    assert rules['tb-debug'] == 'noinherit bg:#ff6600 fg:#031e2d bold'
+    assert not any(name.startswith('completion-menu') for name in rules)
+
+
+def test_shell_toolbar_marks_custom_api_and_debug(monkeypatch):
+    from prompt_toolkit.formatted_text import to_formatted_text
+
+    monkeypatch.setattr(term, '_COLOR_ENABLED', True)
+    shell = shell_cli.CrucibleShell.__new__(shell_cli.CrucibleShell)
+    shell.state = {
+        'project': 'example-project',
+        'user_label': 'Test User',
+        'api_label': 'api: testapi-staging',
+        'api_attention': True,
+        'debug': True,
+    }
+    app = SimpleNamespace(output=SimpleNamespace(
+        get_size=lambda: SimpleNamespace(columns=100)))
+    monkeypatch.setattr('prompt_toolkit.application.get_app', lambda: app)
+
+    fragments = to_formatted_text(shell._toolbar())
+
+    assert ('class:tb-api-attention', ' 🔗 api: testapi-staging ') in fragments
+    assert ('class:tb-debug', ' DEBUG ') in fragments
+    assert sum(text.count('│') for _, text in fragments) == 4
+
+
+def test_shell_api_attention_is_reserved_for_nondefault_endpoints(monkeypatch):
+    from crucible.config import config
+    from crucible.config.config import Config
+
+    monkeypatch.setattr(config, '_data', {'api_url': Config.DEFAULT_API_URL})
+    assert helpers.fetch_api_attention() is False
+
+    monkeypatch.setattr(config, '_data', {
+        'api_url': 'https://crucible.lbl.gov/testapi-staging',
+    })
+    assert helpers.fetch_api_attention() is True
 
 
 def test_project_context_precedence(monkeypatch):

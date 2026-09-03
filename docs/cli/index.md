@@ -26,7 +26,7 @@ Running `crucible` with no arguments starts an interactive shell with tab-comple
 crucible
 ```
 
-The status bar uses a microscope for the effective project, a bear for the authenticated user, and a link for the configured API.
+The status bar uses a microscope for the effective project, a bear for the authenticated user, and a link for the configured API. Its dark-blue and light-blue blocks use orange separators, while staging, custom endpoints, and debug mode use orange as an attention color.
 
 An explicit `--project-id` applies only to that command. Inside the interactive shell, `use PROJECT_ID` validates and saves the current project for future commands and shell sessions. `unuse` clears the saved project. The deprecated `CRUCIBLE_CURRENT_PROJECT` environment variable temporarily retains precedence, but the CLI displays a warning whenever it supplies project context.
 

@@ -27,6 +27,9 @@ from . import term
 logger = logging.getLogger(__name__)
 
 _PROMPT = "crucible> "
+_BRAND_DARK_BLUE = '#031e2d'
+_BRAND_LIGHT_BLUE = '#a8c4cd'
+_BRAND_ORANGE = '#ff6600'
 
 
 def _get_subparser_map(parser):
@@ -69,15 +72,21 @@ try:
                 'bottom-toolbar':      'noinherit',
                 'bottom-toolbar.text': 'noinherit',
                 'tb-project':          'noinherit',
+                'tb-separator':        'noinherit',
+                'tb-api':              'noinherit',
+                'tb-api-attention':    'noinherit',
                 'tb-clock':            'noinherit',
                 'tb-debug':            'noinherit',
             }
         return {
-            'bottom-toolbar':      'noinherit bg:#1c9aad fg:#E8F4F7',
-            'bottom-toolbar.text': 'noinherit bg:#1c9aad fg:#E8F4F7',
-            'tb-project':          'noinherit bg:#A8C4CD fg:#0D2B35',
-            'tb-clock':            'noinherit bg:#A8C4CD fg:#0D2B35',
-            'tb-debug':            'noinherit bg:#E8820A fg:#1C1C1C bold',
+            'bottom-toolbar':      f'noinherit bg:{_BRAND_DARK_BLUE} fg:{_BRAND_LIGHT_BLUE}',
+            'bottom-toolbar.text': f'noinherit bg:{_BRAND_DARK_BLUE} fg:{_BRAND_LIGHT_BLUE}',
+            'tb-project':          f'noinherit bg:{_BRAND_LIGHT_BLUE} fg:{_BRAND_DARK_BLUE}',
+            'tb-separator':        f'noinherit bg:{_BRAND_DARK_BLUE} fg:{_BRAND_ORANGE}',
+            'tb-api':              f'noinherit bg:{_BRAND_DARK_BLUE} fg:{_BRAND_LIGHT_BLUE}',
+            'tb-api-attention':    f'noinherit bg:{_BRAND_DARK_BLUE} fg:{_BRAND_ORANGE} bold',
+            'tb-clock':            f'noinherit bg:{_BRAND_DARK_BLUE} fg:{_BRAND_LIGHT_BLUE}',
+            'tb-debug':            f'noinherit bg:{_BRAND_ORANGE} fg:{_BRAND_DARK_BLUE} bold',
         }
 
     class _CrucibleCompleter(Completer):
@@ -989,7 +998,7 @@ class CrucibleShell:
         """Populate self.state from startup data."""
         from .helpers import (
             fetch_projects, fetch_deletions, fetch_join_requests, fetch_service_accounts,
-            fetch_user_label, fetch_project_context, fetch_api_label,
+            fetch_user_label, fetch_project_context, fetch_api_label, fetch_api_attention,
         )
         deletions     = fetch_deletions(self.client)
         join_requests = fetch_join_requests(self.client)
@@ -1003,6 +1012,7 @@ class CrucibleShell:
             'project':           project_id,
             'project_source':    project_source,
             'api_label':         fetch_api_label(),
+            'api_attention':     fetch_api_attention(),
             'debug':             False,
             'deletions':         deletions or [],
             'join_requests':     join_requests or [],
@@ -1014,7 +1024,7 @@ class CrucibleShell:
         """Re-fetch projects, user info, deletions, join requests, and service accounts. Updates state + completer."""
         from .helpers import (
             fetch_projects, fetch_deletions, fetch_join_requests, fetch_service_accounts,
-            fetch_user_label, fetch_project_context, fetch_api_label,
+            fetch_user_label, fetch_project_context, fetch_api_label, fetch_api_attention,
         )
         with ThreadPoolExecutor(max_workers=4) as pool:
             proj_f = pool.submit(fetch_projects,      self.client)
@@ -1032,6 +1042,7 @@ class CrucibleShell:
         self.state['project']          = project_id
         self.state['project_source']   = project_source
         self.state['api_label']        = fetch_api_label()
+        self.state['api_attention']    = fetch_api_attention()
         self.state['deletions']        = new_deletions or []
         self.state['join_requests']    = new_join_requests or []
         self.state['service_accounts'] = new_service_accounts or []
@@ -1059,7 +1070,9 @@ class CrucibleShell:
 
         left_str  = f' {proj_content} '
         mid_str   = f' 🧸 {self.state.get("user_label", "?")} '
-        right_str = f' 🔗 {self.state.get("api_label", "?")}  │  {clock} '
+        api_str   = f' 🔗 {self.state.get("api_label", "?")} '
+        clock_str = f' {clock} '
+        separator = ' │ '
         debug_str = ' DEBUG ' if self.state.get('debug') else ''
 
         try:
@@ -1067,13 +1080,24 @@ class CrucibleShell:
         except Exception:
             term_width = 80
 
-        pad = ' ' * max(0, term_width - _vlen(left_str) - _vlen(mid_str)
-                        - len(debug_str) - _vlen(right_str))
+        fixed_width = (
+            _vlen(left_str) + _vlen(mid_str) + _vlen(api_str)
+            + _vlen(clock_str) + 3 * _vlen(separator) + len(debug_str)
+        )
+        if debug_str:
+            fixed_width += _vlen(separator)
+        pad = ' ' * max(0, term_width - fixed_width)
+        api_tag = 'tb-api-attention' if self.state.get('api_attention') else 'tb-api'
+        debug_segment = (
+            f'<tb-separator>{separator}</tb-separator><tb-debug>{debug_str}</tb-debug>'
+            if debug_str else ''
+        )
         return _shell_html(
             f'<tb-project>{left_str}</tb-project>'
-            f'{mid_str}{pad}'
-            f'<tb-debug>{debug_str}</tb-debug>'
-            f'<tb-clock>{right_str}</tb-clock>'
+            f'<tb-separator>{separator}</tb-separator>{mid_str}'
+            f'<tb-separator>{separator}</tb-separator><{api_tag}>{api_str}</{api_tag}>'
+            f'{pad}{debug_segment}'
+            f'<tb-separator>{separator}</tb-separator><tb-clock>{clock_str}</tb-clock>'
         )
 
     def _clock_tick(self):

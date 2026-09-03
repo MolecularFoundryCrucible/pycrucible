@@ -158,6 +158,8 @@ Use bold cyan underlined text for the selected resource in graph displays. Do no
 
 `--no-color` and `NO_COLOR` disable color and emphasis in both standard output and the interactive shell. Interactive OSC 8 hyperlinks remain available because they are navigation rather than color. Redirected output contains neither terminal styling nor hyperlinks.
 
+The interactive shell toolbar uses the Crucible brand palette: dark blue `#031e2d` as its base, light blue `#a8c4cd` for normal text and the project block, and orange `#ff6600` for separators and attention states. Staging and custom API endpoints use the orange attention color, as does the debug badge. Keep autocomplete menus plain with the terminal's normal foreground, background, and selection styling; only completion keys are bold and metadata is dim.
+
 ## Interactive prompts
 
 Use the shared helpers in `cli.helpers` instead of calling `input()` directly for creation and configuration fields.
