@@ -261,6 +261,37 @@ def test_shell_toolbar_uses_brand_palette_without_completion_styles(monkeypatch)
     assert not any(name.startswith('completion-menu') for name in rules)
 
 
+def test_shell_uses_true_color_when_terminal_advertises_it(monkeypatch):
+    from prompt_toolkit.output import ColorDepth
+
+    monkeypatch.setattr(term, '_COLOR_ENABLED', True)
+    monkeypatch.delenv('NO_COLOR', raising=False)
+    monkeypatch.delenv('PROMPT_TOOLKIT_COLOR_DEPTH', raising=False)
+    monkeypatch.setenv('COLORTERM', 'truecolor')
+
+    assert shell_cli._shell_color_depth() == ColorDepth.DEPTH_24_BIT
+
+
+def test_shell_respects_explicit_prompt_toolkit_color_depth(monkeypatch):
+    from prompt_toolkit.output import ColorDepth
+
+    monkeypatch.setattr(term, '_COLOR_ENABLED', True)
+    monkeypatch.delenv('NO_COLOR', raising=False)
+    monkeypatch.setenv('PROMPT_TOOLKIT_COLOR_DEPTH', 'DEPTH_8_BIT')
+    monkeypatch.setenv('COLORTERM', 'truecolor')
+
+    assert shell_cli._shell_color_depth() == ColorDepth.DEPTH_8_BIT
+
+
+def test_shell_leaves_color_depth_automatic_without_true_color(monkeypatch):
+    monkeypatch.setattr(term, '_COLOR_ENABLED', True)
+    monkeypatch.delenv('NO_COLOR', raising=False)
+    monkeypatch.delenv('PROMPT_TOOLKIT_COLOR_DEPTH', raising=False)
+    monkeypatch.delenv('COLORTERM', raising=False)
+
+    assert shell_cli._shell_color_depth() is None
+
+
 def test_shell_toolbar_marks_custom_api_and_debug(monkeypatch):
     from prompt_toolkit.formatted_text import to_formatted_text
 

@@ -14,7 +14,7 @@
 ### Changed
 
 - The interactive shell now remembers the project selected by `use PROJECT_ID`, `unuse` clears it, and project context sources are visible; `CRUCIBLE_CURRENT_PROJECT` is deprecated because it can silently redirect operations.
-- The interactive shell status bar now uses the Crucible dark blue, light blue, and orange brand palette while keeping autocomplete menus visually plain.
+- The interactive shell status bar now renders the Crucible dark blue, light blue, and orange brand palette in true color on capable terminals while keeping autocomplete menus visually plain.
 - Sample detail methods can suppress the deprecated embedded dataset expansion; existing Python and JSON behavior remains compatible, while human CLI workflows avoid loading it.
 - CLI colors now consistently distinguish clickable navigation, identifiers, statuses, roles, and secondary context; project IDs, instrument IDs, and usernames are treated as plain slugs when another field carries navigation.
 - CLI user identifiers and owner names now link to Crucible Explorer profiles instead of external ORCID pages.

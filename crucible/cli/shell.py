@@ -89,6 +89,18 @@ try:
             'tb-debug':            f'noinherit bg:{_BRAND_ORANGE} fg:{_BRAND_DARK_BLUE} bold',
         }
 
+    def _shell_color_depth():
+        from prompt_toolkit.output import ColorDepth
+
+        if not term.color_enabled():
+            return ColorDepth.DEPTH_1_BIT
+        configured = ColorDepth.from_env()
+        if configured is not None:
+            return configured
+        if os.environ.get('COLORTERM', '').lower() in ('truecolor', '24bit'):
+            return ColorDepth.DEPTH_24_BIT
+        return None
+
     class _CrucibleCompleter(Completer):
         """Three-level argparse completer: resource -> subcommand -> flags."""
 
@@ -1480,6 +1492,7 @@ class CrucibleShell:
             key_bindings=kb,
             bottom_toolbar=self._toolbar,
             style=Style.from_dict(_shell_style_rules()),
+            color_depth=_shell_color_depth(),
         )
 
         threading.Thread(target=self._clock_tick, daemon=True).start()
