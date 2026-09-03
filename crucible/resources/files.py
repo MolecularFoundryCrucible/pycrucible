@@ -158,9 +158,10 @@ class FileOperations(BaseResource):
         Returns:
             Dict: IngestionRequest record (id, status, ...)
         """
-        params = {'ingestion_class': ingestion_class,
-                  'status':'requested'}
-
+        params = {'status':'requested'}
+        if ingestion_class:
+            params['ingestion_class'] = ingestion_class
+            
         logger.info(f"Requesting ingestion for file {file_id}"
                     + (f" (class={ingestion_class})" if ingestion_class else ""))
 
