@@ -32,6 +32,7 @@ _BRAND_LIGHT_BLUE = '#a8c4cd'
 _BRAND_ORANGE = '#ff6600'
 _BRAND_WHITE = '#ffffff'
 _BANNER_MIN_WIDTH = 36
+_BANNER_VERTICAL_PADDING = 2
 
 
 def _get_subparser_map(parser):
@@ -114,7 +115,10 @@ try:
     def _shell_banner_panel(banner):
         lines = banner.splitlines()
         width = max(map(len, lines), default=0)
-        return '\n'.join(f' {line.ljust(width)} ' for line in lines)
+        content = [f' {line.ljust(width)}  ' for line in lines]
+        blank = ' ' * (width + 3)
+        padding = [blank] * _BANNER_VERTICAL_PADDING
+        return '\n'.join(padding + content + padding)
 
     def _shell_banner_fragments(banner):
         from prompt_toolkit.formatted_text import FormattedText
@@ -124,17 +128,27 @@ try:
         styles = {
             '.': f'bg:{_BRAND_DARK_BLUE} fg:{_BRAND_WHITE} bold',
             '%': f'bg:{_BRAND_DARK_BLUE} fg:{_BRAND_DARK_BLUE}',
-            '=': f'bg:{_BRAND_ORANGE} fg:{_BRAND_ORANGE}',
             ' ': background,
         }
         fragments = []
+        row = 0
         for character in panel:
-            style = styles.get(character, '')
+            if character == '=':
+                accent_background = (
+                    _BRAND_LIGHT_BLUE
+                    if row == _BANNER_VERTICAL_PADDING
+                    else _BRAND_DARK_BLUE
+                )
+                style = f'bg:{accent_background} fg:{_BRAND_ORANGE} bold'
+            else:
+                style = styles.get(character, '')
             if fragments and fragments[-1][0] == style:
                 previous_style, previous_text = fragments[-1]
                 fragments[-1] = (previous_style, previous_text + character)
             else:
                 fragments.append((style, character))
+            if character == '\n':
+                row += 1
         return FormattedText(fragments)
 
     def _print_shell_banner(columns):

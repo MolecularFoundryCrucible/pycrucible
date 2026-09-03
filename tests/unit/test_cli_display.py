@@ -298,19 +298,24 @@ def test_shell_banner_is_packaged_and_uses_requested_colors():
 
     assert len(banner.splitlines()) == 14
     assert max(map(len, banner.splitlines())) == 31
-    assert list(fragments) == [
-        ('bg:#a8c4cd', ' '),
-        ('bg:#031e2d fg:#ffffff bold', '.'),
-        ('bg:#031e2d fg:#031e2d', '%'),
-        ('bg:#ff6600 fg:#ff6600', '='),
-        ('bg:#a8c4cd', '  '),
-    ]
+    assert ('bg:#031e2d fg:#ffffff bold', '.') in fragments
+    assert ('bg:#031e2d fg:#031e2d', '%') in fragments
+    assert ('bg:#a8c4cd fg:#ff6600 bold', '=') in fragments
 
 
 def test_shell_banner_panel_has_consistent_width():
     panel = shell_cli._shell_banner_panel('%%\n%')
 
-    assert panel.splitlines() == [' %% ', ' %  ']
+    lines = panel.splitlines()
+    assert lines == ['     ', '     ', ' %%  ', ' %   ', '     ', '     ']
+    assert {len(line) for line in lines} == {5}
+
+
+def test_shell_banner_orange_uses_row_context():
+    fragments = list(shell_cli._shell_banner_fragments('=\n='))
+
+    assert ('bg:#a8c4cd fg:#ff6600 bold', '=') in fragments
+    assert ('bg:#031e2d fg:#ff6600 bold', '=') in fragments
 
 
 def test_shell_banner_is_skipped_on_narrow_terminals(monkeypatch):
