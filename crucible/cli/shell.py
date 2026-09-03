@@ -122,9 +122,9 @@ try:
         panel = _shell_banner_panel(banner)
         background = f'bg:{_BRAND_LIGHT_BLUE}'
         styles = {
-            '.': f'{background} fg:{_BRAND_WHITE} bold',
-            '%': f'{background} fg:{_BRAND_DARK_BLUE} bold',
-            '=': f'{background} fg:{_BRAND_ORANGE} bold',
+            '.': f'bg:{_BRAND_DARK_BLUE} fg:{_BRAND_WHITE} bold',
+            '%': f'bg:{_BRAND_DARK_BLUE} fg:{_BRAND_DARK_BLUE}',
+            '=': f'bg:{_BRAND_ORANGE} fg:{_BRAND_ORANGE}',
             ' ': background,
         }
         fragments = []

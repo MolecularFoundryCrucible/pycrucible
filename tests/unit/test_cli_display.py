@@ -300,9 +300,9 @@ def test_shell_banner_is_packaged_and_uses_requested_colors():
     assert max(map(len, banner.splitlines())) == 31
     assert list(fragments) == [
         ('bg:#a8c4cd', ' '),
-        ('bg:#a8c4cd fg:#ffffff bold', '.'),
-        ('bg:#a8c4cd fg:#031e2d bold', '%'),
-        ('bg:#a8c4cd fg:#ff6600 bold', '='),
+        ('bg:#031e2d fg:#ffffff bold', '.'),
+        ('bg:#031e2d fg:#031e2d', '%'),
+        ('bg:#ff6600 fg:#ff6600', '='),
         ('bg:#a8c4cd', '  '),
     ]
 
