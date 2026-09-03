@@ -215,7 +215,7 @@ def _show_user(user):
 
     term.header("User")
     _p("Username", user.get('username') or term.dim('(not set)'))
-    _p("Name",     term.user_link(full_name, uid))
+    _p("Name",     full_name)
     _p(term.user_id_label(uid), term.user_id_link(uid))
     if 'email' in user:
         email = term.dim('(not set)') if user['email'] is None else user['email']
@@ -773,16 +773,16 @@ def _execute_list_projects(args):
             return
 
         from .helpers import project_explorer_url
-        rows = [
-            (
-                term.project_link(
-                    p.get('project_id'), project_explorer_url(p.get('project_id')),
-                ) or '-',
-                p.get('title') or '-',
-                p.get('organization') or '-',
+        def _project_row(project):
+            project_id = project.get('project_id')
+            title = project.get('title')
+            url = project_explorer_url(project_id)
+            return (
+                project_id if title else term.project_link(project_id, url),
+                term.navigation_link(title, url) if title else '-',
+                project.get('organization') or '-',
             )
-            for p in projects
-        ]
+        rows = [_project_row(project) for project in projects]
         term.table(
             rows,
             ['Project ID', 'Title', 'Organization'],

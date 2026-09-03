@@ -809,9 +809,7 @@ def _show_sample(sample, client, verbose=False, graph=False, include_metadata=Fa
         print(f"  {msg}")
 
     project_title, project_id, project_url = project_reference(sample)
-    sample_url = explorer_url(sample.get('unique_id'), project_id, 'sample')
-    _p("Name",        term.navigation_link(
-        sample.get('sample_name') or '(unnamed)', sample_url, emphasized=True))
+    _p("Name",        term.bold(sample.get('sample_name') or '(unnamed)'))
     _p("MFID",        _s_link(sample))
     _p("Type",        sample.get('sample_type'))
     _p("Description", sample.get('description'))
@@ -821,7 +819,7 @@ def _show_sample(sample, client, verbose=False, graph=False, include_metadata=Fa
         if project_title:
             _p("Title", term.navigation_link(project_title, project_url))
         if project_id:
-            _p("Project ID", term.project_link(project_id, project_url))
+            _p("Project ID", project_id)
 
     term.subheader("Access")
     _p("Owner",  term.fmt_owner(sample))

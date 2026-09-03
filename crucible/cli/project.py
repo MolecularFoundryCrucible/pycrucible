@@ -375,26 +375,22 @@ def _execute_list(args):
             print(json.dumps(projects, indent=2, default=str))
             return
 
-        try:
-            from crucible.config import config
-            _base = config.graph_explorer_url.rstrip('/')
-        except Exception:
-            _base = None
-
         term.header(f"Projects ({len(projects)})")
         if not projects:
             print(f"  {term.dim('No projects found.')}")
         else:
-            rows = [
-                (
-                    term.project_link(p.get('project_id'),
-                                      f"{_base}/{p.get('project_id')}" if _base else None),
-                    p.get('title') or '-',
-                    p.get('organization') or '-',
-                    _lead_name(p) or '-',
+            from .helpers import project_explorer_url
+            def _project_row(project):
+                project_id = project.get('project_id')
+                title = project.get('title')
+                url = project_explorer_url(project_id)
+                return (
+                    project_id if title else term.project_link(project_id, url),
+                    term.navigation_link(title, url) if title else '-',
+                    project.get('organization') or '-',
+                    _lead_name(project) or '-',
                 )
-                for p in projects
-            ]
+            rows = [_project_row(project) for project in projects]
             term.table(rows, ['Project ID', 'Title', 'Organization', 'Lead'],
                        max_widths=[25, 30, 20, 25],
                        min_widths=[25, 5, 12, 4])
@@ -431,9 +427,8 @@ def _show_project(project, include_metadata=False, include_members=False):
     uid = project.get('unique_id')
     project_url = project_explorer_url(pid)
     title = project.get('title')
-    _p("Title",        term.navigation_link(title, project_url, emphasized=True)
-       if title else term.dim('-'))
-    _p("Project ID",   term.project_link(pid, project_url))
+    _p("Title",        term.bold(title) if title else term.dim('-'))
+    _p("Project ID",   pid)
     _p("MFID",         term.mfid_link(uid, project_url))
     _p("Organization", project.get('organization'))
     _p("Status",       term.status_label(project.get('status')))
@@ -1053,13 +1048,16 @@ def _execute_search(args):
             print(f"  {term.dim('No results found.')}")
             return
         from .helpers import project_explorer_url
-        rows = [(
-            term.project_link(
-                r.get('project_id'), project_explorer_url(r.get('project_id')),
-            ) or '-',
-            r.get('title') or '-',
-            r.get('organization') or '-',
-        ) for r in results]
+        def _project_row(project):
+            project_id = project.get('project_id')
+            title = project.get('title')
+            url = project_explorer_url(project_id)
+            return (
+                project_id if title else term.project_link(project_id, url),
+                term.navigation_link(title, url) if title else '-',
+                project.get('organization') or '-',
+            )
+        rows = [_project_row(project) for project in results]
         term.table(
             rows,
             ['Project ID', 'Title', 'Organization'],

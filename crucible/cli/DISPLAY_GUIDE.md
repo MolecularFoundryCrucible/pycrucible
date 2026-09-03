@@ -142,9 +142,11 @@ Label resource slugs explicitly as `Project ID` or `Instrument ID`, and label ca
 
 Singleton resource views use this section order when the data applies: primary identity and scientific fields, project, instrument, access, timing, then files, relationships, and scientific metadata. The inspected resource keeps its own MFID visible. Embedded project and instrument references show their title or name and public ID without exposing the related MFID. Use the related MFID internally when the Explorer route requires it.
 
-Project titles, instrument names, human names, project IDs, instrument IDs, user IDs, and MFIDs use cyan underlined text when a stable Explorer route is available. Identifiers without a stable destination remain cyan without underlining. User labels and canonical IDs link to the Crucible Explorer profile rather than the external ORCID record. Do not make an additional API request solely to enrich a label or construct a link.
+Treat usernames, project IDs, and instrument IDs as human-readable slugs. Keep them in the default foreground when their resource name or canonical ID already carries navigation. Canonical user IDs and MFIDs use cyan underlined text when a stable Explorer route is available. Identifiers without a stable destination remain cyan without underlining. User labels and canonical IDs link to the Crucible Explorer profile rather than the external ORCID record. Do not make an additional API request solely to enrich a label or construct a link.
 
-Use one primary navigational link per table row when possible: Project ID for projects, Instrument ID with an MFID fallback for instruments, MFID for datasets and samples, filename for signed downloads, and the human name for users. Detail views may link both the primary name and identifiers because their field structure keeps the repeated destination clear.
+Use one primary navigational link per table row when possible: title for projects, name for instruments and users, MFID for datasets and samples, and filename for signed downloads. Use the slug or canonical ID as the fallback link when the preferred human-readable label is unavailable.
+
+In singleton detail views, keep the primary title or name bold and plain, keep its slug plain, and make only the canonical user ID or resource MFID clickable. Embedded project and instrument references omit the related MFID, so their title or name carries the link while the slug remains plain.
 
 Keep ordinary filenames, storage backends, scientific values, and descriptive text in the default foreground. File MFIDs and dataset MFIDs remain cyan identifiers. Use the filename itself for a signed download link instead of a generic `link` label.
 

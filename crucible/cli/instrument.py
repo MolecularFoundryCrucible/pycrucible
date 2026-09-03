@@ -315,12 +315,10 @@ def _execute_list(args):
                 instrument_id = instrument.get('instrument_id')
                 url = instrument_explorer_url(uid)
                 return (
-                    instrument.get('instrument_name') or '-',
-                    term.identifier_link(
-                        instrument_id, url,
-                    ) or '-',
+                    term.navigation_link(instrument.get('instrument_name'), url) or '-',
+                    instrument_id or '-',
                     term.mfid_link(
-                        uid, None if instrument_id else url,
+                        uid, url if not instrument.get('instrument_name') else None,
                     ) or '-',
                     term.fmt_owner(instrument) or '-',
                     term.status_label(instrument.get('status')),
@@ -345,10 +343,8 @@ def _show_instrument(instrument, include_metadata=False):
     uid = instrument.get('unique_id')
     instrument_url = instrument_explorer_url(uid)
     name = instrument.get('instrument_name')
-    _p("Name",          term.navigation_link(name, instrument_url, emphasized=True)
-       if name else term.dim('-'))
-    _p("Instrument ID", term.identifier_link(instrument.get('instrument_id'), instrument_url)
-       if instrument.get('instrument_id') else None)
+    _p("Name",          term.bold(name) if name else term.dim('-'))
+    _p("Instrument ID", instrument.get('instrument_id'))
     _p("MFID",          term.mfid_link(uid, instrument_url))
     _p("Type",         instrument.get('instrument_type'))
     _p("Manufacturer", instrument.get('manufacturer'))
@@ -824,10 +820,17 @@ def _execute_search(args):
             print(f"  {term.dim('No results found.')}")
             return
         from .helpers import instrument_explorer_url
-        rows = [(r.get('instrument_name', '-'), r.get('instrument_type') or '-',
-                 r.get('manufacturer') or '-',
-                 term.mfid_link(r.get('unique_id'), instrument_explorer_url(r.get('unique_id'))) or '-')
-                for r in results]
+        def _instrument_row(instrument):
+            uid = instrument.get('unique_id')
+            name = instrument.get('instrument_name')
+            url = instrument_explorer_url(uid)
+            return (
+                term.navigation_link(name, url) if name else '-',
+                instrument.get('instrument_type') or '-',
+                instrument.get('manufacturer') or '-',
+                term.mfid_link(uid, url if not name else None) or '-',
+            )
+        rows = [_instrument_row(instrument) for instrument in results]
         term.table(rows, ['Name', 'Type', 'Manufacturer', 'MFID'],
                    max_widths=[25, 20, 20, 26])
     except Exception as e:

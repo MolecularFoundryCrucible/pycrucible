@@ -92,9 +92,7 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
         print(f"  {msg}")
 
     project_title, project_id, project_url = project_reference(dataset)
-    dataset_url = explorer_url(dataset.get('unique_id'), project_id, 'dataset')
-    _p("Name",        term.navigation_link(
-        dataset.get('dataset_name') or '(unnamed)', dataset_url, emphasized=True))
+    _p("Name",        term.bold(dataset.get('dataset_name') or '(unnamed)'))
     _p("MFID",        _ds_link(dataset))
     _p("Measurement", dataset.get('measurement'))
     _p("Data Type",   dataset.get('data_type'))
@@ -112,7 +110,7 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
         if project_title:
             _p("Title", term.navigation_link(project_title, project_url))
         if project_id:
-            _p("Project ID", term.project_link(project_id, project_url))
+            _p("Project ID", project_id)
 
     instrument_name, instrument_id, instrument_url = instrument_reference(dataset)
     if instrument_name or instrument_id:
@@ -120,7 +118,7 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
         if instrument_name:
             _p("Name", term.navigation_link(instrument_name, instrument_url))
         if instrument_id:
-            _p("Instrument ID", term.identifier_link(instrument_id, instrument_url))
+            _p("Instrument ID", instrument_id)
 
     term.subheader("Access")
     _p("Owner",  term.fmt_owner(dataset))

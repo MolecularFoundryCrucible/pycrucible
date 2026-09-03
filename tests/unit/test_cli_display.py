@@ -17,6 +17,7 @@ from crucible.cli import sample as sample_cli
 from crucible.cli import service_account as service_account_cli
 from crucible.cli import shell as shell_cli
 from crucible.cli import term
+from crucible.cli import user as user_cli
 
 
 MFID = '0tkn2knjast3h0008nyq9zps2c'
@@ -286,6 +287,25 @@ def test_project_detail_distinguishes_slug_and_mfid_and_shows_empty_members(caps
     assert 'No members found.' in output
 
 
+def test_project_detail_links_only_canonical_mfid(monkeypatch, capsys):
+    from crucible.config import config
+
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: True)
+    monkeypatch.setitem(
+        config._data, 'graph_explorer_url', 'https://example.org/explore')
+
+    project_cli._show_project({
+        'unique_id': MFID,
+        'project_id': 'project-slug',
+        'title': 'Project Title',
+    })
+
+    output = capsys.readouterr().out
+    assert output.count('https://example.org/explore/project-slug/') == 1
+    assert '\033[1mProject Title\033[0m' in output
+
+
 def test_project_detail_sorts_and_colors_member_roles(monkeypatch, capsys):
     monkeypatch.setattr(term, '_tty', lambda stream=None: True)
 
@@ -320,6 +340,45 @@ def test_instrument_detail_distinguishes_slug_and_mfid(capsys):
     assert 'MFID' in output
     assert MFID in output
     assert 'maintenance' in output
+
+
+def test_instrument_detail_links_only_canonical_mfid(monkeypatch, capsys):
+    from crucible.config import config
+
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: True)
+    monkeypatch.setitem(
+        config._data, 'graph_explorer_url', 'https://example.org/explore')
+
+    instrument_cli._show_instrument({
+        'unique_id': MFID,
+        'instrument_id': 'instrument-slug',
+        'instrument_name': 'Instrument Name',
+    })
+
+    output = capsys.readouterr().out
+    assert output.count(f'https://example.org/explore/instrument/{MFID}') == 1
+    assert '\033[1mInstrument Name\033[0m' in output
+
+
+def test_user_detail_links_only_canonical_id(monkeypatch, capsys):
+    from crucible.config import config
+
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: True)
+    monkeypatch.setitem(
+        config._data, 'graph_explorer_url', 'https://example.org/explore')
+
+    user_cli._show_user({
+        'unique_id': MFID,
+        'username': 'user-slug',
+        'first_name': 'Test',
+        'last_name': 'User',
+    })
+
+    output = capsys.readouterr().out
+    assert output.count(f'https://example.org/explore/user/{MFID}') == 1
+    assert 'T. User' in output
 
 
 @pytest.mark.parametrize(('show', 'record'), [
@@ -425,8 +484,10 @@ def test_dataset_reference_fields_link_to_explorer(monkeypatch, capsys):
     )
 
     output = capsys.readouterr().out
-    assert 'https://example.org/explore/project-one/' in output
-    assert f'https://example.org/explore/instrument/{instrument_mfid}' in output
+    project_link = '\033]8;;https://example.org/explore/project-one/\007'
+    instrument_link = f'\033]8;;https://example.org/explore/instrument/{instrument_mfid}\007'
+    assert output.count(project_link) == 1
+    assert output.count(instrument_link) == 1
 
 
 def test_generic_get_dispatches_project_detail(monkeypatch):
