@@ -175,6 +175,10 @@ Use `prompt_confirm()` for actions that require a yes-or-no decision. Confirmati
 
 API operations that support a server-side preview should remain preview-only by default and execute only when the user supplies `--confirm`. Do not add an interactive prompt after a preview response.
 
+## Shell project context
+
+Resolve project context in this order: an explicit command argument, the active interactive-shell project, then the configured `current_project` default. Use the shared project-context helper for commands that accept an omitted project. The `use PROJECT_ID` shell command changes only the running shell, and `unuse` returns to the configured default. Dataset sessions are resource metadata and must not be treated as shell context.
+
 ## Errors and warnings
 
 Route command failures through `helpers.fail()` so HTTP status, reason, validation details, JSON output, debug tracebacks, and exit status remain consistent. Do not print raw API validation structures directly.

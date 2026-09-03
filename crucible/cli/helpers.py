@@ -470,21 +470,25 @@ def fetch_user_label(client, whoami_info=None):
 
 
 def fetch_current_project():
-    """Return the current project ID from config, or a placeholder."""
+    """Return the default project ID from config."""
     try:
         from crucible.config import config
-        return config.current_project or '(no project set)'
+        return config.current_project or None
     except Exception:
-        return '?'
+        return None
 
 
-def fetch_current_session():
-    """Return the current session name from config, or empty string."""
-    try:
-        from crucible.config import config
-        return config.current_session or ''
-    except Exception:
-        return ''
+def resolve_project_context(args=None, project_id=None):
+    """Return the effective CLI project ID and its source."""
+    if project_id:
+        return project_id, 'argument'
+    shell_state = getattr(args, '_shell_state', None) if args is not None else None
+    if shell_state is not None:
+        shell_project = shell_state.get('project')
+        if shell_project:
+            source = 'shell' if shell_state.get('project_override') else 'config'
+            return shell_project, source
+    return fetch_current_project(), 'config'
 
 
 def fetch_api_label():

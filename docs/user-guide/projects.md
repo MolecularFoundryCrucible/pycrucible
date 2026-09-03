@@ -141,3 +141,5 @@ Or switch the active project in the interactive shell:
 crucible
 > use MFP12345
 ```
+
+The shell selection lasts until `unuse` or until the shell exits. It takes priority over the configured default without changing it. Use `crucible config set current_project PROJECT_ID` when you want to change the persistent default.

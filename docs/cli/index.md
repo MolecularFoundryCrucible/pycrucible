@@ -26,14 +26,16 @@ Running `crucible` with no arguments starts an interactive shell with tab-comple
 crucible
 ```
 
-The status bar uses a microscope for the active project, a bear for the authenticated user, and a link for the configured API.
+The status bar uses a microscope for the effective project, a bear for the authenticated user, and a link for the configured API.
+
+An explicit `--project-id` takes priority over the shell project. Inside the interactive shell, `use PROJECT_ID` sets a runtime project that takes priority over the configured default without rewriting the configuration file. `unuse` clears that runtime selection and returns to the configured default project.
 
 Shell-specific commands:
 
 | Command | Description |
 |---|---|
-| `use PROJECT_ID` | Set the active project (tab-completes project IDs) |
-| `unuse` | Clear the active project |
+| `use PROJECT_ID` | Set the active project for this shell (tab-completes project IDs) |
+| `unuse` | Clear the shell project and return to the configured default |
 | `refresh` | Re-fetch project list and user info |
 | `reload` | Re-exec the process (picks up code changes) |
 | `debug on` / `debug off` | Toggle debug logging |

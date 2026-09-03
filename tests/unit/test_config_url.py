@@ -95,3 +95,10 @@ def test_unset_api_url_restores_package_default(monkeypatch, tmp_path):
         assert global_config.api_url == Config.DEFAULT_API_URL
     finally:
         global_config._data = original_data
+
+
+def test_current_session_is_retained_with_deprecation_warning(monkeypatch):
+    monkeypatch.setattr(global_config, '_data', {'current_session': 'legacy-session'})
+
+    with pytest.warns(DeprecationWarning, match='current_session'):
+        assert global_config.current_session == 'legacy-session'

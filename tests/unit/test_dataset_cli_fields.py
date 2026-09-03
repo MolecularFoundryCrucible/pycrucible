@@ -65,3 +65,40 @@ def test_dataset_list_instrument_filter_ignores_configured_project(monkeypatch, 
         instrument_mfid='0tkn2knjast3h0008nyq9zps2c',
     )
     assert 'instrument 0tkn2knjast3h0008nyq9zps2c' in capsys.readouterr().out
+
+
+def test_dataset_list_uses_shell_project_before_config(monkeypatch, capsys):
+    datasets = SimpleNamespace(list=MagicMock(return_value=[]))
+    monkeypatch.setattr(
+        'crucible.client.CrucibleClient',
+        lambda: SimpleNamespace(datasets=datasets),
+    )
+    monkeypatch.setattr(
+        'crucible.config.config._data',
+        {'current_project': 'configured-project'},
+    )
+    args = SimpleNamespace(
+        project_id=None,
+        instrument_mfid=None,
+        measurement=None,
+        keyword=None,
+        session=None,
+        data_format=None,
+        data_type=None,
+        instrument_name=None,
+        limit=10,
+        include=None,
+        exclude=None,
+        json=False,
+        group_by=None,
+        debug=False,
+        _shell_state={
+            'project': 'shell-project',
+            'project_override': 'shell-project',
+        },
+    )
+
+    dataset_cli._execute_list(args)
+
+    datasets.list.assert_called_once_with(project_id='shell-project', limit=10)
+    assert 'Datasets · shell-project' in capsys.readouterr().out

@@ -989,7 +989,7 @@ class CrucibleShell:
         """Populate self.state from startup data."""
         from .helpers import (
             fetch_projects, fetch_deletions, fetch_join_requests, fetch_service_accounts,
-            fetch_user_label, fetch_current_project, fetch_current_session, fetch_api_label,
+            fetch_user_label, fetch_current_project, fetch_api_label,
         )
         deletions     = fetch_deletions(self.client)
         join_requests = fetch_join_requests(self.client)
@@ -1000,7 +1000,7 @@ class CrucibleShell:
             'user_label':        fetch_user_label(self.client, whoami_info),
             'projects':          fetch_projects(self.client),
             'project':           fetch_current_project(),
-            'session':           fetch_current_session(),
+            'project_override':  None,
             'api_label':         fetch_api_label(),
             'debug':             False,
             'deletions':         deletions or [],
@@ -1013,7 +1013,7 @@ class CrucibleShell:
         """Re-fetch projects, user info, deletions, join requests, and service accounts. Updates state + completer."""
         from .helpers import (
             fetch_projects, fetch_deletions, fetch_join_requests, fetch_service_accounts,
-            fetch_user_label, fetch_current_project, fetch_current_session, fetch_api_label,
+            fetch_user_label, fetch_current_project, fetch_api_label,
         )
         with ThreadPoolExecutor(max_workers=4) as pool:
             proj_f = pool.submit(fetch_projects,      self.client)
@@ -1027,8 +1027,7 @@ class CrucibleShell:
         self.is_admin = new_deletions is not None
         self.state['projects']         = new_projects
         self.state['user_label']       = fetch_user_label(self.client)
-        self.state['project']          = fetch_current_project()
-        self.state['session']          = fetch_current_session()
+        self.state['project']          = self.state.get('project_override') or fetch_current_project()
         self.state['api_label']        = fetch_api_label()
         self.state['deletions']        = new_deletions or []
         self.state['join_requests']    = new_join_requests or []
@@ -1046,9 +1045,7 @@ class CrucibleShell:
 
     def _toolbar(self):
         from prompt_toolkit.application import get_app
-        proj  = self.state.get('project', '')
-        sess  = self.state.get('session', '')
-        label = f'{proj} / {sess}' if sess else proj
+        label = self.state.get('project') or '(no project set)'
         if len(label) > 22:
             label = label[:21] + '…'
         project_label = f'🔬 {label}'
@@ -1178,8 +1175,7 @@ class CrucibleShell:
             project_id = parts[1].strip()
             try:
                 import requests as _req
-                from crucible.client import CrucibleClient
-                project = CrucibleClient().projects.get(project_id)
+                project = self.client.projects.get(project_id)
                 if project is None:
                     logger.error(f"Project not found: {project_id}")
                     return True
@@ -1193,28 +1189,23 @@ class CrucibleShell:
                 logger.error(f"Cannot access project '{project_id}': {e}")
                 return True
             try:
-                from crucible.cli.config import set_config_value
-                set_config_value('current_project', project_id)
-                set_config_value('current_session', '')
                 title = project.get('title') or ''
                 label = f"{project_id} - {title}" if title else project_id
                 print(f"Switched to project: {label}")
+                self.state['project_override'] = project_id
                 self.state['project'] = project_id
-                self.state['session'] = ''
             except Exception as e:
                 logger.error(f"Error switching project: {e}")
             return True
 
         if line == 'unuse':
-            try:
-                from crucible.cli.config import set_config_value
-                set_config_value('current_project', '')
-                set_config_value('current_session', '')
-                print("Cleared current project and session.")
-                self.state['project'] = '(no project set)'
-                self.state['session'] = ''
-            except Exception as e:
-                logger.error(f"Error clearing project: {e}")
+            from .helpers import fetch_current_project
+            self.state['project_override'] = None
+            self.state['project'] = fetch_current_project()
+            if self.state['project']:
+                print(f"Returned to default project: {self.state['project']}")
+            else:
+                print("Cleared active project.")
             return True
 
         if line == 'refresh':

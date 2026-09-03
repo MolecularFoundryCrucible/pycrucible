@@ -229,7 +229,7 @@ def test_shell_toolbar_restores_context_symbols(monkeypatch):
     shell = shell_cli.CrucibleShell.__new__(shell_cli.CrucibleShell)
     shell.state = {
         'project': 'example-project',
-        'session': '',
+        'session': 'deprecated-session',
         'user_label': 'Test User',
         'api_label': 'api: testapi-staging',
         'debug': False,
@@ -243,6 +243,48 @@ def test_shell_toolbar_restores_context_symbols(monkeypatch):
     assert '🔬 example-project' in rendered
     assert '🧸 Test User' in rendered
     assert '🔗 api: testapi-staging' in rendered
+    assert 'deprecated-session' not in rendered
+
+
+def test_project_context_precedence(monkeypatch):
+    from crucible.config import config
+
+    monkeypatch.setattr(config, '_data', {'current_project': 'configured-project'})
+    args = SimpleNamespace(_shell_state={
+        'project': 'shell-project',
+        'project_override': 'shell-project',
+    })
+
+    assert helpers.resolve_project_context(args, 'argument-project') == (
+        'argument-project', 'argument')
+    assert helpers.resolve_project_context(args) == ('shell-project', 'shell')
+    assert helpers.resolve_project_context() == ('configured-project', 'config')
+
+
+def test_shell_use_overrides_and_unuse_restores_configured_project(
+        monkeypatch, capsys):
+    from crucible.config import config
+
+    monkeypatch.setattr(config, '_data', {'current_project': 'configured-project'})
+    shell = shell_cli.CrucibleShell.__new__(shell_cli.CrucibleShell)
+    shell.client = SimpleNamespace(projects=SimpleNamespace(get=MagicMock(return_value={
+        'project_id': 'shell-project',
+        'title': 'Shell Project',
+    })))
+    shell.state = {
+        'project': 'configured-project',
+        'project_override': None,
+    }
+
+    assert shell._dispatch('use shell-project') is True
+    assert shell.state['project'] == 'shell-project'
+    assert shell.state['project_override'] == 'shell-project'
+    assert config.current_project == 'configured-project'
+
+    assert shell._dispatch('unuse') is True
+    assert shell.state['project'] == 'configured-project'
+    assert shell.state['project_override'] is None
+    assert 'Returned to default project: configured-project' in capsys.readouterr().out
 
 
 def test_shell_html_removes_styles_when_color_is_disabled(monkeypatch):

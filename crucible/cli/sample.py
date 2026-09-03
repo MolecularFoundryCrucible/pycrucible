@@ -88,7 +88,7 @@ Examples:
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses config current_project if not specified)'
+        help='Crucible project ID (uses the active shell project or configured default if omitted)'
     )
     parser.add_argument(
         '-pid',
@@ -245,7 +245,7 @@ Examples:
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses config current_project if not specified)'
+        help='Crucible project ID (uses the active shell project or configured default if omitted)'
     )
     parser.add_argument(
         '-pid',
@@ -688,13 +688,11 @@ def _execute_list(args):
     """Execute the 'sample list' subcommand."""
     from crucible.config import config
     from crucible.client import CrucibleClient
-    # Get project_id
-    project_id = args.project_id
+    from .helpers import resolve_project_context
+    project_id, _ = resolve_project_context(args, args.project_id)
     if project_id is None:
-        project_id = config.current_project
-        if project_id is None:
-            logger.error("Error: Project ID required. Specify with --project-id or set current_project in config.")
-            sys.exit(1)
+        logger.error("Error: Project ID required. Specify with --project-id or set current_project in config.")
+        sys.exit(1)
 
     filters = {}
     if args.name:
@@ -918,15 +916,17 @@ def _execute_get(args):
 
 def _execute_create(args):
     """Execute the 'sample create' subcommand."""
-    from crucible.config import config
     from crucible.client import CrucibleClient
 
     from ..utils import parse_timestamp
     from ..utils.identifiers import IdentifierNotFoundError, validate_slug
-    from .helpers import fail, prompt_optional, prompt_required
+    from .helpers import fail, prompt_optional, prompt_required, resolve_project_context
 
     name        = args.name
-    project_id  = args.project_id   # never auto-fill from config here
+    project_id  = args.project_id
+    default_project, project_source = resolve_project_context(args, project_id)
+    if project_source == 'shell':
+        project_id = default_project
     description = args.description
     sample_type = args.sample_type
     timestamp   = None
@@ -959,11 +959,10 @@ def _execute_create(args):
         name = prompt_required("Sample name", option='--name')
 
     if project_id is None:
-        default_proj = config.current_project
-        if default_proj:
+        if default_project:
             project_id = prompt_optional(
                 "Project ID",
-                default=default_proj,
+                default=default_project,
                 validator=validate_project_id,
                 option='--project-id',
             )
@@ -1191,7 +1190,7 @@ Examples:
         dest='project_id',
         default=None,
         metavar='ID',
-        help='Scope to a specific project',
+        help='Scope to a project (uses the active shell project or configured default if omitted)',
     )
     parser.add_argument(
         '--project', '-pid',
@@ -1216,8 +1215,9 @@ def _execute_search(args):
         fail("searching samples", ValueError("Search term must be at least 3 characters."), args)
     from crucible.client import CrucibleClient
     try:
+        from .helpers import resolve_project_context
         client     = CrucibleClient()
-        project_id = args.project_id or _config.current_project or None
+        project_id, _ = resolve_project_context(args, args.project_id)
         results    = client.samples.search(args.query, project_id=project_id,
                                            limit=args.limit)
         if getattr(args, 'json', False):

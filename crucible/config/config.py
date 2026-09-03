@@ -181,11 +181,17 @@ class Config:
     @property
     def current_session(self):
         """
-        Get the current/default session name.
+        Return the deprecated default session name.
 
         Returns:
             str or None: The current session name if configured, None otherwise
         """
+        import warnings
+        warnings.warn(
+            "'current_session' is deprecated and is no longer used by the interactive shell.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self._data.get('current_session') or None
 
     @property

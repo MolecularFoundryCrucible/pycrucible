@@ -13,6 +13,7 @@
 
 ### Changed
 
+- The interactive shell now treats `use PROJECT_ID` as a runtime override above the configured default, `unuse` returns to that default, and the deprecated `current_session` value remains readable only for compatibility and is no longer used by the shell.
 - Sample detail methods can suppress the deprecated embedded dataset expansion; existing Python and JSON behavior remains compatible, while human CLI workflows avoid loading it.
 - CLI colors now consistently distinguish clickable navigation, identifiers, statuses, roles, and secondary context; project IDs, instrument IDs, and usernames are treated as plain slugs when another field carries navigation.
 - CLI user identifiers and owner names now link to Crucible Explorer profiles instead of external ORCID pages.

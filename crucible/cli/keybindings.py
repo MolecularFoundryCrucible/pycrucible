@@ -64,11 +64,8 @@ def register(kb, shell):
 
         def _switch(pid, title):
             try:
-                from crucible.cli.config import set_config_value
-                set_config_value('current_project', pid)
-                set_config_value('current_session', '')
+                shell.state['project_override'] = pid
                 shell.state['project'] = pid
-                shell.state['session'] = ''
                 print(f"  Switched to: {title}  ({pid})")
             except Exception as e:
                 logger.error(f"Error switching project: {e}")

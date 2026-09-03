@@ -110,7 +110,7 @@ Examples:
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses config current_project if not specified)'
+        help='Crucible project ID (uses the active shell project or configured default if omitted)'
     )
     parser.add_argument(
         '-pid',
@@ -237,18 +237,13 @@ def execute(args):
     logger.warning("'crucible upload' is deprecated — use 'crucible dataset create -i FILE ...' instead.")
     import json
     from crucible.parsers import get_parser, BaseParser
-    from crucible.config import config
+    from .helpers import resolve_project_context
     # Set up logging based on verbose flag
-    # Get project_id - use flag if provided, otherwise fall back to config
-    project_id = args.project_id
-    project_from_config = False
+    project_id, project_source = resolve_project_context(args, args.project_id)
     if project_id is None:
-        project_id = config.current_project
-        project_from_config = True
-        if project_id is None:
-            logger.error("Error: Project ID required. Specify with --project-id or set current_project in config.")
-            logger.error("  Set default: crucible config set current_project YOUR_PROJECT_ID")
-            sys.exit(1)
+        logger.error("Error: Project ID required. Specify with --project-id or set current_project in config.")
+        logger.error("  Set default: crucible config set current_project YOUR_PROJECT_ID")
+        sys.exit(1)
 
     # Expand wildcards in input files
     import glob
@@ -346,10 +341,12 @@ def execute(args):
     logger.info("\n=== Dataset Information ===")
 
     # Project and Parser
-    if project_from_config:
-        logger.info(f"Project: {project_id} (from config)")
-    else:
-        logger.info(f"Project: {project_id}")
+    project_context = {
+        'shell': 'active project',
+        'config': 'from config',
+    }.get(project_source)
+    suffix = f" ({project_context})" if project_context else ''
+    logger.info(f"Project: {project_id}{suffix}")
     logger.info(f"Parser: {ParserClass.__name__}")
 
     # Dataset properties

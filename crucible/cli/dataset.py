@@ -315,7 +315,7 @@ Examples:
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses config current_project if not specified)'
+        help='Crucible project ID (uses the active shell project or configured default if omitted)'
     )
     parser.add_argument(
         '-pid',
@@ -536,7 +536,7 @@ Examples:
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses config current_project if not specified)'
+        help='Crucible project ID (uses the active shell project or configured default if omitted)'
     )
     parser.add_argument(
         '-pid',
@@ -1492,7 +1492,7 @@ Examples:
         dest='project_id',
         default=None,
         metavar='ID',
-        help='Scope to a specific project',
+        help='Scope to a project (uses the active shell project or configured default if omitted)',
     )
     parser.add_argument(
         '--project', '-pid',
@@ -1517,8 +1517,9 @@ def _execute_search(args):
         fail("searching datasets", ValueError("Search term must be at least 3 characters."), args)
     from crucible.client import CrucibleClient
     try:
+        from .helpers import resolve_project_context
         client     = CrucibleClient()
-        project_id = args.project_id or _config.current_project or None
+        project_id, _ = resolve_project_context(args, args.project_id)
         results    = client.datasets.search(args.query, project_id=project_id,
                                             limit=args.limit)
         if getattr(args, 'json', False):
@@ -1751,15 +1752,16 @@ def _execute_list(args):
     """Execute the 'dataset list' subcommand."""
     from crucible.config import config
     from crucible.client import CrucibleClient
+    from .helpers import resolve_project_context
     project_id = args.project_id
     instrument_mfid = getattr(args, 'instrument_mfid', None)
     if project_id is None and instrument_mfid is None:
-        project_id = config.current_project
-        if project_id is None:
-            logger.error(
-                "Error: Project ID or instrument MFID required. Specify --project-id, "
-                "--instrument-mfid, or set current_project in config.")
-            sys.exit(1)
+        project_id, _ = resolve_project_context(args)
+    if project_id is None and instrument_mfid is None:
+        logger.error(
+            "Error: Project ID or instrument MFID required. Specify --project-id, "
+            "--instrument-mfid, or set current_project in config.")
+        sys.exit(1)
 
     # Build optional filters
     filters = {}
@@ -1893,16 +1895,11 @@ def _execute_get(args):
 def _execute_create(args):
     """Execute the 'dataset create' subcommand."""
     from crucible.parsers import get_parser, BaseParser
-    from crucible.config import config
-    # Get project_id
-    project_id = args.project_id
-    project_from_config = False
+    from .helpers import resolve_project_context
+    project_id, project_source = resolve_project_context(args, args.project_id)
     if project_id is None:
-        project_id = config.current_project
-        project_from_config = True
-        if project_id is None:
-            logger.error("Project ID required. Specify with --project-id or set current_project in config.")
-            sys.exit(1)
+        logger.error("Project ID required. Specify with --project-id or set current_project in config.")
+        sys.exit(1)
 
     # Validate the project exists before doing any expensive work
     from crucible.client import CrucibleClient as _CC
@@ -2032,7 +2029,11 @@ def _execute_create(args):
     _p = term.field_printer(14)
 
     term.header("Dataset")
-    proj_label = f"{project_id} {term.dim('(from config)')}" if project_from_config else project_id
+    project_context = {
+        'shell': 'active project',
+        'config': 'from config',
+    }.get(project_source)
+    proj_label = f"{project_id} {term.dim(f'({project_context})')}" if project_context else project_id
     _p("Project",     proj_label)
     _p("Parser",      ParserClass.__name__)
     _p("Name",        parser.dataset_name)

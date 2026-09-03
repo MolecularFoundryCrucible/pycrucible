@@ -299,3 +299,40 @@ def test_sample_create_reprompts_when_project_is_not_found(monkeypatch):
     sample = client.samples.create.call_args.args[0]
     assert sample.project_id == 'valid-project'
     assert client.projects.get.call_count == 2
+
+
+def test_sample_create_uses_active_shell_project_without_prompt(monkeypatch):
+    monkeypatch.setattr(
+        'builtins.input',
+        lambda prompt: pytest.fail(f'Unexpected prompt: {prompt}'),
+    )
+    client = SimpleNamespace(projects=SimpleNamespace(), samples=SimpleNamespace())
+    client.projects.get = MagicMock(return_value={
+        'unique_id': '0tkn2knjast3h0008nyq9zps2c',
+        'project_id': 'shell-project',
+    })
+    client.samples.create = MagicMock(return_value={
+        'unique_id': '0td7evvtg5wb90005k1j97ak94',
+        'sample_name': 'Sample',
+        'project_id': 'shell-project',
+    })
+    monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
+    monkeypatch.setattr(sample_cli, '_show_sample', lambda sample, client: None)
+
+    sample_cli._execute_create(SimpleNamespace(
+        name='Sample',
+        project_id=None,
+        description=None,
+        sample_type=None,
+        timestamp=None,
+        metadata=None,
+        public=False,
+        debug=False,
+        _shell_state={
+            'project': 'shell-project',
+            'project_override': 'shell-project',
+        },
+    ))
+
+    sample = client.samples.create.call_args.args[0]
+    assert sample.project_id == 'shell-project'
