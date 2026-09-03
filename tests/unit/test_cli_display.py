@@ -299,11 +299,18 @@ def test_shell_banner_is_packaged_and_uses_requested_colors():
     assert len(banner.splitlines()) == 14
     assert max(map(len, banner.splitlines())) == 31
     assert list(fragments) == [
-        ('fg:#ffffff', '.'),
-        ('fg:#031e2d', '%'),
-        ('fg:#ff6600', '='),
-        ('', ' '),
+        ('bg:#a8c4cd', ' '),
+        ('bg:#a8c4cd fg:#ffffff bold', '.'),
+        ('bg:#a8c4cd fg:#031e2d', '%'),
+        ('bg:#a8c4cd fg:#ff6600 bold', '='),
+        ('bg:#a8c4cd', '  '),
     ]
+
+
+def test_shell_banner_panel_has_consistent_width():
+    panel = shell_cli._shell_banner_panel('%%\n%')
+
+    assert panel.splitlines() == [' %% ', ' %  ']
 
 
 def test_shell_banner_is_skipped_on_narrow_terminals(monkeypatch):

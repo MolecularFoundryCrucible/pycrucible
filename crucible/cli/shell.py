@@ -111,16 +111,24 @@ try:
             return read_text('crucible.cli', 'crucible_ascii.txt').rstrip('\n')
         return files('crucible.cli').joinpath('crucible_ascii.txt').read_text().rstrip('\n')
 
+    def _shell_banner_panel(banner):
+        lines = banner.splitlines()
+        width = max(map(len, lines), default=0)
+        return '\n'.join(f' {line.ljust(width)} ' for line in lines)
+
     def _shell_banner_fragments(banner):
         from prompt_toolkit.formatted_text import FormattedText
 
+        panel = _shell_banner_panel(banner)
+        background = f'bg:{_BRAND_LIGHT_BLUE}'
         styles = {
-            '.': f'fg:{_BRAND_WHITE}',
-            '%': f'fg:{_BRAND_DARK_BLUE}',
-            '=': f'fg:{_BRAND_ORANGE}',
+            '.': f'{background} fg:{_BRAND_WHITE} bold',
+            '%': f'{background} fg:{_BRAND_DARK_BLUE}',
+            '=': f'{background} fg:{_BRAND_ORANGE} bold',
+            ' ': background,
         }
         fragments = []
-        for character in banner:
+        for character in panel:
             style = styles.get(character, '')
             if fragments and fragments[-1][0] == style:
                 previous_style, previous_text = fragments[-1]
@@ -134,7 +142,7 @@ try:
             return False
         banner = _load_shell_banner()
         if not term.color_enabled():
-            print(banner)
+            print(_shell_banner_panel(banner))
             return True
         from prompt_toolkit import print_formatted_text
         print_formatted_text(
