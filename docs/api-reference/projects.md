@@ -19,6 +19,6 @@ Access via `client.projects`.
         - list_access
         - set_access
         - revoke_access
-        - set_public
-        - unset_public
+        - publish
+        - unpublish
         - transfer_ownership

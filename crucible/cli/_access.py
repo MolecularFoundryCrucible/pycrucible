@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Shared CLI wiring for the generic /resources/{mfid}/access/... ACL surface
-(BaseResource.list_access/set_access/revoke_access/set_public/unset_public).
+(BaseResource.list_access/set_access/revoke_access/publish/unpublish).
 
 Reused by dataset.py, sample.py, instrument.py, and project.py - each calls
 register_access_commands() with its own subparsers and the CrucibleClient
@@ -131,7 +131,7 @@ def _execute_revoke(args):
 def _execute_publish(args):
     try:
         ops = _ops(args)
-        ops.set_public(args.resource_id)
+        ops.publish(args.resource_id)
         term.success(f"{args.resource_id} is now publicly viewable", args)
     except Exception as e:
         fail("publishing resource", e, args)
@@ -140,7 +140,7 @@ def _execute_publish(args):
 def _execute_unpublish(args):
     try:
         ops = _ops(args)
-        ops.unset_public(args.resource_id)
+        ops.unpublish(args.resource_id)
         term.success(f"Public access removed from {args.resource_id}", args)
     except Exception as e:
         fail("unpublishing resource", e, args)
