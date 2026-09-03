@@ -32,7 +32,7 @@ _BRAND_LIGHT_BLUE = '#a8c4cd'
 _BRAND_ORANGE = '#ff6600'
 _BRAND_WHITE = '#ffffff'
 _BANNER_MIN_WIDTH = 36
-_BANNER_VERTICAL_PADDING = 2
+_BANNER_VERTICAL_PADDING = 1
 
 
 def _get_subparser_map(parser):
@@ -115,8 +115,8 @@ try:
     def _shell_banner_panel(banner):
         lines = banner.splitlines()
         width = max(map(len, lines), default=0)
-        content = [f' {line.ljust(width)}  ' for line in lines]
-        blank = ' ' * (width + 3)
+        content = [f'{line.ljust(width)}  ' for line in lines]
+        blank = ' ' * (width + 2)
         padding = [blank] * _BANNER_VERTICAL_PADDING
         return '\n'.join(padding + content + padding)
 

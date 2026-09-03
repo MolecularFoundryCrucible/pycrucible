@@ -307,8 +307,18 @@ def test_shell_banner_panel_has_consistent_width():
     panel = shell_cli._shell_banner_panel('%%\n%')
 
     lines = panel.splitlines()
-    assert lines == ['     ', '     ', ' %%  ', ' %   ', '     ', '     ']
-    assert {len(line) for line in lines} == {5}
+    assert lines == ['    ', '%%  ', '%   ', '    ']
+    assert {len(line) for line in lines} == {4}
+
+
+def test_shell_banner_panel_has_requested_edge_padding():
+    lines = shell_cli._shell_banner_panel(shell_cli._load_shell_banner()).splitlines()
+
+    assert not lines[0].strip()
+    assert not lines[-1].strip()
+    assert lines[2].startswith('  %')
+    assert not lines[2].startswith('   %')
+    assert lines[2].endswith('  ')
 
 
 def test_shell_banner_orange_uses_row_context():
