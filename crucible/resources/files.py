@@ -147,13 +147,27 @@ class FileOperations(BaseResource):
                           ingestion_class: Optional[str] = None,
                           wait_for_response: bool = False) -> Dict:
         
-        '''Request ingestion of an uploaded file or record local parsing details. '''
-        
-        # public facing ingestion request assumes cloud request
+        """Request ingestion of an uploaded file.
+
+        Args:
+            file_id: File MFID
+            ingestion_class: Ingestion class for the worker (e.g. 'lammps', 'nexus').
+                Defaults to the server-side default if omitted.
+            wait_for_response: Block until ingestion completes.
+
+        Returns:
+            Dict: IngestionRequest record (id, status, ...)
+        """
         params = {'ingestion_class': ingestion_class,
                   'status':'requested'}
-        
+
+        logger.info(f"Requesting ingestion for file {file_id}"
+                    + (f" (class={ingestion_class})" if ingestion_class else ""))
+
         ingestion_request = self._request('post', f'/files/{file_id}/ingest', params=params)
+
+        logger.debug(f"Ingestion request created: id={ingestion_request.get('id')}, "
+                     f"status={ingestion_request.get('status')}")
 
         if wait_for_response and ingestion_request:
             self._client._wait_for_request_completion(ingestion_request['id'])
