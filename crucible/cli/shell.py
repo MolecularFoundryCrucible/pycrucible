@@ -30,11 +30,17 @@ _PROMPT = "crucible> "
 _BRAND_DARK_BLUE = '#031e2d'
 _BRAND_LIGHT_BLUE = '#a8c4cd'
 _BRAND_ORANGE = '#ff6600'
-_BRAND_WHITE = '#ffffff'
+_BRAND_OFF_WHITE = '#eeeeee'
 _BANNER_MIN_WIDTH = 36
 _BANNER_VERTICAL_PADDING = 1
-_BANNER_ACCENT_GLYPHS = frozenset('=▄█▒')
-_BANNER_DETAIL_GLYPHS = frozenset('.■')
+_BANNER_PIXEL_WIDTH = 2
+_BANNER_PIXEL_COLORS = {
+    '_': _BRAND_LIGHT_BLUE,
+    '%': _BRAND_DARK_BLUE,
+    '=': _BRAND_ORANGE,
+    '.': _BRAND_OFF_WHITE,
+    ':': _BRAND_OFF_WHITE,
+}
 
 
 def _get_subparser_map(parser):
@@ -114,58 +120,62 @@ try:
             return read_text('crucible.cli', 'crucible_ascii.txt').rstrip('\n')
         return files('crucible.cli').joinpath('crucible_ascii.txt').read_text().rstrip('\n')
 
-    def _shell_banner_panel(banner):
+    def _shell_banner_rows(banner):
         lines = banner.splitlines()
         width = max(map(len, lines), default=0)
-        content = [f'{line.ljust(width)}  ' for line in lines]
-        blank = ' ' * (width + 2)
+        content = [f'_{line.ljust(width, "_")}_' for line in lines]
+        blank = '_' * (width + 2)
         padding = [blank] * _BANNER_VERTICAL_PADDING
-        return '\n'.join(padding + content + padding)
+        return padding + content + padding
 
-    def _shell_banner_fragments(banner):
+    def _shell_banner_panel(banner):
+        visible_pixels = frozenset('%=')
+        return '\n'.join(
+            ''.join(
+                ('██' if pixel in visible_pixels else ' ' * _BANNER_PIXEL_WIDTH)
+                for pixel in row
+            )
+            for row in _shell_banner_rows(banner)
+        )
+
+    def _shell_banner_left_margin(panel, columns):
+        width = max((_vlen(line) for line in panel.splitlines()), default=0)
+        return max((columns - width) // 2, 0)
+
+    def _shell_banner_fragments(banner, left_margin=0):
         from prompt_toolkit.formatted_text import FormattedText
 
-        panel = _shell_banner_panel(banner)
-        background = f'bg:{_BRAND_LIGHT_BLUE}'
-        detail_style = f'bg:{_BRAND_DARK_BLUE} fg:{_BRAND_WHITE} bold'
-        dark_blue_style = f'bg:{_BRAND_DARK_BLUE} fg:{_BRAND_DARK_BLUE}'
         fragments = []
-        row = 0
-        for character in panel:
-            if character in _BANNER_ACCENT_GLYPHS:
-                accent_background = (
-                    _BRAND_LIGHT_BLUE
-                    if row == _BANNER_VERTICAL_PADDING
-                    else _BRAND_DARK_BLUE
-                )
-                style = f'bg:{accent_background} fg:{_BRAND_ORANGE} bold'
-            elif character in _BANNER_DETAIL_GLYPHS:
-                style = detail_style
-            elif character == '%':
-                style = dark_blue_style
-            elif character == ' ':
-                style = background
-            else:
-                style = ''
-            if fragments and fragments[-1][0] == style:
-                previous_style, previous_text = fragments[-1]
-                fragments[-1] = (previous_style, previous_text + character)
-            else:
-                fragments.append((style, character))
-            if character == '\n':
-                row += 1
+        rows = _shell_banner_rows(banner)
+        for row_index, row in enumerate(rows):
+            if left_margin:
+                fragments.append(('', ' ' * left_margin))
+            for pixel in row:
+                color = _BANNER_PIXEL_COLORS.get(pixel)
+                style = f'bg:{color}' if color else ''
+                text = ' ' * _BANNER_PIXEL_WIDTH if color else pixel * _BANNER_PIXEL_WIDTH
+                if fragments and fragments[-1][0] == style:
+                    previous_style, previous_text = fragments[-1]
+                    fragments[-1] = (previous_style, previous_text + text)
+                else:
+                    fragments.append((style, text))
+            if row_index < len(rows) - 1:
+                fragments.append(('', '\n'))
         return FormattedText(fragments)
 
     def _print_shell_banner(columns):
         if columns < _BANNER_MIN_WIDTH:
             return False
         banner = _load_shell_banner()
+        panel = _shell_banner_panel(banner)
+        left_margin = _shell_banner_left_margin(panel, columns)
         if not term.color_enabled():
-            print(_shell_banner_panel(banner))
+            prefix = ' ' * left_margin
+            print('\n'.join(f'{prefix}{line}' for line in panel.splitlines()))
             return True
         from prompt_toolkit import print_formatted_text
         print_formatted_text(
-            _shell_banner_fragments(banner),
+            _shell_banner_fragments(banner, left_margin=left_margin),
             color_depth=_shell_color_depth(),
         )
         return True

@@ -4,7 +4,7 @@
 
 ### Added
 
-- The interactive shell displays a compact colorized Crucible banner on a light-blue panel on terminals wide enough to show it.
+- The interactive shell displays a centered compact pixel-art Crucible banner on a light-blue panel on terminals wide enough to show it.
 - Sample responses expose a typed project reference when supplied by the API, while retaining the flat project ID fallback.
 - Dataset responses expose typed project and instrument references with canonical MFIDs while retaining legacy flat fields.
 - The CLI supports `--no-color` and the standard `NO_COLOR` environment variable.
