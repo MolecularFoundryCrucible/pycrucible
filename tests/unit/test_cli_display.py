@@ -292,6 +292,30 @@ def test_shell_leaves_color_depth_automatic_without_true_color(monkeypatch):
     assert shell_cli._shell_color_depth() is None
 
 
+def test_shell_banner_is_packaged_and_uses_requested_colors():
+    banner = shell_cli._load_shell_banner()
+    fragments = shell_cli._shell_banner_fragments('.%= ')
+
+    assert len(banner.splitlines()) == 14
+    assert max(map(len, banner.splitlines())) == 31
+    assert list(fragments) == [
+        ('fg:#ffffff', '.'),
+        ('fg:#031e2d', '%'),
+        ('fg:#ff6600', '='),
+        ('', ' '),
+    ]
+
+
+def test_shell_banner_is_skipped_on_narrow_terminals(monkeypatch):
+    monkeypatch.setattr(
+        shell_cli,
+        '_load_shell_banner',
+        lambda: pytest.fail('Narrow terminals should not load the banner.'),
+    )
+
+    assert shell_cli._print_shell_banner(35) is False
+
+
 def test_shell_toolbar_marks_custom_api_and_debug(monkeypatch):
     from prompt_toolkit.formatted_text import to_formatted_text
 

@@ -160,6 +160,8 @@ Use bold cyan underlined text for the selected resource in graph displays. Do no
 
 The interactive shell toolbar uses the Crucible brand palette: dark blue `#031e2d` as its base, light blue `#a8c4cd` for normal text and the project block, and orange `#ff6600` for separators and attention states. Staging and custom API endpoints use the orange attention color, as does the debug badge. Use 24-bit color when `COLORTERM` reports `truecolor` or `24bit`, respect an explicit `PROMPT_TOOLKIT_COLOR_DEPTH`, and retain Prompt Toolkit's fallback for other terminals. Keep autocomplete menus plain with the terminal's normal foreground, background, and selection styling; only completion keys are bold and metadata is dim.
 
+The interactive shell startup banner is a packaged text asset rather than an external user file. Render `.` in white, `%` in Crucible dark blue, and `=` in Crucible orange. Show it only on an interactive terminal at least 36 columns wide, and render it without color when color is disabled.
+
 ## Interactive prompts
 
 Use the shared helpers in `cli.helpers` instead of calling `input()` directly for creation and configuration fields.

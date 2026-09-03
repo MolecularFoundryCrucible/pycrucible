@@ -30,6 +30,8 @@ _PROMPT = "crucible> "
 _BRAND_DARK_BLUE = '#031e2d'
 _BRAND_LIGHT_BLUE = '#a8c4cd'
 _BRAND_ORANGE = '#ff6600'
+_BRAND_WHITE = '#ffffff'
+_BANNER_MIN_WIDTH = 36
 
 
 def _get_subparser_map(parser):
@@ -100,6 +102,46 @@ try:
         if os.environ.get('COLORTERM', '').lower() in ('truecolor', '24bit'):
             return ColorDepth.DEPTH_24_BIT
         return None
+
+    def _load_shell_banner():
+        try:
+            from importlib.resources import files
+        except ImportError:
+            from importlib.resources import read_text
+            return read_text('crucible.cli', 'crucible_ascii.txt').rstrip('\n')
+        return files('crucible.cli').joinpath('crucible_ascii.txt').read_text().rstrip('\n')
+
+    def _shell_banner_fragments(banner):
+        from prompt_toolkit.formatted_text import FormattedText
+
+        styles = {
+            '.': f'fg:{_BRAND_WHITE}',
+            '%': f'fg:{_BRAND_DARK_BLUE}',
+            '=': f'fg:{_BRAND_ORANGE}',
+        }
+        fragments = []
+        for character in banner:
+            style = styles.get(character, '')
+            if fragments and fragments[-1][0] == style:
+                previous_style, previous_text = fragments[-1]
+                fragments[-1] = (previous_style, previous_text + character)
+            else:
+                fragments.append((style, character))
+        return FormattedText(fragments)
+
+    def _print_shell_banner(columns):
+        if columns < _BANNER_MIN_WIDTH:
+            return False
+        banner = _load_shell_banner()
+        if not term.color_enabled():
+            print(banner)
+            return True
+        from prompt_toolkit import print_formatted_text
+        print_formatted_text(
+            _shell_banner_fragments(banner),
+            color_depth=_shell_color_depth(),
+        )
+        return True
 
     class _CrucibleCompleter(Completer):
         """Three-level argparse completer: resource -> subcommand -> flags."""
@@ -1456,6 +1498,8 @@ class CrucibleShell:
 
         info = self._verify_connection()
         self._init_state(info)
+
+        _print_shell_banner(shutil.get_terminal_size((80, 24)).columns)
 
         _u     = info.get('user_info', {})
         _first = _u.get('first_name', '').strip() or \
