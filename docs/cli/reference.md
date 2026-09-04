@@ -38,6 +38,7 @@ Running `crucible` without a command starts the interactive shell. See the [CLI 
 | `dataset remove-sample MFID` | Unlink a sample from a dataset |
 | `dataset list-samples MFID` | List samples linked to a dataset |
 | `dataset add-file MFID FILE` | Upload files to an existing dataset |
+| `dataset add-thumbnail MFID IMAGE` | Encode and add a local image as a dataset thumbnail |
 | `dataset list-files MFID` | List associated files and available download links |
 | `dataset download MFID` | Download dataset files with optional include and exclude patterns |
 | `dataset ingestion MFID` | Show ingestion requests for a dataset |

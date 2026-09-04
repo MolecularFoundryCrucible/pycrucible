@@ -275,6 +275,7 @@ def register_subcommand(subparsers):
     _register_list_samples(dataset_subparsers)
     _register_download(dataset_subparsers)
     _register_add_file(dataset_subparsers)
+    _register_add_thumbnail(dataset_subparsers)
     _register_list_files(dataset_subparsers)
     _register_ingestion(dataset_subparsers)
     _register_search(dataset_subparsers)
@@ -1379,6 +1380,66 @@ def _execute_add_file(args):
     except Exception as e:
         from .helpers import fail
         fail("uploading file(s)", e, args)
+
+
+def _register_add_thumbnail(subparsers):
+    """Register the 'dataset add-thumbnail' subcommand."""
+    parser = subparsers.add_parser(
+        'add-thumbnail',
+        help='Add a thumbnail to an existing dataset',
+        description='Encode a local image and add it as a dataset thumbnail',
+        formatter_class=term.ColorHelpFormatter,
+        epilog="""
+Examples:
+    crucible dataset add-thumbnail DATASET_MFID preview.png
+    crucible dataset add-thumbnail DATASET_MFID preview.png --name overview.png
+""",
+    )
+    dataset_mfid_arg = parser.add_argument(
+        'dataset_mfid',
+        metavar='DATASET_MFID',
+        help='Dataset MFID',
+    )
+    if ARGCOMPLETE_AVAILABLE:
+        dataset_mfid_arg.completer = argcomplete.completers.SuppressCompleter()
+    image_arg = parser.add_argument(
+        'image',
+        metavar='IMAGE',
+        help='Path to the local thumbnail image',
+    )
+    if ARGCOMPLETE_AVAILABLE:
+        image_arg.completer = FilesCompleter()
+    parser.add_argument(
+        '--name',
+        metavar='NAME',
+        help='Thumbnail name stored by the API (default: local filename)',
+    )
+    parser.set_defaults(func=_execute_add_thumbnail)
+
+
+def _execute_add_thumbnail(args):
+    """Execute the 'dataset add-thumbnail' subcommand."""
+    from crucible.client import CrucibleClient
+
+    try:
+        image_path = Path(args.image).expanduser()
+        if not image_path.is_file():
+            raise FileNotFoundError(f"Thumbnail image not found: {image_path}")
+
+        client = CrucibleClient()
+        client.datasets.add_thumbnail(
+            args.dataset_mfid,
+            str(image_path),
+            thumbnail_name=args.name,
+        )
+        thumbnail_name = args.name or image_path.name
+        term.success(
+            f"Added thumbnail {thumbnail_name} to dataset {args.dataset_mfid}",
+            args,
+        )
+    except Exception as e:
+        from .helpers import fail
+        fail("adding dataset thumbnail", e, args)
 
 
 def _register_list_files(subparsers):

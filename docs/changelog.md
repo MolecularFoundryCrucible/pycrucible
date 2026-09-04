@@ -4,6 +4,8 @@
 
 ### Added
 
+- `client.datasets.update_thumbnail()` renames or replaces an existing dataset thumbnail.
+- `crucible dataset add-thumbnail` adds a local image as a thumbnail for an existing dataset.
 - The interactive shell displays a centered compact pixel-art Crucible banner on a light-blue panel on terminals wide enough to show it.
 - Sample responses expose a typed project reference when supplied by the API, while retaining the flat project ID fallback.
 - Dataset responses expose typed project and instrument references with canonical MFIDs while retaining legacy flat fields.
@@ -14,6 +16,7 @@
 
 ### Changed
 
+- Dataset thumbnail create, list, and update responses expose the API-provided authoritative MIME type.
 - Instrument search results now show the user-facing instrument ID instead of manufacturer metadata.
 - `crucible dataset create` can create a dataset record without `--input`; file-dependent options still require at least one input file.
 - Dataset and sample relationship methods now consistently use `link`, `unlink`, `link_sample`, `unlink_sample`, `link_dataset`, and `unlink_dataset`; previous method names remain as deprecated wrappers.

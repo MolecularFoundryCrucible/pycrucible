@@ -272,9 +272,34 @@ keywords = client.datasets.get_keywords(dataset_mfid=dataset_mfid)
 ## Thumbnails
 
 ```python
-client.datasets.add_thumbnail(dataset_mfid, "preview.png")
+thumbnail = client.datasets.add_thumbnail(dataset_mfid, "preview.png")
 thumbnails = client.datasets.get_thumbnails(dataset_mfid)
+
+print(thumbnail["id"])
+print(thumbnail["mime_type"])
+
+client.datasets.update_thumbnail(
+    dataset_mfid,
+    thumbnail["id"],
+    thumbnail_name="overview.png",
+)
+
+client.datasets.update_thumbnail(
+    dataset_mfid,
+    thumbnail["id"],
+    image="replacement.png",
+)
 ```
+
+Thumbnail create, list, and update responses contain `id`, `dataset_id`, `thumbnail_name`, `thumbnail_b64str`, and the authoritative `mime_type`. The API currently normalizes stored thumbnails to JPEG, regardless of the extension in the user-facing thumbnail name.
+
+From the CLI, add a local image with:
+
+```bash
+crucible dataset add-thumbnail DATASET_MFID preview.png
+```
+
+Use `--name NAME` to override the thumbnail name stored by the API.
 
 ## Downloading
 

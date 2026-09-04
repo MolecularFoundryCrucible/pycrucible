@@ -142,6 +142,27 @@ def test_dataset_create_without_files_uses_direct_client(monkeypatch):
     )
 
 
+def test_dataset_add_thumbnail_dispatches_local_image(monkeypatch, tmp_path, capsys):
+    image_path = tmp_path / 'preview.png'
+    image_path.write_bytes(b'png bytes')
+    client = MagicMock()
+    monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
+    args = make_parser(dataset).parse_args([
+        'dataset', 'add-thumbnail',
+        '0tkn2knjast3h0008nyq9zps2c', str(image_path),
+        '--name', 'overview.png',
+    ])
+
+    args.func(args)
+
+    client.datasets.add_thumbnail.assert_called_once_with(
+        '0tkn2knjast3h0008nyq9zps2c',
+        str(image_path),
+        thumbnail_name='overview.png',
+    )
+    assert 'Added thumbnail overview.png' in capsys.readouterr().out
+
+
 @pytest.mark.parametrize(
     ('module', 'command', 'visible', 'hidden'),
     [

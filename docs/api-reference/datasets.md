@@ -24,6 +24,7 @@ File operations are also available via `client.files` (by MFID) and ingestion vi
         - search_metadata
         - add_thumbnail
         - get_thumbnails
+        - update_thumbnail
         - delete_thumbnail
         - add_keyword
         - get_keywords
