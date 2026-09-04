@@ -41,6 +41,7 @@
 
 ### Fixed
 
+- Documentation navigation tabs now remain visible while scrolling using MkDocs Material's native sticky-tabs behavior.
 - Instrument creation no longer sends inherited response-only fields rejected by API v3.
 
 ## 3.2.0
