@@ -39,8 +39,8 @@ The equivalent CLI command is `crucible dataset list --instrument-mfid 0tkn2knja
 | **Files** | `files` in `create()`; `add_file(dataset_mfid, file_path)` to add later | Zero or more files can be attached to a dataset. Each file is uploaded to cloud storage and triggers an ingestion process to parse metadata and generate thumbnails. |
 | **Scientific metadata** | `scientific_metadata` in `create()`; `metadata` in `update_scientific_metadata()` / `replace_scientific_metadata()` | A free-form JSON object for experiment-specific parameters. Stored separately from structured fields and searchable across datasets. |
 | **Thumbnails** | `add_thumbnail(dataset_mfid, image)` | Small preview images representing the data or results. Generated automatically by ingestors where supported, or uploaded manually. |
-| **Samples** | `sample_mfid` in `add_sample(dataset_mfid, sample_mfid)` | A dataset can be linked to one or more samples, and a sample to one or more datasets, capturing which material was measured. |
-| **Parent/child datasets** | `parent_mfid`, `child_mfid` in `link_parent_child()` | Datasets can be linked in a directed hierarchy to represent processing pipelines, such as raw to calibrated to analyzed. |
+| **Samples** | `sample_mfid` in `link_sample(dataset_mfid, sample_mfid)` | A dataset can be linked to one or more samples, and a sample to one or more datasets, capturing which material was measured. |
+| **Parent/child datasets** | `parent_mfid`, `child_mfid` in `link()` | Datasets can be linked in a directed hierarchy to represent processing pipelines, such as raw to calibrated to analyzed. |
 
 # Working with Datasets
 ## Creating a dataset
@@ -288,7 +288,7 @@ Link datasets to represent a processing pipeline:
 
 ```python
 # raw → processed
-client.datasets.link_parent_child(
+client.datasets.link(
     parent_mfid=raw_dataset_mfid,
     child_mfid=processed_dataset_mfid,
 )

@@ -11,7 +11,7 @@ from typing import Optional, List, Dict, Sequence, Union
 from .base import BaseResource
 from .capabilities import AccessControlMixin, OwnershipMixin, ProjectAssignmentMixin
 from ..constants import DEFAULT_LIMIT, API_PAGE_MAX
-from ..utils.deprecation import _deprecated_parameter
+from ..utils.deprecation import _deprecated, _deprecated_parameter
 from ..utils.identifiers import is_mfid, require_canonical_identifier
 
 logger = logging.getLogger(__name__)
@@ -342,12 +342,10 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
 
         return upd_samp
 
-    @_deprecated_parameter('sample_id', 'sample_mfid')
-    @_deprecated_parameter('dataset_id', 'dataset_mfid')
-    def add_dataset(self, sample_mfid: str, dataset_mfid: str) -> Dict:
+    def link_dataset(self, sample_mfid: str, dataset_mfid: str) -> Dict:
         """Link a dataset to this sample.
 
-        Delegates to DatasetOperations.add_sample — single implementation.
+        Delegates to DatasetOperations.link_sample.
 
         Args:
             sample_mfid (str): Sample MFID
@@ -356,11 +354,9 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         Returns:
             Dict: Information about the created link
         """
-        return self._client.datasets.add_sample(dataset_mfid, sample_mfid)
+        return self._client.datasets.link_sample(dataset_mfid, sample_mfid)
 
-    @_deprecated_parameter('sample_id', 'sample_mfid')
-    @_deprecated_parameter('dataset_id', 'dataset_mfid')
-    def remove_dataset(self, sample_mfid: str, dataset_mfid: str) -> Dict:
+    def unlink_dataset(self, sample_mfid: str, dataset_mfid: str) -> Dict:
         """Remove the link between a sample and a dataset.
 
         **Requires admin permissions.**
@@ -372,42 +368,40 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         Returns:
             Dict: Deletion confirmation
         """
-        return self._client.datasets.remove_sample(dataset_mfid, sample_mfid)
+        return self._client.datasets.unlink_sample(dataset_mfid, sample_mfid)
 
+    @_deprecated("client.samples.link_dataset()")
+    @_deprecated_parameter('sample_id', 'sample_mfid')
+    @_deprecated_parameter('dataset_id', 'dataset_mfid')
+    def add_dataset(self, sample_mfid: str, dataset_mfid: str) -> Dict:
+        """Deprecated: use link_dataset(sample_mfid, dataset_mfid) instead."""
+        return self.link_dataset(sample_mfid, dataset_mfid)
+
+    @_deprecated("client.samples.unlink_dataset()")
+    @_deprecated_parameter('sample_id', 'sample_mfid')
+    @_deprecated_parameter('dataset_id', 'dataset_mfid')
+    def remove_dataset(self, sample_mfid: str, dataset_mfid: str) -> Dict:
+        """Deprecated: use unlink_dataset(sample_mfid, dataset_mfid) instead."""
+        return self.unlink_dataset(sample_mfid, dataset_mfid)
+
+    @_deprecated("client.samples.link_dataset()")
     def add_to_dataset(self, dataset_id: str, sample_id: str) -> Dict:
-        """Deprecated: use add_dataset(sample_mfid, dataset_mfid) instead."""
-        import warnings
-        warnings.warn(
-            "add_to_dataset() is deprecated; use add_dataset(sample_mfid, dataset_mfid) instead.",
-            DeprecationWarning, stacklevel=2,
-        )
-        return self.add_dataset(sample_id, dataset_id)
+        """Deprecated: use link_dataset(sample_mfid, dataset_mfid) instead."""
+        return self.link_dataset(sample_id, dataset_id)
 
+    @_deprecated("client.samples.unlink_dataset()")
     def remove_from_dataset(self, dataset_id: str, sample_id: str) -> Dict:
-        """Deprecated: use remove_dataset(sample_mfid, dataset_mfid) instead."""
-        import warnings
-        warnings.warn(
-            "remove_from_dataset() is deprecated; use remove_dataset(sample_mfid, dataset_mfid) instead.",
-            DeprecationWarning, stacklevel=2,
-        )
-        return self.remove_dataset(sample_id, dataset_id)
+        """Deprecated: use unlink_dataset(sample_mfid, dataset_mfid) instead."""
+        return self.unlink_dataset(sample_id, dataset_id)
 
+    @_deprecated("client.samples.unlink()")
     @_deprecated_parameter('parent_id', 'parent_mfid')
     @_deprecated_parameter('parent_sample_mfid', 'parent_mfid')
     @_deprecated_parameter('child_id', 'child_mfid')
     @_deprecated_parameter('child_sample_mfid', 'child_mfid')
     def remove_child(self, parent_mfid: str, child_mfid: str) -> Dict:
-        """Remove the parent-child link between two samples.
-
-        Args:
-            parent_mfid (str): Parent sample MFID
-            child_mfid (str): Child sample MFID
-
-        Returns:
-            Dict: Deletion confirmation
-        """
-        return self._request(
-            'delete', f"/samples/{parent_mfid}/children/{child_mfid}")
+        """Deprecated: use unlink(parent_mfid, child_mfid) instead."""
+        return self.unlink(parent_mfid, child_mfid)
 
     @_deprecated_parameter('parent_id', 'parent_mfid')
     @_deprecated_parameter('parent_sample_mfid', 'parent_mfid')
@@ -425,6 +419,19 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         """
         return self._request(
             'post', f"/samples/{parent_mfid}/children/{child_mfid}")
+
+    def unlink(self, parent_mfid: str, child_mfid: str) -> Dict:
+        """Remove the parent-child link between two samples.
+
+        Args:
+            parent_mfid (str): Parent sample MFID
+            child_mfid (str): Child sample MFID
+
+        Returns:
+            Dict: Deletion confirmation
+        """
+        return self._request(
+            'delete', f"/samples/{parent_mfid}/children/{child_mfid}")
 
     def search(self, q: str, project_id: Optional[str] = None,
                limit: int = 20) -> List[Dict]:

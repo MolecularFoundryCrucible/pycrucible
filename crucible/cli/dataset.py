@@ -1041,7 +1041,7 @@ def _execute_add_sample(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        client.datasets.add_sample(args.dataset_id, args.sample)
+        client.datasets.link_sample(args.dataset_id, args.sample)
 
         term.success(f"Linked sample {args.sample} to dataset {args.dataset_id}", args)
 
@@ -1072,7 +1072,7 @@ def _execute_remove_sample(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        client.datasets.remove_sample(args.dataset_id, args.sample)
+        client.datasets.unlink_sample(args.dataset_id, args.sample)
         term.success(f"Unlinked sample {args.sample} from dataset {args.dataset_id}", args)
     except Exception as e:
         from .helpers import fail
@@ -1101,7 +1101,7 @@ def _execute_remove_child(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        client.datasets.remove_child(args.parent_id, args.child)
+        client.datasets.unlink(args.parent_id, args.child)
         term.success(f"Unlinked child dataset {args.child} from parent dataset {args.parent_id}", args)
     except Exception as e:
         from .helpers import fail
@@ -2125,7 +2125,7 @@ def _execute_link(args):
     from crucible.client import CrucibleClient
     try:
         client = CrucibleClient()
-        client.datasets.link_parent_child(args.parent, args.child)
+        client.datasets.link(args.parent, args.child)
 
         term.success(f"Linked dataset {args.child} as child of {args.parent}", args)
 

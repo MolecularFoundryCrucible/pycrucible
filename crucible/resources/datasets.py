@@ -376,9 +376,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             'post', f'/datasets/{dataset_mfid}/keywords', params={'keyword': keyword})
 
     # Dataset Linking Methods
-    @_deprecated_parameter('dataset_id', 'dataset_mfid')
-    @_deprecated_parameter('sample_id', 'sample_mfid')
-    def add_sample(self, dataset_mfid: str, sample_mfid: str) -> Dict:
+    def link_sample(self, dataset_mfid: str, sample_mfid: str) -> Dict:
         """Link a sample to a dataset.
 
         Args:
@@ -390,9 +388,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         """
         return self._request('post', f"/datasets/{dataset_mfid}/samples/{sample_mfid}")
 
-    @_deprecated_parameter('dataset_id', 'dataset_mfid')
-    @_deprecated_parameter('sample_id', 'sample_mfid')
-    def remove_sample(self, dataset_mfid: str, sample_mfid: str) -> Dict:
+    def unlink_sample(self, dataset_mfid: str, sample_mfid: str) -> Dict:
         """Remove the link between a dataset and a sample.
 
         **Requires admin permissions.**
@@ -406,11 +402,20 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         """
         return self._request('delete', f"/datasets/{dataset_mfid}/samples/{sample_mfid}")
 
-    @_deprecated_parameter('parent_dataset_id', 'parent_mfid')
-    @_deprecated_parameter('parent_dataset_mfid', 'parent_mfid')
-    @_deprecated_parameter('child_dataset_id', 'child_mfid')
-    @_deprecated_parameter('child_dataset_mfid', 'child_mfid')
-    def remove_child(self, parent_mfid: str, child_mfid: str) -> Dict:
+    def link(self, parent_mfid: str, child_mfid: str) -> Dict:
+        """Link two datasets with a parent-child relationship.
+
+        Args:
+            parent_mfid (str): Parent dataset MFID
+            child_mfid (str): Child dataset MFID
+
+        Returns:
+            Dict: Information about the created link
+        """
+        return self._request(
+            'post', f"/datasets/{parent_mfid}/children/{child_mfid}")
+
+    def unlink(self, parent_mfid: str, child_mfid: str) -> Dict:
         """Remove the parent-child link between two datasets.
 
         Args:
@@ -423,23 +428,37 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         return self._request(
             'delete', f"/datasets/{parent_mfid}/children/{child_mfid}")
 
+    @_deprecated("client.datasets.link_sample()")
+    @_deprecated_parameter('dataset_id', 'dataset_mfid')
+    @_deprecated_parameter('sample_id', 'sample_mfid')
+    def add_sample(self, dataset_mfid: str, sample_mfid: str) -> Dict:
+        """Deprecated: use link_sample(dataset_mfid, sample_mfid) instead."""
+        return self.link_sample(dataset_mfid, sample_mfid)
+
+    @_deprecated("client.datasets.unlink_sample()")
+    @_deprecated_parameter('dataset_id', 'dataset_mfid')
+    @_deprecated_parameter('sample_id', 'sample_mfid')
+    def remove_sample(self, dataset_mfid: str, sample_mfid: str) -> Dict:
+        """Deprecated: use unlink_sample(dataset_mfid, sample_mfid) instead."""
+        return self.unlink_sample(dataset_mfid, sample_mfid)
+
+    @_deprecated("client.datasets.unlink()")
+    @_deprecated_parameter('parent_dataset_id', 'parent_mfid')
+    @_deprecated_parameter('parent_dataset_mfid', 'parent_mfid')
+    @_deprecated_parameter('child_dataset_id', 'child_mfid')
+    @_deprecated_parameter('child_dataset_mfid', 'child_mfid')
+    def remove_child(self, parent_mfid: str, child_mfid: str) -> Dict:
+        """Deprecated: use unlink(parent_mfid, child_mfid) instead."""
+        return self.unlink(parent_mfid, child_mfid)
+
+    @_deprecated("client.datasets.link()")
     @_deprecated_parameter('parent_dataset_id', 'parent_mfid')
     @_deprecated_parameter('parent_dataset_mfid', 'parent_mfid')
     @_deprecated_parameter('child_dataset_id', 'child_mfid')
     @_deprecated_parameter('child_dataset_mfid', 'child_mfid')
     def link_parent_child(self, parent_mfid: str, child_mfid: str) -> Dict:
-        """Link a derived dataset to a parent dataset.
-
-        Args:
-            parent_mfid (str): Parent dataset MFID
-            child_mfid (str): Derived dataset MFID
-
-        Returns:
-            Dict: Information about the created link
-        """
-        new_link = self._request(
-            'post', f"/datasets/{parent_mfid}/children/{child_mfid}")
-        return new_link
+        """Deprecated: use link(parent_mfid, child_mfid) instead."""
+        return self.link(parent_mfid, child_mfid)
 
     @_deprecated_parameter('parent_dataset_id', 'parent_mfid')
     @_deprecated_parameter('parent_dataset_mfid', 'parent_mfid')
