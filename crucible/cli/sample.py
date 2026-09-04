@@ -6,6 +6,7 @@ Sample subcommand for Crucible CLI.
 Provides sample-related operations: list, get, create, link, etc.
 """
 
+import argparse
 import sys
 import json
 import logging
@@ -73,20 +74,31 @@ def _register_list(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible sample list -pid my-project
-    crucible sample list -pid my-project --type wafer
-    crucible sample list -pid my-project --group-by type
-    crucible sample list -pid my-project --include "Silicon*" "Wafer*"
-    crucible sample list -pid my-project --exclude "*test*" "*dummy*"
+    crucible sample list --project-id my-project
+    crucible sample list --project-id my-project --type wafer
+    crucible sample list --project-id my-project --group-by type
+    crucible sample list --project-id my-project --include "Silicon*" "Wafer*"
+    crucible sample list --project-id my-project --exclude "*test*" "*dummy*"
 """
     )
 
+    from .helpers import DeprecatedAliasAction
     parser.add_argument(
-        '-pid', '--project-id',
+        '--project-id', '-p',
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses config current_project if not specified)'
+        help='Crucible project ID (uses the saved current project if omitted)'
+    )
+    parser.add_argument(
+        '-pid',
+        action=DeprecatedAliasAction,
+        deprecated_options={'-pid'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(
@@ -214,8 +226,8 @@ Examples:
     crucible sample create
 
     # Command-line mode
-    crucible sample create -n "Silicon Wafer A" -pid my-project
-    crucible sample create -n "Sample 001" -pid my-project --description "Test sample" -t substrate
+    crucible sample create -n "Silicon Wafer A" --project-id my-project
+    crucible sample create -n "Sample 001" --project-id my-project --description "Test sample" --type substrate
 """
     )
 
@@ -227,12 +239,23 @@ Examples:
         help='Sample name. If not provided, will prompt interactively.'
     )
 
+    from .helpers import DeprecatedAliasAction
     parser.add_argument(
-        '-pid', '--project-id',
+        '--project-id', '-p',
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses config current_project if not specified)'
+        help='Crucible project ID (uses the saved current project if omitted)'
+    )
+    parser.add_argument(
+        '-pid',
+        action=DeprecatedAliasAction,
+        deprecated_options={'-pid'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(
@@ -243,11 +266,21 @@ Examples:
     )
 
     parser.add_argument(
-        '-t', '--sample-type',
+        '--type', '-t',
         dest='sample_type',
         default=None,
         metavar='TYPE',
         help='Sample type/category (optional)'
+    )
+    parser.add_argument(
+        '--sample-type',
+        action=DeprecatedAliasAction,
+        deprecated_options={'--sample-type'},
+        replacement='--type',
+        dest='sample_type',
+        default=argparse.SUPPRESS,
+        metavar='TYPE',
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(
@@ -497,7 +530,7 @@ Examples:
 
 def _edit_sample(sid, client, debug=False):
     """Core edit logic for a sample — shared with the top-level 'crucible edit' command."""
-    sample = client.samples.get(sid, include_metadata=True)
+    sample = client.samples.get(sid, include_metadata=True, include_datasets=False)
     if sample is None:
         logger.error(f"Sample not found: {sid}")
         sys.exit(1)
@@ -655,13 +688,11 @@ def _execute_list(args):
     """Execute the 'sample list' subcommand."""
     from crucible.config import config
     from crucible.client import CrucibleClient
-    # Get project_id
-    project_id = args.project_id
+    from .helpers import resolve_project_context
+    project_id, _ = resolve_project_context(args, args.project_id)
     if project_id is None:
-        project_id = config.current_project
-        if project_id is None:
-            logger.error("Error: Project ID required. Specify with -pid or set current_project in config.")
-            sys.exit(1)
+        logger.error("Error: Project ID required. Specify with --project-id or set current_project in config.")
+        sys.exit(1)
 
     filters = {}
     if args.name:
@@ -709,7 +740,7 @@ def _execute_list(args):
         if not samples:
             print(f"  {term.dim('No samples found.')}")
         else:
-            from .helpers import explorer_url
+            from .helpers import explorer_url, project_reference
 
             _GROUP_FIELD = {'type': 'sample_type', 'project': 'project_id'}
             group_by_key = args.group_by or config.sample_group_by or 'type'
@@ -717,7 +748,8 @@ def _execute_list(args):
 
             def _make_row(s):
                 uid = s.get('unique_id') or ''
-                pid = s.get('project_id') or project_id
+                _, referenced_project_id, _ = project_reference(s)
+                pid = referenced_project_id or project_id
                 return (
                     s.get('sample_name') or '(unnamed)',
                     term.mfid_link(uid, explorer_url(uid, pid, 'sample')) if uid else '-',
@@ -752,10 +784,11 @@ def _show_sample(sample, client, verbose=False, graph=False, include_metadata=Fa
     """Display sample fields. Extracted for reuse by top-level 'crucible get'."""
     _p = term.field_printer(14)
 
-    from .helpers import explorer_url
+    from .helpers import explorer_url, project_reference
 
     def _s_link(r):
-        u, p = r.get('unique_id'), r.get('project_id')
+        u = r.get('unique_id')
+        _, p, _ = project_reference(r)
         return term.mfid_link(u, explorer_url(u, p, 'sample'))
 
     term.header("Sample")
@@ -773,23 +806,38 @@ def _show_sample(sample, client, verbose=False, graph=False, include_metadata=Fa
             msg += '  ' + term.dim(f"(request #{rid})")
         print(f"  {msg}")
 
-    _p("Name",        sample.get('sample_name') or '(unnamed)')
+    project_title, project_id, project_url = project_reference(sample)
+    _p("Name",        term.bold(sample.get('sample_name') or '(unnamed)'))
     _p("MFID",        _s_link(sample))
     _p("Type",        sample.get('sample_type'))
-    _p("Public",      term.fmt_bool(sample.get('public')))
-    _p("Project",     sample.get('project_id'))
-    _p("Timestamp",   term.fmt_ts(sample.get('timestamp')))
-    _p("Owner",       term.fmt_owner(sample))
     _p("Description", sample.get('description'))
 
-    if verbose or graph:
+    if project_title or project_id:
+        term.subheader("Project")
+        if project_title:
+            _p("Title", term.navigation_link(project_title, project_url))
+        if project_id:
+            _p("Project ID", project_id)
+
+    term.subheader("Access")
+    _p("Owner",  term.fmt_owner(sample))
+    _p("Public", term.fmt_bool(sample.get('public')))
+
+    timing = (
+        ("Timestamp", sample.get('timestamp')),
+        ("Created", sample.get('creation_time')),
+        ("Modified", sample.get('modification_time')),
+    )
+    if any(value for _, value in timing):
         term.subheader("Timing")
-        _p("Created",  term.fmt_ts(sample.get('creation_time')))
-        _p("Modified", term.fmt_ts(sample.get('modification_time')))
+        for label, value in timing:
+            if value:
+                _p(label, term.fmt_ts(value))
 
     if graph:
         sid  = sample.get('unique_id')
-        proj = sample.get('project_id') or ''
+        _, proj, _ = project_reference(sample)
+        proj = proj or ''
 
         links_list = links if links is not None else sample.get('links')
         if links_list is None:
@@ -845,7 +893,8 @@ def _execute_get(args):
         graph  = getattr(args, 'graph', False)
         client = CrucibleClient()
         sample = client.samples.get(args.sample_id, include_links=graph or _config.include_links,
-                                    include_metadata=include_metadata, include_owner=True)
+                                    include_metadata=include_metadata, include_owner=True,
+                                    include_datasets=as_json)
         if sample is None:
             logger.error(f"Sample not found: {args.sample_id}")
             sys.exit(1)
@@ -867,15 +916,17 @@ def _execute_get(args):
 
 def _execute_create(args):
     """Execute the 'sample create' subcommand."""
-    from crucible.config import config
     from crucible.client import CrucibleClient
 
     from ..utils import parse_timestamp
     from ..utils.identifiers import IdentifierNotFoundError, validate_slug
-    from .helpers import fail, prompt_optional, prompt_required
+    from .helpers import fail, prompt_optional, prompt_required, resolve_project_context
 
     name        = args.name
-    project_id  = args.project_id   # never auto-fill from config here
+    project_id  = args.project_id
+    default_project, project_source = resolve_project_context(args, project_id)
+    if default_project:
+        project_id = default_project
     description = args.description
     sample_type = args.sample_type
     timestamp   = None
@@ -908,11 +959,10 @@ def _execute_create(args):
         name = prompt_required("Sample name", option='--name')
 
     if project_id is None:
-        default_proj = config.current_project
-        if default_proj:
+        if default_project:
             project_id = prompt_optional(
                 "Project ID",
-                default=default_proj,
+                default=default_project,
                 validator=validate_project_id,
                 option='--project-id',
             )
@@ -998,7 +1048,8 @@ def _execute_list_parents(args):
         if not parents:
             print(f"  {term.dim('No parent samples found.')}")
             return
-        rows = [(s.get('sample_name') or '(unnamed)', s.get('unique_id') or '-',
+        rows = [(s.get('sample_name') or '(unnamed)',
+                 term.cyan(s.get('unique_id')) if s.get('unique_id') else '-',
                  s.get('sample_type') or '-') for s in parents]
         term.table(rows, ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
     except Exception as e:
@@ -1017,7 +1068,8 @@ def _execute_list_children(args):
         if not children:
             print(f"  {term.dim('No child samples found.')}")
             return
-        rows = [(s.get('sample_name') or '(unnamed)', s.get('unique_id') or '-',
+        rows = [(s.get('sample_name') or '(unnamed)',
+                 term.cyan(s.get('unique_id')) if s.get('unique_id') else '-',
                  s.get('sample_type') or '-') for s in children]
         term.table(rows, ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
     except Exception as e:
@@ -1036,7 +1088,8 @@ def _execute_list_datasets(args):
         if not datasets:
             print(f"  {term.dim('No datasets linked.')}")
             return
-        rows = [(ds.get('dataset_name') or '(unnamed)', ds.get('unique_id') or '-',
+        rows = [(ds.get('dataset_name') or '(unnamed)',
+                 term.cyan(ds.get('unique_id')) if ds.get('unique_id') else '-',
                  ds.get('measurement') or '-') for ds in datasets]
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 15])
     except Exception as e:
@@ -1127,12 +1180,28 @@ def _register_search(subparsers):
         epilog="""
 Examples:
     crucible sample search silicon
-    crucible sample search "wafer" --project my-project
+    crucible sample search "wafer" --project-id my-project
 """,
     )
     parser.add_argument('query', metavar='QUERY', help='Search term (min 3 chars)')
-    parser.add_argument('--project', '-pid', dest='project_id', default=None, metavar='ID',
-                        help='Scope to a specific project')
+    from .helpers import DeprecatedAliasAction
+    parser.add_argument(
+        '--project-id', '-p',
+        dest='project_id',
+        default=None,
+        metavar='ID',
+        help='Scope to a project (uses the saved current project if omitted)',
+    )
+    parser.add_argument(
+        '--project', '-pid',
+        action=DeprecatedAliasAction,
+        deprecated_options={'--project', '-pid'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument('--limit', '-l', type=int, default=20, metavar='N',
                         help='Maximum results (default: 20, max: 50)')
     parser.add_argument('--json', action='store_true', default=False,
@@ -1146,8 +1215,9 @@ def _execute_search(args):
         fail("searching samples", ValueError("Search term must be at least 3 characters."), args)
     from crucible.client import CrucibleClient
     try:
+        from .helpers import resolve_project_context
         client     = CrucibleClient()
-        project_id = args.project_id or _config.current_project or None
+        project_id, _ = resolve_project_context(args, args.project_id)
         results    = client.samples.search(args.query, project_id=project_id,
                                            limit=args.limit)
         if getattr(args, 'json', False):
@@ -1157,11 +1227,12 @@ def _execute_search(args):
         if not results:
             print(f"  {term.dim('No results found.')}")
             return
-        from .helpers import explorer_url
+        from .helpers import explorer_url, project_reference
         rows = []
         for r in results:
             uid = r.get('unique_id') or ''
-            pid = r.get('project_id') or project_id or ''
+            _, referenced_project_id, _ = project_reference(r)
+            pid = referenced_project_id or project_id or ''
             rows.append((
                 r.get('sample_name') or '(unnamed)',
                 term.mfid_link(uid, explorer_url(uid, pid, 'sample')),

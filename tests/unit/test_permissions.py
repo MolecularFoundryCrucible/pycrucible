@@ -166,23 +166,42 @@ class TestRevokeAccess:
 
 
 class TestPublicAccess:
-    def test_set_public_no_permission_param(self, dataset_ops):
+    def test_publish_no_permission_param(self, dataset_ops):
         dataset_ops._request = MagicMock(return_value={
             'principal_id': 'public',
             'principal_type': 'public',
             'permission': 'viewer',
         })
 
-        dataset_ops.set_public('ds-1')
+        result = dataset_ops.publish('ds-1')
 
         dataset_ops._request.assert_called_once_with('put', '/resources/ds-1/access/public')
+        assert isinstance(result, AccessGrant)
 
-    def test_unset_public(self, dataset_ops):
+    def test_unpublish(self, dataset_ops):
         dataset_ops._request = MagicMock(return_value=None)
 
-        dataset_ops.unset_public('ds-1')
+        dataset_ops.unpublish('ds-1')
 
         dataset_ops._request.assert_called_once_with('delete', '/resources/ds-1/access/public')
+
+    def test_set_public_warns_and_publishes(self, dataset_ops):
+        dataset_ops.publish = MagicMock(return_value='grant')
+
+        with pytest.warns(DeprecationWarning, match=r'set_public\(\) is deprecated'):
+            result = dataset_ops.set_public('ds-1')
+
+        dataset_ops.publish.assert_called_once_with('ds-1')
+        assert result == 'grant'
+
+    def test_unset_public_warns_and_unpublishes(self, dataset_ops):
+        dataset_ops.unpublish = MagicMock(return_value={'detail': 'removed'})
+
+        with pytest.warns(DeprecationWarning, match=r'unset_public\(\) is deprecated'):
+            result = dataset_ops.unset_public('ds-1')
+
+        dataset_ops.unpublish.assert_called_once_with('ds-1')
+        assert result == {'detail': 'removed'}
 
 
 class TestEffectiveDatasetAccess:

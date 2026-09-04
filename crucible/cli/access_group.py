@@ -44,10 +44,12 @@ def _show_join_request(record, client=None):
     _p("Status",     term.status_label(record.get('status')))
     _p("Reason",     record.get('reason'))
     _p("Requested",  term.fmt_ts(record.get('request_time')))
-    _p("Requester",  names.get(record.get('requester_id'), record.get('requester_id')))
+    requester_id = record.get('requester_id')
+    _p("Requester",  term.user_link(names.get(requester_id, requester_id), requester_id))
     if record.get('reviewer_notes') or record.get('review_time'):
         _p("Review Time",  term.fmt_ts(record.get('review_time')))
-        _p("Reviewer",     names.get(record.get('reviewer_id'), record.get('reviewer_id')))
+        reviewer_id = record.get('reviewer_id')
+        _p("Reviewer",     term.user_link(names.get(reviewer_id, reviewer_id), reviewer_id))
         _p("Review Notes", record.get('reviewer_notes'))
 
 
@@ -60,7 +62,10 @@ def _table_rows(records, client=None):
             str(r.get('id', '-')),
             r.get('group_name') or '-',
             term.status_label(r.get('status') or '-'),
-            names.get(r.get('requester_id'), r.get('requester_id')) or '-',
+            term.user_link(
+                names.get(r.get('requester_id'), r.get('requester_id')),
+                r.get('requester_id'),
+            ) or '-',
             term.fmt_date(r.get('request_time')),
         ))
     return rows

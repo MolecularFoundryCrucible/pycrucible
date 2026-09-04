@@ -180,12 +180,23 @@ Examples:
 """
     )
 
+    from .helpers import DeprecatedAliasAction
     parser.add_argument(
-        '--project-id', '-id',
+        '--project-id', '-i',
         required=False,
         default=None,
         metavar='ID',
         help='Unique project identifier (e.g., "my-project"). If not provided, will prompt interactively.'
+    )
+    parser.add_argument(
+        '-id',
+        action=DeprecatedAliasAction,
+        deprecated_options={'-id'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(
@@ -364,26 +375,22 @@ def _execute_list(args):
             print(json.dumps(projects, indent=2, default=str))
             return
 
-        try:
-            from crucible.config import config
-            _base = config.graph_explorer_url.rstrip('/')
-        except Exception:
-            _base = None
-
         term.header(f"Projects ({len(projects)})")
         if not projects:
             print(f"  {term.dim('No projects found.')}")
         else:
-            rows = [
-                (
-                    term.project_link(p.get('project_id'),
-                                      f"{_base}/{p.get('project_id')}" if _base else None),
-                    p.get('title') or '-',
-                    p.get('organization') or '-',
-                    _lead_name(p) or '-',
+            from .helpers import project_explorer_url
+            def _project_row(project):
+                project_id = project.get('project_id')
+                title = project.get('title')
+                url = project_explorer_url(project_id)
+                return (
+                    project_id if title else term.project_link(project_id, url),
+                    term.navigation_link(title, url) if title else '-',
+                    project.get('organization') or '-',
+                    _lead_name(project) or '-',
                 )
-                for p in projects
-            ]
+            rows = [_project_row(project) for project in projects]
             term.table(rows, ['Project ID', 'Title', 'Organization', 'Lead'],
                        max_widths=[25, 30, 20, 25],
                        min_widths=[25, 5, 12, 4])
@@ -396,37 +403,50 @@ def _execute_list(args):
 def _lead_name(project):
     """Return the lead's display name or canonical identifier."""
     lead = project.get('lead') or {}
-    return term.fmt_name(
+    user_id = (
+        lead.get('unique_id')
+        or project.get('project_lead')
+        or project.get('project_lead_orcid')
+    )
+    name = term.fmt_name(
         lead,
-        default=project.get('project_lead_orcid'),
+        default=user_id,
         fallback_username=False,
     )
+    return term.user_link(name, user_id)
 
 
 def _show_project(project, include_metadata=False, include_members=False):
     """Display project fields."""
     _p = term.field_printer(14)
 
-    try:
-        from crucible.config import config
-        _base = config.graph_explorer_url.rstrip('/')
-    except Exception:
-        _base = None
+    from .helpers import project_explorer_url
 
     term.header("Project")
     pid = project.get('project_id')
     uid = project.get('unique_id')
-    project_url = f"{_base}/{pid}" if _base and pid else None
-    _p("Project ID",   term.project_link(pid, project_url))
+    project_url = project_explorer_url(pid)
+    title = project.get('title')
+    _p("Title",        term.bold(title) if title else term.dim('-'))
+    _p("Project ID",   pid)
     _p("MFID",         term.mfid_link(uid, project_url))
-    _p("Title",        project.get('title'))
     _p("Organization", project.get('organization'))
-    _p("Lead",         _lead_name(project))
     _p("Status",       term.status_label(project.get('status')))
 
-    term.subheader("Timing")
-    _p("Created",      term.fmt_ts(project.get('creation_time')))
-    _p("Modified",     term.fmt_ts(project.get('modification_time')))
+    lead = _lead_name(project)
+    if lead:
+        term.subheader("People")
+        _p("Lead", lead)
+
+    timing = (
+        ("Created", project.get('creation_time')),
+        ("Modified", project.get('modification_time')),
+    )
+    if any(value for _, value in timing):
+        term.subheader("Timing")
+        for label, value in timing:
+            if value:
+                _p(label, term.fmt_ts(value))
 
     if include_metadata:
         from .helpers import show_scientific_metadata
@@ -440,8 +460,14 @@ def _show_project(project, include_metadata=False, include_members=False):
         if not members:
             print(f"  {term.dim('No members found.')}")
             return
-        rows = [(m.get('username') or '-', term.fmt_name(m, default='-', fallback_username=False),
-                 term.role_label(m.get('role'))) for m in members]
+        rows = [(
+            m.get('username') or '-',
+            term.user_link(
+                term.fmt_name(m, default='-', fallback_username=False),
+                m.get('unique_id'),
+            ),
+            term.role_label(m.get('role')),
+        ) for m in members]
         term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
 
 
@@ -561,7 +587,11 @@ def _execute_list_users(args):
         else:
             rows = []
             for u in users:
-                name     = term.fmt_name(u.model_dump(), default='-', fallback_username=False)
+                name = term.user_link(
+                    term.fmt_name(
+                        u.model_dump(), default='-', fallback_username=False),
+                    u.unique_id,
+                )
                 username = u.username or '-'
                 role     = term.role_label(u.role)
                 rows.append((username, name, role))
@@ -769,8 +799,15 @@ def _execute_update_user_role(args):
             args.project_id, args.user_unique_id, args.role))
         term.success(
             f"{args.user_unique_id} is now '{args.role}' in project '{args.project_id}'", args)
-        rows = [(u.username or '-', term.fmt_name(u.model_dump(), default='-', fallback_username=False),
-                 term.role_label(u.role)) for u in users]
+        rows = [(
+            u.username or '-',
+            term.user_link(
+                term.fmt_name(
+                    u.model_dump(), default='-', fallback_username=False),
+                u.unique_id,
+            ),
+            term.role_label(u.role),
+        ) for u in users]
         term.table(rows, ['Username', 'Name', 'Role'], max_widths=[25, 25, 12])
     except Exception as e:
         fail("updating user role", e, args)
@@ -1010,8 +1047,17 @@ def _execute_search(args):
         if not results:
             print(f"  {term.dim('No results found.')}")
             return
-        rows = [(r.get('project_id', '-'), r.get('title') or '-',
-                 r.get('organization') or '-') for r in results]
+        from .helpers import project_explorer_url
+        def _project_row(project):
+            project_id = project.get('project_id')
+            title = project.get('title')
+            url = project_explorer_url(project_id)
+            return (
+                project_id if title else term.project_link(project_id, url),
+                term.navigation_link(title, url) if title else '-',
+                project.get('organization') or '-',
+            )
+        rows = [_project_row(project) for project in results]
         term.table(
             rows,
             ['Project ID', 'Title', 'Organization'],

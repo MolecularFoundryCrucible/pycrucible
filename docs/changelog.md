@@ -4,13 +4,25 @@
 
 ### Added
 
+- The interactive shell displays a centered compact pixel-art Crucible banner on a light-blue panel on terminals wide enough to show it.
+- Sample responses expose a typed project reference when supplied by the API, while retaining the flat project ID fallback.
+- Dataset responses expose typed project and instrument references with canonical MFIDs while retaining legacy flat fields.
 - The CLI supports `--no-color` and the standard `NO_COLOR` environment variable.
 - Instrument operations can list bound service accounts and change lifecycle status through the dedicated API routes.
-- Dataset listing accepts a canonical instrument MFID in the Python client and CLI without implicitly narrowing to the configured default project.
+- Dataset listing accepts a canonical instrument MFID in the Python client and CLI without implicitly narrowing to the saved current project.
 - Exact dataset, sample, project, and instrument responses expose typed caller-specific resource capabilities when supplied by the API.
 
 ### Changed
 
+- Python resource namespaces now use `publish()` and `unpublish()` for public access; `set_public()` and `unset_public()` remain as deprecated compatibility aliases.
+- The interactive shell now remembers the project selected by `use PROJECT_ID`, `unuse` clears it, and project context sources are visible; `CRUCIBLE_CURRENT_PROJECT` is deprecated because it can silently redirect operations.
+- The interactive shell status bar now renders the Crucible dark blue, light blue, and orange brand palette in true color on capable terminals while keeping autocomplete menus visually plain.
+- Sample detail methods can suppress the deprecated embedded dataset expansion; existing Python and JSON behavior remains compatible, while human CLI workflows avoid loading it.
+- CLI colors now consistently distinguish clickable navigation, identifiers, statuses, roles, and secondary context; project IDs, instrument IDs, and usernames are treated as plain slugs when another field carries navigation.
+- CLI user identifiers and owner names now link to Crucible Explorer profiles instead of external ORCID pages.
+- Resource detail views group identity, project, instrument, access, and timing fields; related labels link to the Explorer without displaying related MFIDs, and human names use given-name initials.
+- Generic `crucible get MFID` now renders projects in addition to datasets, samples, and instruments.
+- CLI project and sample-type options use consistent canonical flags, and interactive completion now discovers flags and searches resource endpoints for identifier values.
 - CLI failures now preserve HTTP status codes while formatting API validation details and warnings for readable terminal and JSON output.
 - Human and service-account creation now normalize usernames and validate the API's complete username rules before submitting a request, with immediate retry prompts during interactive creation.
 - Project membership methods and commands validate named roles before requests, document strict lower-role management and owner-or-self removal, and `project add-user` reports API errors through the shared status-preserving formatter.
@@ -24,7 +36,8 @@
 - `crucible status` now shows the configured endpoint, readiness state, client and API versions, deployed branch and commit, database latency and schema revisions, and authenticated identity.
 - Instrument search accepts an optional lifecycle-status filter in the Python client and CLI.
 - Instrument creation guidance now reflects that human callers may register instruments while service accounts may not.
-- Project member tables use role-priority ordering and distinct role colors, display the owner as the project lead, and the interactive shell status bar again identifies project, user, and API context with symbols.
+- Project member tables use role-priority ordering and semantic role colors, display the owner as the project lead, and the interactive shell status bar again identifies project, user, and API context with symbols.
+- Dataset and sample relationship listing now uses canonical collection filters with cursor pagination instead of deprecated nested read routes.
 
 ### Fixed
 

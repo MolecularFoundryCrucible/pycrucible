@@ -35,7 +35,8 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
 
     @_deprecated_parameter('sample_id', 'sample_mfid')
     def get(self, sample_mfid: str, include_links: bool = False,
-            include_metadata: bool = False, include_owner: bool = True) -> Dict:
+            include_metadata: bool = False, include_owner: bool = True,
+            include_datasets: bool = True) -> Dict:
         """Get a sample by its canonical MFID.
 
         Args:
@@ -43,6 +44,7 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             include_links (bool): Whether to include immediate parent/child/associated links
             include_metadata (bool): Whether to include scientific metadata
             include_owner (bool): Resolve owner_orcid into a public-safe user object (default: True)
+            include_datasets (bool): Include deprecated embedded dataset records (default: True). Set False and use include_links or client.datasets.list(sample_mfid=...) instead.
 
         Returns:
             Dict: Sample information with optional links and metadata
@@ -52,11 +54,13 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             include_links=include_links,
             include_metadata=include_metadata,
             include_owner=include_owner,
+            include_datasets=include_datasets,
         )
 
     def _get_by_mfid(self, sample_mfid: str, include_links: bool = False,
                      include_metadata: bool = False,
-                     include_owner: bool = True) -> Dict:
+                     include_owner: bool = True,
+                     include_datasets: bool = True) -> Dict:
         """Get a sample through its canonical single-resource route."""
         if not is_mfid(sample_mfid):
             raise ValueError("sample_mfid must be an exact 26-character MFID.")
@@ -67,6 +71,8 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             params['include_metadata'] = True
         if include_owner:
             params['include_owner'] = True
+        if not include_datasets:
+            params['include_datasets'] = False
         raw = self._request('get', f"/samples/{sample_mfid}", params=params or None)
         if raw is None:
             return None
@@ -94,9 +100,9 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             limit (int): Maximum total results to return (default: 100). Larger
                          requests are handled transparently by following the
                          server's keyset cursor. Pass None to fetch all matches.
-            offset (int): Deprecated for the top-level /samples endpoint, which now
-                          uses keyset pagination and ignores offset. Still honored
-                          for the dataset/parent sub-listings.
+            offset (int): Deprecated for the /samples collection, which uses
+                          keyset pagination and ignores offset. Still honored for
+                          the parent-child sub-listing.
             accessible_to_user: User reference or references whose effective access
                                 must include every result
             accessible_to_project: Project reference or references whose direct access
@@ -109,18 +115,18 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         params = {k: v for k, v in kwargs.items() if v is not None}
         selectors = self._access_selector_params(
             accessible_to_user, accessible_to_project)
-        if (dataset_mfid or parent_mfid) and selectors:
+        if parent_mfid and selectors:
             raise ValueError("Access selectors are supported only by the top-level sample list")
         params.update(selectors)
+        if dataset_mfid is not None:
+            params['dataset_mfid'] = dataset_mfid
         if include_metadata:
             params['include_metadata'] = True
         if include_links:
             params['include_links'] = True
         if include_owner:
             params['include_owner'] = True
-        if dataset_mfid:
-            endpoint = f"/datasets/{dataset_mfid}/samples"
-        elif parent_mfid:
+        if parent_mfid and dataset_mfid is None:
             endpoint = f"/samples/{parent_mfid}/children"
         else:
             endpoint = "/samples"
@@ -217,7 +223,8 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
                 raise ValueError("Pass a Sample model: samples.create(Sample(...))")
 
         sample_info = {
-            k: v for k, v in sample.model_dump(exclude={'capabilities'}).items()
+            k: v for k, v in sample.model_dump(
+                exclude={'capabilities', 'project'}).items()
             if v is not None
         }
 
@@ -233,7 +240,8 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         if sample_info.get('owner') is not None and not isinstance(sample_info['owner'], str):
             raise ValueError("Sample.owner must be a string identifier when creating a sample.")
 
-        new_samp = self._request('post', "/samples", json=sample_info)
+        new_samp = self._parse(
+            self._request('post', "/samples", json=sample_info))
         sample_mfid = new_samp['unique_id']
 
         for p in parents:

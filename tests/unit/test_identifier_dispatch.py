@@ -282,7 +282,17 @@ class TestDeprecatedParameterCompatibility:
             ops.list(dataset_id=MFID)
 
         ops._paginate.assert_called_once_with(
-            f'/datasets/{MFID}/samples', {}, 100, 0)
+            '/samples', {'dataset_mfid': MFID}, 100, 0)
+
+    def test_dataset_sample_filter_preserves_old_keyword(self):
+        ops = make_ops(DatasetOperations)
+        ops._paginate = MagicMock(return_value=[])
+
+        with pytest.warns(DeprecationWarning, match='sample_mfid'):
+            ops.list(sample_id=MFID)
+
+        ops._paginate.assert_called_once_with(
+            '/datasets', {'sample_mfid': MFID}, 100, 0)
 
     @pytest.mark.parametrize(
         ('operations_class', 'method_name', 'resource'),

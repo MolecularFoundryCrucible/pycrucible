@@ -2,13 +2,15 @@
 
 This page is the canonical command inventory for the Crucible CLI. Use `crucible <command> --help` or `crucible <resource> <action> --help` for the exact arguments, aliases, defaults, and examples supported by the installed version.
 
+Project options use `--project-id` with the conventional `-p` short alias. Sample type options use `--type` with `-t`. Older spellings remain temporarily accepted with a deprecation warning but are omitted from current examples.
+
 ## Global options
 
 | Option | Description |
 |---|---|
 | `--version` | Print the installed client version and exit |
 | `--debug` | Enable Crucible debug logging; place it before the command |
-| `--no-color` | Disable ANSI colors and terminal hyperlinks; place it before the command |
+| `--no-color` | Disable ANSI colors while retaining interactive terminal hyperlinks; place it before the command |
 
 Running `crucible` without a command starts the interactive shell. See the [CLI overview](index.md) for setup, shell completion, and interactive usage.
 
@@ -52,7 +54,7 @@ Running `crucible` without a command starts the interactive shell. See the [CLI 
 Common creation example:
 
 ```bash
-crucible dataset create -i data.csv -pid my-project \
+crucible dataset create -i data.csv --project-id my-project \
     -n "XRD measurement" -m "X-ray diffraction" \
     --metadata '{"temperature_K": 300}' --keywords "XRD,powder"
 ```
@@ -111,7 +113,7 @@ Fields normally updated through `sample update` include `sample_name`, `sample_t
 
 `project remove-user` permits project owners and platform administrators to remove members, while any member may remove themselves.
 
-Project member tables sort by standing from lead through viewer, display the API `owner` role as `lead`, and use distinct role colors when terminal color is enabled.
+Project member tables sort by standing from lead through viewer, display the API `owner` role as `lead`, and use semantic role colors when terminal color is enabled: gold for lead, magenta for admin, blue for editor, the default foreground for contributor, and gray for viewer.
 
 The `access grant` commands accept `viewer`, `contributor`, `editor`, or `admin`. Use the resource's `transfer-ownership` command to change ownership.
 
@@ -273,7 +275,7 @@ Configuration values can come from environment variables, the platform-specific 
 |---|---|
 | `status` | Show endpoint reachability, deployment provenance, database readiness, and authentication identity |
 | `whoami` | Show the identity associated with the configured key |
-| `get MFID` | Show a dataset or sample after detecting its resource type |
+| `get MFID` | Show a dataset, sample, project, or instrument after detecting its resource type |
 | `edit MFID` | Edit a dataset, sample, or instrument after detecting its type |
 | `download MFID` | Save a record and, for datasets, associated files |
 | `link` | Link parent-child resources or associate a dataset and sample |

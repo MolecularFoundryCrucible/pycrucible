@@ -8,6 +8,8 @@
 | `data_type` | Institution-specific data organization descriptor (e.g. `"ScopeFoundry H5 file"`) | create, update |
 | `instrument_name` | Name of the instrument as registered in Crucible | create |
 | `instrument_id` | Instrument identifier | create |
+| `instrument` | Current instrument identity and display fields, including its canonical MFID | server-assigned |
+| `project` | Current project identity and display fields, including its canonical MFID | server-assigned |
 | `data_format` | File type or extension (e.g. `"h5"`, `"dat"`) | create, update |
 | `session_name` | Optional tag grouping datasets collected in the same session | create, update |
 | `timestamp` | When the data was collected (ISO 8601 format) | create, update |
@@ -28,7 +30,7 @@ List datasets assigned to a canonical instrument across every project visible to
 datasets = client.datasets.list(instrument_mfid="0tkn2knjast3h0008nyq9zps2c")
 ```
 
-The equivalent CLI command is `crucible dataset list --instrument-mfid 0tkn2knjast3h0008nyq9zps2c`. Supplying this explicit filter does not apply the configured default project, while combining it with `--project-id` intentionally narrows the results to that project. Legacy datasets without a canonical instrument MFID are not included.
+The equivalent CLI command is `crucible dataset list --instrument-mfid 0tkn2knjast3h0008nyq9zps2c`. Supplying this explicit filter does not apply the saved current project, while combining it with `--project-id` intentionally narrows the results to that project. Legacy datasets without a canonical instrument MFID are not included.
 
 ### Relationships
 
@@ -97,6 +99,8 @@ Singleton retrieval expands `owner` by default as a public-safe user record cont
 
 Canonical detail responses include caller-specific `capabilities` when the server has calculated them. Dataset capabilities always report `can_change_status=False` because datasets have no lifecycle-status operation. Collections and search results normally return `capabilities=None`, which means the guidance was not calculated rather than that every action is denied. The API remains authoritative for each mutation.
 
+Dataset responses include lightweight `instrument` and `project` references when those canonical relationships resolve. Use `dataset["instrument"]["unique_id"]` and `dataset["project"]["unique_id"]` for stable navigation. The flat `instrument_id`, `instrument_name`, and `project_id` fields remain available and provide display fallbacks for legacy records whose canonical relationship is unresolved. A reference exposes identity and display information only and does not imply access to the complete instrument or project.
+
 ## Listing datasets
 
 ```python
@@ -118,6 +122,8 @@ datasets = client.datasets.list(
     accessible_to_project="my-project",
 )
 ```
+
+The `sample_mfid` relationship filter uses the normal paginated dataset collection and can be combined with compatible dataset filters such as project, instrument, and access selectors. Results follow cursor pagination and include only datasets the caller may read.
 
 Access selectors accept user MFIDs, ORCIDs, usernames, or emails and project MFIDs or project IDs. Multiple selectors use intersection semantics and only narrow resources the authenticated caller may read. Inspecting another user requires platform-administrator access, while inspecting a project requires membership in that project or platform-administrator access.
 
@@ -147,8 +153,8 @@ client.datasets.transfer_ownership(dataset_mfid, "new-owner@example.org", confir
 grants = client.datasets.list_access(dataset_mfid)
 client.datasets.set_access(dataset_mfid, "users", "0000-0002-1825-0097", "editor")
 client.datasets.revoke_access(dataset_mfid, "users", "0000-0002-1825-0097")
-client.datasets.set_public(dataset_mfid)
-client.datasets.unset_public(dataset_mfid)
+client.datasets.publish(dataset_mfid)
+client.datasets.unpublish(dataset_mfid)
 ```
 
 Normal access grants accept `viewer`, `contributor`, `editor`, or `admin`. Use `transfer_ownership()` for ownership.

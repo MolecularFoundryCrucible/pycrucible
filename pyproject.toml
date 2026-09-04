@@ -76,5 +76,8 @@ Repository = "https://github.com/MolecularFoundryCrucible/nano-crucible"
 [tool.setuptools]
 packages = {find = {}}
 
+[tool.setuptools.package-data]
+"crucible.cli" = ["crucible_ascii.txt"]
+
 [tool.setuptools.dynamic]
 version = {attr = "crucible.__version__"}

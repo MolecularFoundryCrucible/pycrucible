@@ -119,7 +119,7 @@ def test_status_displays_full_nested_readiness_contract(monkeypatch, capsys):
     assert '9e22d69d36e2' in output
     assert '6.1 ms' in output
     assert 'a9f3c2e7b614' in output
-    assert 'Test User (@test-user)' in output
+    assert 'T. User  (@test-user)' in output
 
 
 def test_status_reports_degraded_readiness_and_still_checks_authentication(monkeypatch, capsys):

@@ -104,9 +104,7 @@ def _explorer_url(base_url, project_id, entity_type, uid):
 
 def _id_str(uid, entity_type, project_id, base_url, *, highlight=False):
     url = _explorer_url(base_url, project_id, entity_type, uid)
-    if highlight:
-        return term.hyperlink(term.bold(term.green(uid)), url)
-    return term.hyperlink(term.cyan(uid), url)
+    return term.navigation_link(uid, url, emphasized=highlight)
 
 
 def _print_node(node_id, nodes_by_id, adj, depth, max_depth, visited,
@@ -165,7 +163,7 @@ def execute(args):
     # Fetch root entity once for project_id (needed for explorer URLs)
     project_id = None
     try:
-        root_ent   = client.get(args.resource_id)
+        root_ent   = client.get(args.resource_id, include_datasets=False)
         project_id = root_ent.get('project_id')
     except Exception:
         pass

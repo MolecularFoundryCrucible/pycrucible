@@ -5,6 +5,7 @@
 | `sample_name` | Human-readable name for the sample | create, update |
 | `sample_type` | Category or type of sample (used for filtering) | create, update |
 | `project_id` | Project this sample belongs to | create; later changes use `reassign_project()` |
+| `project` | Current project title, ID, and canonical identity when the relationship resolves | server-assigned |
 | `description` | Free-text description of the sample | create, update |
 | `timestamp` | Date associated with the sample (ISO 8601 format) | create, update |
 | `public` | Whether the sample is publicly accessible (default: `False`) | create, update |
@@ -49,14 +50,19 @@ sample = client.samples.get("0td7evvtg5wb90005k1j97ak94")
 sample_with_details = client.samples.get(
     "0td7evvtg5wb90005k1j97ak94",
     include_links=True,
+    include_datasets=False,
 )
 ```
 
 Samples are retrieved only by their canonical 26-character MFID. Sample names are display values, not identifiers.
 
+Sample detail responses retain the legacy embedded `datasets` collection by default for compatibility. The field is deprecated. Pass `include_datasets=False` to avoid loading complete dataset records, use `include_links=True` for lightweight relationship references, or use `client.datasets.list(sample_mfid=sample_mfid)` for complete paginated dataset records.
+
 Singleton retrieval expands `owner` by default as a public-safe user record containing `unique_id`, `username`, `first_name`, and `last_name`. Pass `include_owner=False` to suppress expansion. List operations remain opt-in with `include_owner=True`. The canonical owner identifier remains available as `owner_orcid`.
 
 Canonical detail responses include caller-specific `capabilities` when the server has calculated them. Sample capabilities always report `can_change_status=False` because samples have no lifecycle-status operation. Collections and search results normally return `capabilities=None`, which means the guidance was not calculated rather than that every action is denied. The API remains authoritative for each mutation.
+
+Sample responses include a lightweight `project` reference when the canonical relationship resolves. Use its `title` and `project_id` for display and its `unique_id` for stable navigation. The flat `project_id` remains the compatibility fallback for legacy records. A project reference does not imply permission to retrieve the complete project.
 
 ## Listing samples
 
@@ -73,6 +79,8 @@ samples = client.samples.list(
     accessible_to_project="my-project",
 )
 ```
+
+The `dataset_mfid` relationship filter uses the normal paginated sample collection and can be combined with compatible sample and access filters. Results follow cursor pagination and include only samples the caller may read.
 
 Multiple user and project access selectors use intersection semantics and never broaden what the authenticated caller may read.
 
@@ -99,7 +107,8 @@ client.samples.transfer_ownership(sample_mfid, "new-owner@example.org", confirm=
 ```python
 grants = client.samples.list_access(sample_mfid)
 client.samples.set_access(sample_mfid, "users", "0000-0002-1825-0097", "viewer")
-client.samples.set_public(sample_mfid)
+client.samples.publish(sample_mfid)
+client.samples.unpublish(sample_mfid)
 ```
 
 Normal access grants accept `viewer`, `contributor`, `editor`, or `admin`. Use `transfer_ownership()` for ownership.

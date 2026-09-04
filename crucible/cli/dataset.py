@@ -6,6 +6,7 @@ Dataset subcommand for Crucible CLI.
 Provides dataset-related operations: list, get, create, update-metadata, link, etc.
 """
 
+import argparse
 import sys
 import json
 from pathlib import Path
@@ -48,6 +49,16 @@ def _build_file_display(af_list, link_map, dsid):
     return result
 
 
+def _format_file_label(item):
+    name = item['name']
+    backend = item['backend']
+    if backend != 'gcs':
+        return f"{name} {term.dim(f'({backend})')}"
+    if item['ingested']:
+        return term.navigation_link(name, item['url']) if item['url'] else name
+    return f"{name} {term.yellow('(pending ingestion)')}"
+
+
 def _show_scientific_metadata(sci_md):
     """Display scientific metadata. Delegates to helpers.show_scientific_metadata."""
     from .helpers import show_scientific_metadata
@@ -58,10 +69,11 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
     """Display dataset fields. Extracted for reuse by top-level 'crucible get'."""
     _p = term.field_printer(14)
 
-    from .helpers import explorer_url
+    from .helpers import explorer_url, instrument_reference, project_reference
 
     def _ds_link(r):
-        u, p = r.get('unique_id'), r.get('project_id')
+        u = r.get('unique_id')
+        _, p, _ = project_reference(r)
         return term.mfid_link(u, explorer_url(u, p, 'dataset'))
 
     term.header("Dataset")
@@ -79,28 +91,49 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
             msg += '  ' + term.dim(f"(request #{rid})")
         print(f"  {msg}")
 
-    _p("Name",        dataset.get('dataset_name') or '(unnamed)')
+    project_title, project_id, project_url = project_reference(dataset)
+    _p("Name",        term.bold(dataset.get('dataset_name') or '(unnamed)'))
     _p("MFID",        _ds_link(dataset))
     _p("Measurement", dataset.get('measurement'))
     _p("Data Type",   dataset.get('data_type'))
     _p("Session",     dataset.get('session_name'))
-    _p("Instrument",  dataset.get('instrument_name'))
-    _p("Public",      term.fmt_bool(dataset.get('public')))
-    _p("Project",     dataset.get('project_id'))
-    _p("Timestamp",   term.fmt_ts(dataset.get('timestamp')))
-    _p("Owner",       term.fmt_owner(dataset))
     _p("Description", dataset.get('description'))
 
     dsid = dataset.get('unique_id')
 
     if verbose:
-        term.subheader("File")
         _p("Data Format", dataset.get('data_format'))
         _p("Size",        term.fmt_size(dataset.get('size')))
 
+    if project_title or project_id:
+        term.subheader("Project")
+        if project_title:
+            _p("Title", term.navigation_link(project_title, project_url))
+        if project_id:
+            _p("Project ID", project_id)
+
+    instrument_name, instrument_id, instrument_url = instrument_reference(dataset)
+    if instrument_name or instrument_id:
+        term.subheader("Instrument")
+        if instrument_name:
+            _p("Name", term.navigation_link(instrument_name, instrument_url))
+        if instrument_id:
+            _p("Instrument ID", instrument_id)
+
+    term.subheader("Access")
+    _p("Owner",  term.fmt_owner(dataset))
+    _p("Public", term.fmt_bool(dataset.get('public')))
+
+    timing = (
+        ("Timestamp", dataset.get('timestamp')),
+        ("Created", dataset.get('creation_time')),
+        ("Modified", dataset.get('modification_time')),
+    )
+    if any(value for _, value in timing):
         term.subheader("Timing")
-        _p("Created",  term.fmt_ts(dataset.get('creation_time')))
-        _p("Modified", term.fmt_ts(dataset.get('modification_time')))
+        for label, value in timing:
+            if value:
+                _p(label, term.fmt_ts(value))
 
     if prefetched is not None:
         keywords = prefetched.get('keywords', [])
@@ -139,16 +172,8 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
         term.subheader(f"Files ({len(file_display)})")
         rows = []
         for item in sorted(file_display, key=lambda x: x['name']):
-            name    = item['name']
-            backend = item['backend']
             size    = term.fmt_size(item['size']) if item['size'] is not None else '-'
-            if backend != 'gcs':
-                label = f"{term.dim(name)} {term.cyan(f'({backend})')}"
-            elif item['ingested']:
-                label = term.hyperlink(term.cyan(name), item['url']) if item['url'] else term.cyan(name)
-            else:
-                label = f"{term.dim(name)} {term.yellow('(pending ingestion)')}"
-            rows.append((item['mfid'], label, size))
+            rows.append((term.cyan(item['mfid']), _format_file_label(item), size))
         term.table(rows, ['MFID', 'File', 'Size'], max_widths=[26, 60, 10])
 
     if graph:
@@ -162,7 +187,8 @@ def _show_dataset(dataset, client, verbose=False, graph=False, include_metadata=
             from .helpers import show_warning
             show_warning("Could not fetch links.")
         else:
-            proj            = dataset.get('project_id') or ''
+            _, proj, _ = project_reference(dataset)
+            proj = proj or ''
             linked_samples  = [l for l in links_list if l.get('relationship') == 'associated'
                                and l.get('resource_type') == 'sample']
             parent_datasets = [l for l in links_list if l.get('relationship') == 'parent'
@@ -272,23 +298,34 @@ def _register_list(subparsers):
         formatter_class=term.ColorHelpFormatter,
         epilog="""
 Examples:
-    crucible dataset list -pid my-project
-    crucible dataset list -pid my-project -m XRD
-    crucible dataset list -pid my-project -k silicon --limit 20
+    crucible dataset list --project-id my-project
+    crucible dataset list --project-id my-project -m XRD
+    crucible dataset list --project-id my-project -k silicon --limit 20
     crucible dataset list --instrument-mfid 0tkn2knjast3h0008nyq9zps2c
     crucible dataset list --session 2024-01-15-run
-    crucible dataset list -pid my-project --group-by measurement
-    crucible dataset list -pid my-project --include "run-*" "*XRD*"
-    crucible dataset list -pid my-project --exclude "*test*"
+    crucible dataset list --project-id my-project --group-by measurement
+    crucible dataset list --project-id my-project --include "run-*" "*XRD*"
+    crucible dataset list --project-id my-project --exclude "*test*"
 """
     )
 
+    from .helpers import DeprecatedAliasAction
     parser.add_argument(
-        '-pid', '--project-id',
+        '--project-id', '-p',
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses config current_project if not specified)'
+        help='Crucible project ID (uses the saved current project if omitted)'
+    )
+    parser.add_argument(
+        '-pid',
+        action=DeprecatedAliasAction,
+        deprecated_options={'-pid'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(
@@ -444,27 +481,27 @@ def _register_create(subparsers):
         epilog="""
 Examples:
     # Preview what would be uploaded (dry run)
-    crucible dataset create -i file1.dat -pid my-project --dry-run
+    crucible dataset create -i file1.dat --project-id my-project --dry-run
 
     # Generic upload (server assigns mfid)
-    crucible dataset create -i file1.dat file2.csv -pid my-project
+    crucible dataset create -i file1.dat file2.csv --project-id my-project
 
     # Upload with locally generated mfid
-    crucible dataset create -i data.csv -pid my-project --mfid
+    crucible dataset create -i data.csv --project-id my-project --mfid
 
     # Upload with explicit mfid (e.g., re-uploading same dataset)
-    crucible dataset create -i data.csv -pid my-project --mfid 0tcxz5xs5xr6q0002vmzmp3beg
+    crucible dataset create -i data.csv --project-id my-project --mfid 0tcxz5xs5xr6q0002vmzmp3beg
 
     # Generic upload with metadata and keywords
-    crucible dataset create -i data.csv -pid my-project \\
+    crucible dataset create -i data.csv --project-id my-project \\
         --metadata '{"temperature": 300, "pressure": 1.0}' \\
         --keywords "experiment,thermal" -m "thermal_analysis"
 
     # Upload multiple files using wildcards
-    crucible dataset create -i *.dat -pid my-project -m "raw_data"
+    crucible dataset create -i *.dat --project-id my-project -m "raw_data"
 
     # Parse and upload LAMMPS simulation
-    crucible dataset create -i input.lmp -t lammps -pid my-project
+    crucible dataset create -i input.lmp -t lammps --project-id my-project
 """
     )
 
@@ -493,12 +530,23 @@ Examples:
         type_arg.completer = lambda **kwargs: sorted(PARSER_REGISTRY.keys())
 
     # Project ID
+    from .helpers import DeprecatedAliasAction
     parser.add_argument(
-        '-pid', '--project-id',
+        '--project-id', '-p',
         required=False,
         default=None,
         metavar='ID',
-        help='Crucible project ID (uses config current_project if not specified)'
+        help='Crucible project ID (uses the saved current project if omitted)'
+    )
+    parser.add_argument(
+        '-pid',
+        action=DeprecatedAliasAction,
+        deprecated_options={'-pid'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
     )
 
     # Unique ID / mfid
@@ -1366,16 +1414,8 @@ def _execute_list_files(args):
 
         rows = []
         for item in sorted(file_display, key=lambda x: x['name']):
-            name    = item['name']
-            backend = item['backend']
             size    = term.fmt_size(item['size']) if item['size'] is not None else '-'
-            if backend != 'gcs':
-                label = f"{term.dim(name)} {term.cyan(f'({backend})')}"
-            elif item['ingested']:
-                label = term.hyperlink(term.cyan(name), item['url']) if item['url'] else term.cyan(name)
-            else:
-                label = f"{term.dim(name)} {term.yellow('(pending)')}"
-            rows.append((item['mfid'], label, size))
+            rows.append((term.cyan(item['mfid']), _format_file_label(item), size))
 
         term.table(rows, ['MFID', 'File', 'Size'], max_widths=[26, 60, 10])
 
@@ -1420,7 +1460,7 @@ def _execute_ingestion(args):
                 str(r.get('id', '-')),
                 term.status_label(r.get('status')),
                 r.get('ingestion_class') or '-',
-                r.get('file_id') or '-',
+                term.cyan(r.get('file_id')) if r.get('file_id') else '-',
                 term.fmt_ts(r.get('created_at') or r.get('creation_time')) or '-',
             ))
         term.table(rows, ['ID', 'Status', 'Class', 'File MFID', 'Created'],
@@ -1441,13 +1481,29 @@ def _register_search(subparsers):
         epilog="""
 Examples:
     crucible dataset search perovskite
-    crucible dataset search "silicon wafer" --project my-project
+    crucible dataset search "silicon wafer" --project-id my-project
     crucible dataset search XRD --limit 10
 """,
     )
     parser.add_argument('query', metavar='QUERY', help='Search term (min 3 chars)')
-    parser.add_argument('--project', '-pid', dest='project_id', default=None, metavar='ID',
-                        help='Scope to a specific project')
+    from .helpers import DeprecatedAliasAction
+    parser.add_argument(
+        '--project-id', '-p',
+        dest='project_id',
+        default=None,
+        metavar='ID',
+        help='Scope to a project (uses the saved current project if omitted)',
+    )
+    parser.add_argument(
+        '--project', '-pid',
+        action=DeprecatedAliasAction,
+        deprecated_options={'--project', '-pid'},
+        replacement='--project-id',
+        dest='project_id',
+        default=argparse.SUPPRESS,
+        metavar='ID',
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument('--limit', '-l', type=int, default=20, metavar='N',
                         help='Maximum results (default: 20, max: 50)')
     parser.add_argument('--json', action='store_true', default=False,
@@ -1461,8 +1517,9 @@ def _execute_search(args):
         fail("searching datasets", ValueError("Search term must be at least 3 characters."), args)
     from crucible.client import CrucibleClient
     try:
+        from .helpers import resolve_project_context
         client     = CrucibleClient()
-        project_id = args.project_id or _config.current_project or None
+        project_id, _ = resolve_project_context(args, args.project_id)
         results    = client.datasets.search(args.query, project_id=project_id,
                                             limit=args.limit)
         if getattr(args, 'json', False):
@@ -1472,11 +1529,12 @@ def _execute_search(args):
         if not results:
             print(f"  {term.dim('No results found.')}")
             return
-        from .helpers import explorer_url
+        from .helpers import explorer_url, project_reference
         rows = []
         for r in results:
             uid  = r.get('unique_id') or ''
-            pid  = r.get('project_id') or project_id or ''
+            _, referenced_project_id, _ = project_reference(r)
+            pid = referenced_project_id or project_id or ''
             rows.append((
                 r.get('dataset_name') or '(unnamed)',
                 term.mfid_link(uid, explorer_url(uid, pid, 'dataset')),
@@ -1694,15 +1752,16 @@ def _execute_list(args):
     """Execute the 'dataset list' subcommand."""
     from crucible.config import config
     from crucible.client import CrucibleClient
+    from .helpers import resolve_project_context
     project_id = args.project_id
     instrument_mfid = getattr(args, 'instrument_mfid', None)
     if project_id is None and instrument_mfid is None:
-        project_id = config.current_project
-        if project_id is None:
-            logger.error(
-                "Error: Project ID or instrument MFID required. Specify --project-id, "
-                "--instrument-mfid, or set current_project in config.")
-            sys.exit(1)
+        project_id, _ = resolve_project_context(args)
+    if project_id is None and instrument_mfid is None:
+        logger.error(
+            "Error: Project ID or instrument MFID required. Specify --project-id, "
+            "--instrument-mfid, or set current_project in config.")
+        sys.exit(1)
 
     # Build optional filters
     filters = {}
@@ -1755,7 +1814,7 @@ def _execute_list(args):
         if not datasets:
             print(f"  {term.dim('No datasets found.')}")
         else:
-            from .helpers import explorer_url
+            from .helpers import explorer_url, project_reference
 
             _GROUP_FIELD = {
                 'measurement': 'measurement',
@@ -1768,7 +1827,8 @@ def _execute_list(args):
 
             def _make_row(ds):
                 uid = ds.get('unique_id') or ''
-                pid = ds.get('project_id') or project_id
+                _, referenced_project_id, _ = project_reference(ds)
+                pid = referenced_project_id or project_id
                 return (
                     ds.get('dataset_name') or '(unnamed)',
                     term.mfid_link(uid, explorer_url(uid, pid, 'dataset')) if uid else '-',
@@ -1835,16 +1895,11 @@ def _execute_get(args):
 def _execute_create(args):
     """Execute the 'dataset create' subcommand."""
     from crucible.parsers import get_parser, BaseParser
-    from crucible.config import config
-    # Get project_id
-    project_id = args.project_id
-    project_from_config = False
+    from .helpers import resolve_project_context
+    project_id, project_source = resolve_project_context(args, args.project_id)
     if project_id is None:
-        project_id = config.current_project
-        project_from_config = True
-        if project_id is None:
-            logger.error("Project ID required. Specify with -pid or set current_project in config.")
-            sys.exit(1)
+        logger.error("Project ID required. Specify with --project-id or set current_project in config.")
+        sys.exit(1)
 
     # Validate the project exists before doing any expensive work
     from crucible.client import CrucibleClient as _CC
@@ -1974,7 +2029,11 @@ def _execute_create(args):
     _p = term.field_printer(14)
 
     term.header("Dataset")
-    proj_label = f"{project_id} {term.dim('(from config)')}" if project_from_config else project_id
+    project_context = {
+        'environment': 'from environment',
+        'config file': 'current project',
+    }.get(project_source)
+    proj_label = f"{project_id} {term.dim(f'({project_context})')}" if project_context else project_id
     _p("Project",     proj_label)
     _p("Parser",      ParserClass.__name__)
     _p("Name",        parser.dataset_name)
@@ -2087,7 +2146,8 @@ def _execute_list_parents(args):
         if not parents:
             print(f"  {term.dim('No parent datasets found.')}")
             return
-        rows = [(ds.get('dataset_name') or '(unnamed)', ds.get('unique_id') or '-',
+        rows = [(ds.get('dataset_name') or '(unnamed)',
+                 term.cyan(ds.get('unique_id')) if ds.get('unique_id') else '-',
                  ds.get('measurement') or '-') for ds in parents]
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 15])
 
@@ -2108,7 +2168,8 @@ def _execute_list_children(args):
         if not children:
             print(f"  {term.dim('No child datasets found.')}")
             return
-        rows = [(ds.get('dataset_name') or '(unnamed)', ds.get('unique_id') or '-',
+        rows = [(ds.get('dataset_name') or '(unnamed)',
+                 term.cyan(ds.get('unique_id')) if ds.get('unique_id') else '-',
                  ds.get('measurement') or '-') for ds in children]
         term.table(rows, ['Name', 'MFID', 'Measurement'], max_widths=[35, 26, 15])
 
@@ -2129,7 +2190,8 @@ def _execute_list_samples(args):
         if not samples:
             print(f"  {term.dim('No samples linked.')}")
             return
-        rows = [(s.get('sample_name') or '(unnamed)', s.get('unique_id') or '-',
+        rows = [(s.get('sample_name') or '(unnamed)',
+                 term.cyan(s.get('unique_id')) if s.get('unique_id') else '-',
                  s.get('sample_type') or '-') for s in samples]
         term.table(rows, ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20])
 

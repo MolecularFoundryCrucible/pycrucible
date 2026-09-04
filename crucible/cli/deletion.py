@@ -64,10 +64,12 @@ def _show_deletion_request(record, client=None):
     _p("Status",        term.status_label(record.get('status')))
     _p("Reason",        record.get('reason'))
     _p("Requested",     term.fmt_ts(record.get('request_time')))
-    _p("Requester",     names.get(record.get('requester_id'), record.get('requester_id')))
+    requester_id = record.get('requester_id')
+    _p("Requester",     term.user_link(names.get(requester_id, requester_id), requester_id))
     if record.get('reviewer_notes') or record.get('review_time'):
         _p("Review Time",  term.fmt_ts(record.get('review_time')))
-        _p("Reviewer",     names.get(record.get('reviewer_id'), record.get('reviewer_id')))
+        reviewer_id = record.get('reviewer_id')
+        _p("Reviewer",     term.user_link(names.get(reviewer_id, reviewer_id), reviewer_id))
         _p("Review Notes", record.get('reviewer_notes'))
 
 
@@ -264,7 +266,10 @@ def _execute_list_deleted(args):
                 r.get('resource_type') or '-',
                 r.get('resource_name') or '-',
                 term.fmt_date(r.get('deleted_at')),
-                names.get(r.get('requester_id'), r.get('requester_id')) or '-',
+                term.user_link(
+                    names.get(r.get('requester_id'), r.get('requester_id')),
+                    r.get('requester_id'),
+                ) or '-',
             )
             for r in records
         ]
@@ -283,7 +288,7 @@ def _execute_get_deleted(args):
         client = CrucibleClient()
         record = client.deletions.get_deleted(args.audit_id)
         _p = term.field_printer(16)
-        from .helpers import explorer_url
+        from .helpers import explorer_url, project_explorer_url
         rid  = record.get('resource_id') or ''
         proj = record.get('project_id')
         rtype = record.get('resource_type')
@@ -291,10 +296,10 @@ def _execute_get_deleted(args):
         _p("Resource ID",    term.mfid_link(rid, explorer_url(rid, proj, rtype)))
         _p("Resource Type",  rtype)
         _p("Resource Name",  record.get('resource_name'))
-        _p("Project",        proj)
+        _p("Project",        term.project_link(proj, project_explorer_url(proj)))
         _p("Deleted At",     term.fmt_ts(record.get('deleted_at')))
-        _p("Requester",      record.get('requester_id'))
-        _p("Reviewer",       record.get('reviewer_id'))
+        _p("Requester",      term.user_id_link(record.get('requester_id')))
+        _p("Reviewer",       term.user_id_link(record.get('reviewer_id')))
         _p("Reason",         record.get('reason'))
         _p("Reviewer Notes", record.get('reviewer_notes'))
 
@@ -349,7 +354,10 @@ def _execute_list(args):
                 record.get('resource_type') or '-',
                 record.get('resource_name') or '-',
                 term.status_label(record.get('status') or ''),
-                names.get(record.get('requester_id'), record.get('requester_id')) or '-',
+                term.user_link(
+                    names.get(record.get('requester_id'), record.get('requester_id')),
+                    record.get('requester_id'),
+                ) or '-',
                 term.fmt_date(record.get('request_time')),
             )
             for record in records

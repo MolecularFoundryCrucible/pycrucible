@@ -245,7 +245,12 @@ def test_update_rejects_response_capabilities():
 
 
 def test_mfid_backed_owner_is_not_linked_to_orcid(monkeypatch):
-    monkeypatch.setattr(term, '_tty', lambda: True)
+    from crucible.config import config
+
+    monkeypatch.setattr(term, '_tty', lambda stream=None: True)
+    monkeypatch.setattr(term, '_interactive', lambda stream=None: True)
+    monkeypatch.setitem(
+        config._data, 'graph_explorer_url', 'https://example.org/explore')
     rendered = term.fmt_owner({
         'owner_orcid': USER_MFID,
         'owner': {
@@ -256,8 +261,10 @@ def test_mfid_backed_owner_is_not_linked_to_orcid(monkeypatch):
         },
     })
 
-    assert 'Test User One (@test-user-one)' in rendered
+    assert 'T. User One' in rendered
+    assert '(@test-user-one)' in rendered
     assert 'orcid.org' not in rendered
+    assert f'https://example.org/explore/user/{USER_MFID}' in rendered
 
 
 def test_list_parser_exposes_status_and_json():
@@ -355,7 +362,7 @@ def test_cli_list_requests_owners_and_formats_public_owner(monkeypatch, capsys):
         status=None,
     )
     output = capsys.readouterr().out
-    assert 'Test User One' in output
+    assert 'T. User One' in output
     assert "{'unique_id'" not in output
 
 

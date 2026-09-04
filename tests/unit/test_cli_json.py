@@ -66,6 +66,36 @@ def test_project_list_json_returns_raw_array(monkeypatch, capsys):
     client.projects.list.assert_called_once_with(limit=10, include_metadata=True)
 
 
+@pytest.mark.parametrize(('json_output', 'include_datasets'), [(False, False), (True, True)])
+def test_sample_get_optimizes_human_output_and_preserves_json(
+        monkeypatch, capsys, json_output, include_datasets):
+    sample = {'unique_id': MFID, 'resource_type': 'sample', 'datasets': []}
+    operations = SimpleNamespace(get=MagicMock(return_value=sample))
+    client = SimpleNamespace(samples=operations)
+    monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
+    monkeypatch.setattr(sample_cli, '_show_sample', MagicMock())
+
+    sample_cli._execute_get(SimpleNamespace(
+        sample_id=MFID,
+        json=json_output,
+        include_metadata=False,
+        graph=False,
+        verbose=False,
+        debug=False,
+        _shell_state=None,
+    ))
+
+    operations.get.assert_called_once_with(
+        MFID,
+        include_links=False,
+        include_metadata=json_output,
+        include_owner=True,
+        include_datasets=include_datasets,
+    )
+    if json_output:
+        assert json.loads(capsys.readouterr().out) == sample
+
+
 @pytest.mark.parametrize(('module', 'resource_name'), [
     (dataset_cli, 'datasets'),
     (sample_cli, 'samples'),

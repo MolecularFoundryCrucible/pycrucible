@@ -29,9 +29,15 @@ display_meta=_HTML(' | '.join([
 ]))
 ```
 
-**Applied to:** `use PROJECT_ID`, `config set current_project`, `deletion approve/reject ID`
+**Applied to:** project, instrument, user, dataset, sample, service-account, deletion-request, and join-request identifiers.
 
 For completions with no meaningful metadata (e.g. subcommand names, flag choices), plain `Completion(name + ' ', ...)` without `display`/`display_meta` is fine.
+
+Keep resource-type badges such as `[ds]`, `[s]`, and `[i]` dim so they do not compete with status or navigation colors. In path completion, render directories bold cyan, `.crux` files bold in the default foreground, hidden files dim, and ordinary files in the default foreground.
+
+Use the resource search endpoint for user, project, instrument, dataset, and sample completion after the API's three-character minimum. Cache results by the complete search context for the shell session. Dataset and sample searches should include the active project when one is configured. Below the search minimum, use an already-loaded bounded cache such as active projects or recent MFIDs rather than fetching an entire resource collection solely for completion.
+
+After a positional value has been completed, fall through to the matched argparse subparser so its flags remain discoverable. Complete argparse `choices` values directly and return the canonical identifier required by the target argument, such as a project ID, instrument ID, instrument MFID, username, or dataset/sample MFID.
 
 ---
 
@@ -102,12 +108,15 @@ Use `term.*` helpers. They are TTY-safe no-ops when output is redirected and res
 
 | Color | Use case | Helper |
 |-------|----------|--------|
-| Cyan | IDs (MFID, ORCID, project IDs) | `term.cyan(s)` / `term.mfid_link()` / `term.orcid_link()` |
+| Cyan | Identifiers, command flags, and navigable references | `term.cyan(s)` / `term.identifier_link()` |
+| Cyan + underline | Clickable terminal hyperlinks | `term.navigation_link()` / `term.mfid_link()` / `term.project_link()` / `term.user_link()` |
 | Dim / grey | Supplementary info, empty placeholders, timestamps | `term.dim(s)` |
-| Bold | Section headers | `term.bold(s)` / `term.header()` |
+| Bold | Section headers and primary resource names or titles | `term.bold(s)` / `term.header()` |
 | Yellow | Status: pending or warning | `term.yellow(s)` |
 | Green | Status: approved or success | `term.green(s)` |
 | Red | Status: rejected or error | `term.red(s)` |
+| Gold | Project lead or resource owner standing | `term.gold(s)` |
+| Magenta | Project administrator standing | `term.magenta(s)` |
 
 Pass lifecycle and workflow statuses through `term.status_label()`. Active states are green, maintenance and pending states are yellow, decommissioned states are dim, and rejected or failed states are red.
 
@@ -124,12 +133,34 @@ Pass project membership roles through `term.role_label()`. Member tables are ord
 | API role | Display | Color |
 |---|---|---|
 | `owner` | `lead` | Gold |
-| `admin` | `admin` | Red |
+| `admin` | `admin` | Magenta |
 | `editor` | `editor` | Blue |
-| `contributor` | `contributor` | Cyan |
+| `contributor` | `contributor` | Default foreground |
 | `viewer` | `viewer` | Gray |
 
 Label resource slugs explicitly as `Project ID` or `Instrument ID`, and label canonical identifiers as `MFID`. Detail views for slug-addressable resources should show both when available.
+
+Singleton resource views use this section order when the data applies: primary identity and scientific fields, project, instrument, access, timing, then files, relationships, and scientific metadata. The inspected resource keeps its own MFID visible. Embedded project and instrument references show their title or name and public ID without exposing the related MFID. Use the related MFID internally when the Explorer route requires it.
+
+Treat usernames, project IDs, and instrument IDs as human-readable slugs. Keep them in the default foreground when their resource name or canonical ID already carries navigation. Canonical user IDs and MFIDs use cyan underlined text when a stable Explorer route is available. Identifiers without a stable destination remain cyan without underlining. User labels and canonical IDs link to the Crucible Explorer profile rather than the external ORCID record. Do not make an additional API request solely to enrich a label or construct a link.
+
+Use one primary navigational link per table row when possible: title for projects, name for instruments and users, MFID for datasets and samples, and filename for signed downloads. Use the slug or canonical ID as the fallback link when the preferred human-readable label is unavailable.
+
+In singleton detail views, keep the primary title or name bold and plain, keep its slug plain, and make only the canonical user ID or resource MFID clickable. Embedded project and instrument references omit the related MFID, so their title or name carries the link while the slug remains plain.
+
+Keep ordinary filenames, storage backends, scientific values, and descriptive text in the default foreground. File MFIDs and dataset MFIDs remain cyan identifiers. Use the filename itself for a signed download link instead of a generic `link` label.
+
+Hyperlink color and underline are presentation enhancements, not the only indication of meaning. Preserve explicit field labels, role names, and status words. Table truncation must preserve the link's original styles and destination.
+
+Format human names using every given-name initial followed by the complete family name, such as `Jean Pierre Dupont` as `J. P. Dupont`. Keep usernames as dim supplementary text when shown beside a name. JSON output preserves the API values unchanged.
+
+Use bold cyan underlined text for the selected resource in graph displays. Do not use green for selection because green is reserved for successful or healthy states.
+
+`--no-color` and `NO_COLOR` disable color and emphasis in both standard output and the interactive shell. Interactive OSC 8 hyperlinks remain available because they are navigation rather than color. Redirected output contains neither terminal styling nor hyperlinks.
+
+The interactive shell toolbar uses the Crucible brand palette: dark blue `#031e2d` as its base, light blue `#a8c4cd` for normal text and the project block, and orange `#ff6600` for separators and attention states. Staging and custom API endpoints use the orange attention color, as does the debug badge. Use 24-bit color when `COLORTERM` reports `truecolor` or `24bit`, respect an explicit `PROMPT_TOOLKIT_COLOR_DEPTH`, and retain Prompt Toolkit's fallback for other terminals. Keep autocomplete menus plain with the terminal's normal foreground, background, and selection styling; only completion keys are bold and metadata is dim.
+
+The interactive shell startup banner is a packaged 15×15 pixel map rather than an external user file. Render each pixel as two terminal columns to preserve its proportions, and center the resulting compact panel within the current terminal width. The panel has one light-blue row above and below the logo and one light-blue pixel, or two terminal columns, at each side. Keep the surrounding terminal area uncolored. In the pixel map, `_` is light blue, `%` is dark blue, `=` is orange, and both `.` and `:` are off-white. Show the banner only on an interactive terminal at least 36 columns wide. When color is disabled, render dark-blue and orange pixels as solid blocks and the other pixels as spaces.
 
 ## Interactive prompts
 
@@ -147,6 +178,10 @@ Use the shared helpers in `cli.helpers` instead of calling `input()` directly fo
 Use `prompt_confirm()` for actions that require a yes-or-no decision. Confirmation must default to no for destructive operations, accept `yes` and `no` in addition to their single-letter forms, explain invalid responses, and fail with status 2 outside an interactive terminal. Commands intended for automation should provide an explicit bypass such as `--yes`.
 
 API operations that support a server-side preview should remain preview-only by default and execute only when the user supplies `--confirm`. Do not add an interactive prompt after a preview response.
+
+## Shell project context
+
+Resolve project context in this order: an explicit command argument, the deprecated `CRUCIBLE_CURRENT_PROJECT` compatibility override, then the saved `current_project`. Use the shared project-context helper for commands that accept an omitted project. The `use PROJECT_ID` shell command validates and saves the current project for future commands and shell sessions. `unuse` clears it. Always display an active environment override and its source because it can redirect operations. Dataset sessions are resource metadata and must not be treated as shell context.
 
 ## Errors and warnings
 

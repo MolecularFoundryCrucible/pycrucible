@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Shared CLI wiring for the generic /resources/{mfid}/access/... ACL surface
-(BaseResource.list_access/set_access/revoke_access/set_public/unset_public).
+(BaseResource.list_access/set_access/revoke_access/publish/unpublish).
 
 Reused by dataset.py, sample.py, instrument.py, and project.py - each calls
 register_access_commands() with its own subparsers and the CrucibleClient
@@ -79,6 +79,19 @@ def _ops(args):
     return getattr(client, args._resource_ops_name)
 
 
+def _principal_link(grant):
+    from .helpers import instrument_explorer_url, project_explorer_url, user_explorer_url
+
+    principal_id = grant.principal_id
+    if grant.principal_type == 'user':
+        return term.navigation_link(principal_id, user_explorer_url(principal_id))
+    if grant.principal_type == 'project' and grant.slug:
+        return term.identifier_link(principal_id, project_explorer_url(grant.slug))
+    if grant.principal_type == 'instrument':
+        return term.identifier_link(principal_id, instrument_explorer_url(principal_id))
+    return term.cyan(principal_id)
+
+
 def _execute_list(args):
     try:
         ops = _ops(args)
@@ -87,7 +100,8 @@ def _execute_list(args):
         if not grants:
             print(f"  {term.dim('No access grants found.')}")
         else:
-            rows = [(g.principal_id, g.principal_type, g.permission, g.display_name or '-')
+            rows = [(_principal_link(g), g.principal_type,
+                     term.permission_label(g.permission), g.display_name or '-')
                     for g in grants]
             term.table(rows, ['Principal', 'Kind', 'Permission', 'Name'], max_widths=[30, 16, 14, 30])
     except Exception as e:
@@ -117,7 +131,7 @@ def _execute_revoke(args):
 def _execute_publish(args):
     try:
         ops = _ops(args)
-        ops.set_public(args.resource_id)
+        ops.publish(args.resource_id)
         term.success(f"{args.resource_id} is now publicly viewable", args)
     except Exception as e:
         fail("publishing resource", e, args)
@@ -126,7 +140,7 @@ def _execute_publish(args):
 def _execute_unpublish(args):
     try:
         ops = _ops(args)
-        ops.unset_public(args.resource_id)
+        ops.unpublish(args.resource_id)
         term.success(f"Public access removed from {args.resource_id}", args)
     except Exception as e:
         fail("unpublishing resource", e, args)

@@ -123,8 +123,11 @@ def _execute_search(args):
         rows = []
         for u in users:
             username = u.get('username') or '-'
-            name  = term.fmt_name(u, default='-', fallback_username=False)
-            user_id = term.user_id_link(u.get('unique_id')) or '-'
+            name = term.user_link(
+                term.fmt_name(u, default='-', fallback_username=False),
+                u.get('unique_id'),
+            )
+            user_id = term.cyan(u.get('unique_id')) if u.get('unique_id') else '-'
             rows.append((username, name, user_id))
         term.table(
             rows,
@@ -587,8 +590,11 @@ def _execute_list(args):
 
         rows = []
         for user in users:
-            name     = term.fmt_name(user, default='-', fallback_username=False)
-            user_id  = term.user_id_link(user.get('unique_id')) or '-'
+            name = term.user_link(
+                term.fmt_name(user, default='-', fallback_username=False),
+                user.get('unique_id'),
+            )
+            user_id  = term.cyan(user.get('unique_id')) if user.get('unique_id') else '-'
             username = user.get('username') or '-'
             rows.append((username, name, user_id))
         term.table(
@@ -766,14 +772,17 @@ def _execute_list_projects(args):
             print(f"  {term.dim('No projects found.')}")
             return
 
-        rows = [
-            (
-                p.get('project_id') or '-',
-                p.get('title') or '-',
-                p.get('organization') or '-',
+        from .helpers import project_explorer_url
+        def _project_row(project):
+            project_id = project.get('project_id')
+            title = project.get('title')
+            url = project_explorer_url(project_id)
+            return (
+                project_id if title else term.project_link(project_id, url),
+                term.navigation_link(title, url) if title else '-',
+                project.get('organization') or '-',
             )
-            for p in projects
-        ]
+        rows = [_project_row(project) for project in projects]
         term.table(
             rows,
             ['Project ID', 'Title', 'Organization'],

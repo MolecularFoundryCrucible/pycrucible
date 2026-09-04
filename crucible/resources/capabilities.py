@@ -49,16 +49,26 @@ class AccessControlMixin:
         """Revoke a principal's access to a resource."""
         return self._request('delete', f'/resources/{mfid}/access/{kind}/{principal}')
 
-    def set_public(self, mfid: str) -> 'AccessGrant':
+    def publish(self, resource_mfid: str) -> 'AccessGrant':
         """Grant public viewer access to a resource."""
         from ..models import AccessGrant
 
-        raw = self._request('put', f'/resources/{mfid}/access/public')
+        raw = self._request('put', f'/resources/{resource_mfid}/access/public')
         return AccessGrant.model_validate(raw)
 
+    def unpublish(self, resource_mfid: str) -> Dict:
+        """Revoke public access to a resource."""
+        return self._request('delete', f'/resources/{resource_mfid}/access/public')
+
+    @_deprecated("publish()")
+    def set_public(self, mfid: str) -> 'AccessGrant':
+        """Grant public viewer access to a resource."""
+        return self.publish(mfid)
+
+    @_deprecated("unpublish()")
     def unset_public(self, mfid: str) -> Dict:
         """Revoke public access to a resource."""
-        return self._request('delete', f'/resources/{mfid}/access/public')
+        return self.unpublish(mfid)
 
 
 class OwnershipMixin:

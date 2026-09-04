@@ -8,6 +8,7 @@ shell, keybindings, etc.) and don't belong in term.py (display-only) or
 shell.py (which would create circular imports).
 """
 
+import argparse
 import json
 import logging
 import re
@@ -20,6 +21,26 @@ logger = logging.getLogger(__name__)
 
 _MFID_RE = MFID_PATTERN
 _NO_DEFAULT = object()
+
+
+class DeprecatedAliasAction(argparse.Action):
+    """Store an option value and warn when a deprecated spelling was used."""
+
+    def __init__(self, option_strings, dest, deprecated_options=(), replacement=None, **kwargs):
+        self.deprecated_options = set(deprecated_options)
+        self.replacement = replacement
+        super().__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if option_string in self.deprecated_options:
+            from . import term
+
+            label = term.yellow('Warning:', stream=sys.stderr)
+            print(
+                f"{label} {option_string} is deprecated; use {self.replacement} instead.",
+                file=sys.stderr,
+            )
+        setattr(namespace, self.dest, values)
 
 
 def _error_details(error):
@@ -420,26 +441,6 @@ def fetch_service_accounts(client):
         return None
 
 
-def fetch_instruments(client):
-    """Return [(instrument_id, instrument_name, unique_id), ...] for instruments.
-
-    Instruments are a small, globally-readable set (not admin-gated),
-    so fetch-all-once is appropriate here rather than live search.
-    """
-    try:
-        return [
-            (
-                i.get('instrument_id') or '',
-                i.get('instrument_name') or '',
-                i.get('unique_id') or '',
-            )
-            for i in client.instruments.list()
-            if i.get('instrument_id') and i.get('unique_id')
-        ]
-    except Exception:
-        return []
-
-
 def resolve_usernames(client, orcids):
     """Batch-resolve ORCIDs to usernames. Returns {orcid: username_or_orcid}."""
     orcids = sorted({o for o in orcids if o})
@@ -469,21 +470,43 @@ def fetch_user_label(client, whoami_info=None):
 
 
 def fetch_current_project():
-    """Return the current project ID from config, or a placeholder."""
+    """Return the current project ID from config."""
     try:
         from crucible.config import config
-        return config.current_project or '(no project set)'
+        return config.current_project or None
     except Exception:
-        return '?'
+        return None
 
 
-def fetch_current_session():
-    """Return the current session name from config, or empty string."""
+def fetch_project_context():
+    """Return the configured project ID and its source."""
     try:
         from crucible.config import config
-        return config.current_session or ''
+        project_id = config.current_project or None
+        return project_id, config.source('current_project') if project_id else None
     except Exception:
-        return ''
+        return None, None
+
+
+def resolve_project_context(args=None, project_id=None):
+    """Return the effective CLI project ID and its source."""
+    if project_id:
+        return project_id, 'argument'
+    shell_state = getattr(args, '_shell_state', None) if args is not None else None
+    if shell_state is not None:
+        shell_project = shell_state.get('project')
+        if shell_project:
+            return shell_project, shell_state.get('project_source') or 'config file'
+    project_id, source = fetch_project_context()
+    if project_id and source == 'environment':
+        import warnings
+        warnings.warn(
+            "CRUCIBLE_CURRENT_PROJECT is deprecated because it can silently redirect operations. "
+            "Use an explicit --project-id or save the current project with the interactive shell.",
+            FutureWarning,
+            stacklevel=2,
+        )
+    return project_id, source
 
 
 def fetch_api_label():
@@ -499,20 +522,80 @@ def fetch_api_label():
         return 'api: ?'
 
 
+def fetch_api_attention():
+    """Return whether the configured API differs from the package default."""
+    try:
+        from crucible.config import config
+        from crucible.config.config import Config
+        return config.api_url.rstrip('/') != Config.DEFAULT_API_URL.rstrip('/')
+    except Exception:
+        return False
+
+
 def explorer_url(resource_id: str, project_id: str, resource_type: str) -> str:
     """Build a graph explorer URL for a dataset or sample.
 
     Returns None if the graph_explorer_url is not configured or any argument is missing.
     """
-    try:
-        from crucible.config import config
-        base = (config.graph_explorer_url or '').rstrip('/')
-    except Exception:
-        return None
+    base = _graph_explorer_base()
     if not base or not resource_id or not project_id:
         return None
     dtype = 'samples' if resource_type == 'sample' else 'datasets'
     return f"{base}/{project_id}/{dtype}/{resource_id}"
+
+
+def _graph_explorer_base():
+    try:
+        from crucible.config import config
+        return (config.graph_explorer_url or '').rstrip('/') or None
+    except Exception:
+        return None
+
+
+def project_explorer_url(project_id: str) -> str:
+    """Build the Graph Explorer URL for a project."""
+    base = _graph_explorer_base()
+    if not base or not project_id:
+        return None
+    return f"{base}/{project_id}/"
+
+
+def instrument_explorer_url(instrument_mfid: str) -> str:
+    """Build the Graph Explorer URL for an instrument."""
+    base = _graph_explorer_base()
+    if not base or not instrument_mfid:
+        return None
+    return f"{base}/instrument/{instrument_mfid}"
+
+
+def user_explorer_url(user_unique_id: str) -> str:
+    """Build the Graph Explorer URL for a user."""
+    base = _graph_explorer_base()
+    if not base or not user_unique_id:
+        return None
+    return f"{base}/user/{user_unique_id}"
+
+
+def project_reference(resource):
+    """Return the display title, project ID, and Explorer URL for a resource."""
+    reference = resource.get('project') or {}
+    project_id = reference.get('project_id') or resource.get('project_id')
+    return (
+        reference.get('title'),
+        project_id,
+        project_explorer_url(project_id),
+    )
+
+
+def instrument_reference(resource):
+    """Return the display name, instrument ID, and Explorer URL for a dataset."""
+    reference = resource.get('instrument') or {}
+    instrument_mfid = reference.get('unique_id')
+    return (
+        reference.get('instrument_name') or resource.get('instrument_name'),
+        reference.get('instrument_id') or resource.get('instrument_id'),
+        instrument_explorer_url(instrument_mfid),
+    )
 
 
 def cast_value(value: str):
