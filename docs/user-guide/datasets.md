@@ -45,7 +45,7 @@ The equivalent CLI command is `crucible dataset list --instrument-mfid 0tkn2knja
 # Working with Datasets
 ## Creating a dataset
 
-Pass a `Dataset` model and optional files to `client.datasets.create()`:
+Dataset records and associated files are separate API resources. Create the dataset record first, then add files using its returned MFID:
 
 ```python
 from crucible.models import Dataset
@@ -57,12 +57,12 @@ result = client.datasets.create(
         instrument_name="Beamline 12.3.2",
         project_id="my-project",
     ),
-    files=["xrd_run5.xy"],
     scientific_metadata={"wavelength_angstrom": 0.7749, "temperature_K": 300},
     keywords=["XRD", "powder"],
 )
 
 dataset_mfid = result["dataset_mfid"]
+client.datasets.add_file(dataset_mfid, "xrd_run5.xy")
 ```
 
 Files are optional. The CLI can create a record that receives its files later:
@@ -72,7 +72,7 @@ crucible dataset create --project-id my-project --name "Planned experiment"
 crucible dataset add-file DATASET_MFID -i results.dat
 ```
 
-You can upload multiple files in one call:
+For convenience, `create()` can perform these operations in sequence when `files` is supplied. Files are not part of the API dataset-creation request, and a failure while adding one does not roll back the created dataset record:
 
 ```python
 result = client.datasets.create(
@@ -86,7 +86,7 @@ result = client.datasets.create(
     1. **POST** `/datasets` creates the dataset record and returns its `unique_id` MFID.
     2. **POST** `/resources/{dataset_mfid}/metadata` adds scientific metadata when provided.
     3. **POST** `/datasets/{dataset_mfid}/keywords` adds each keyword individually when provided.
-    4. Uploads each file via GCS and triggers an ingestion request per file (if `files` is provided)
+    4. Adds each file through the associated-file and upload routes and triggers an ingestion request per file when `files` is provided
 
 
 ## Retrieving a dataset
@@ -174,6 +174,47 @@ Add files to an existing dataset:
 client.datasets.add_file(dataset_mfid, "additional_file.dat")
 ```
 
+To discover files recursively, build the list locally and add each file to the existing dataset. Crucible stores the filename, not its relative directory hierarchy, so verify that basenames are unique before uploading:
+
+```python
+from collections import Counter
+from pathlib import Path
+
+source_root = Path("experiment-output")
+source_files = sorted(path for path in source_root.rglob("*") if path.is_file())
+duplicate_names = [name for name, count in Counter(path.name for path in source_files).items() if count > 1]
+if duplicate_names:
+    raise ValueError(f"Duplicate filenames in source tree: {duplicate_names}")
+
+for path in source_files:
+    client.datasets.add_file(dataset_mfid, str(path))
+```
+
+### Replacing a file
+
+File replacement is an explicit delete-and-create workflow. Find the old associated-file MFID, delete that file, and then add the replacement to the dataset:
+
+```python
+associated_files = client.datasets.list_files(dataset_mfid)
+old_file = next(file for file in associated_files if file["filename"] == "results.dat")
+
+client.files.delete(old_file["mfid"])
+client.datasets.add_file(dataset_mfid, "results.dat")
+```
+
+Deleting a file is irreversible. Verify the dataset MFID, file MFID, and filename before calling `delete()`.
+
+### Re-uploading to an existing dataset
+
+Keep the dataset MFID and add the local files to that record again. Do not call `datasets.create()` again, because that creates another dataset record:
+
+```python
+for path in source_files:
+    client.datasets.add_file(dataset_mfid, str(path))
+```
+
+An unchanged file that the API recognizes by its SHA-256 hash is not uploaded again. If a filename now represents different content, use the explicit delete-and-create workflow above.
+
 ### How the data ingestion process works
 
 When a file is added to a dataset, three things happen:
@@ -188,10 +229,7 @@ Ingestors will not overwrite the dataset attributes provided at dataset creation
 
 For updates to the scientific metadata, the ingestion process uses the `client.datasets.update_scientific_metadata(overwrite = False)` method. As a result, new key-value pairs parsed during the ingestion process will be appended to the existing `scientific_metadata` and newly parsed values for existing keys will be updated. If you would like to replace the entire scientific_metadata dictionary, it can be done manally with `update_scientific_metadata(overwrite=True)`.
 
-Files are deduplicated by sha256 hash. If you add the same file twice it will not be reuploaded, but ingestion will be re-requested. This operation is **idempotent**.
-
-!!! warning
-    If two files with the same name but different contents are added to the same dataset, the upload proceeds but **replaces the original file in cloud storage**. A new file record is created with a new `mfid` and hash; the old record remains but its download link points to the new file. We are actively working on updated logic to address this.
+Files are deduplicated by SHA-256 hash. If you add the same file twice, the client returns the existing associated-file record without uploading or requesting ingestion again.
 
 If no ingestion class exists for your data type, reach out on [Discord](https://discord.gg/Wrepphsgbx) or contribute to the [crucible-ingestion](https://github.com/MolecularFoundryCrucible/crucible-ingestion) repository.
 
@@ -242,7 +280,7 @@ Downloading and ingestion are GCS-only: `client.files.download()`/`client.datase
 Scientific metadata stores experiment-specific parameters as a free-form JSON object.
 
 ```python
-# Merge new keys into existing metadata (PATCH — appends/updates individual keys)
+# Merge new keys into existing metadata (PATCH - appends/updates individual keys)
 client.datasets.update_scientific_metadata(
     dataset_mfid,
     metadata={"temperature_K": 300, "pressure_bar": 1.0, "scan_rate_mV_s": 50},
@@ -319,7 +357,7 @@ links = client.datasets.get_download_links(dataset_mfid)
 Link datasets to represent a processing pipeline:
 
 ```python
-# raw → processed
+# raw to processed
 client.datasets.link(
     parent_mfid=raw_dataset_mfid,
     child_mfid=processed_dataset_mfid,
