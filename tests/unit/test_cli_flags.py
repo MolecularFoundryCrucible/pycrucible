@@ -1,6 +1,7 @@
 """Unit coverage for canonical CLI flags and compatibility aliases."""
 
 import argparse
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -85,6 +86,59 @@ def test_legacy_upload_project_flag_remains_compatible(capsys):
     assert (
         'Warning: -pid is deprecated; use --project-id instead.'
         in capsys.readouterr().err
+    )
+
+
+def test_dataset_create_accepts_no_input():
+    args = make_parser(dataset).parse_args([
+        'dataset', 'create', '--project-id', 'project-one', '--name', 'Planned experiment',
+    ])
+
+    assert args.input is None
+
+
+@pytest.mark.parametrize(
+    'option',
+    [
+        ['--type', 'lammps'],
+        ['--ingestor', 'ExampleIngestor'],
+        ['--no-upload'],
+        ['--backend', 'globus'],
+        ['--access-note', 'Shared path'],
+    ],
+)
+def test_dataset_create_rejects_file_options_without_input(option, caplog):
+    args = make_parser(dataset).parse_args([
+        'dataset', 'create', '--project-id', 'project-one', *option,
+    ])
+
+    with pytest.raises(SystemExit) as exit_info:
+        args.func(args)
+
+    assert exit_info.value.code == 1
+    assert 'require --input FILE' in caplog.text
+
+
+def test_dataset_create_without_files_uses_direct_client(monkeypatch):
+    client = MagicMock()
+    client.projects.get.return_value = {'project_id': 'project-one'}
+    client.datasets.create.return_value = {'created_record': {}}
+    monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
+    args = make_parser(dataset).parse_args([
+        'dataset', 'create', '--project-id', 'project-one', '--name', 'Planned experiment',
+        '--metadata', '{"temperature": 300}', '--keywords', 'planned,draft',
+    ])
+
+    args.func(args)
+
+    created_dataset = client.datasets.create.call_args.args[0]
+    assert created_dataset.dataset_name == 'Planned experiment'
+    assert created_dataset.project_id == 'project-one'
+    client.datasets.create.assert_called_once_with(
+        created_dataset,
+        scientific_metadata={'temperature': 300},
+        keywords=['planned', 'draft'],
+        files=[],
     )
 
 

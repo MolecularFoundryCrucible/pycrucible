@@ -22,7 +22,7 @@ Running `crucible` without a command starts the interactive shell. See the [CLI 
 |---|---|
 | `dataset list` | List datasets with project, canonical instrument MFID, measurement, keyword, session, format, type, instrument name, and name-pattern filters |
 | `dataset get MFID` | Show a dataset, its files, and linked resources |
-| `dataset create -i FILE` | Create a dataset and upload or catalog files |
+| `dataset create [--input FILE ...]` | Create a dataset, optionally uploading or cataloging files |
 | `dataset update MFID` | Update model fields or scientific metadata |
 | `dataset edit MFID` | Edit dataset fields interactively |
 | `dataset reassign-project MFID PROJECT` | Move a dataset to another project |
@@ -58,6 +58,14 @@ crucible dataset create -i data.csv --project-id my-project \
     -n "XRD measurement" -m "X-ray diffraction" \
     --metadata '{"temperature_K": 300}' --keywords "XRD,powder"
 ```
+
+Create a dataset record without attaching files:
+
+```bash
+crucible dataset create --project-id my-project --name "Planned experiment"
+```
+
+The `--type`, `--ingestor`, `--no-upload`, `--backend`, and `--access-note` options require at least one `--input` file.
 
 Fields normally updated through `dataset update --set` include `dataset_name`, `measurement`, `data_type`, `session_name`, `data_format`, `timestamp`, and `public`. Use `reassign-project` and `transfer-ownership` for project and owner changes. Instrument reassignment remains unavailable and is not exposed as ordinary metadata editing.
 

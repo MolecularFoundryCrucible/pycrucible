@@ -475,11 +475,14 @@ def _register_create(subparsers):
 
     parser = subparsers.add_parser(
         'create',
-        help='Create and upload a new dataset',
-        description='Parse and upload dataset files to Crucible',
+        help='Create a dataset, optionally attaching files',
+        description='Create a dataset record and optionally parse, upload, or catalog files',
         formatter_class=lambda prog: term.ColorHelpFormatter(prog, max_help_position=35),
         epilog="""
 Examples:
+    # Create a dataset record without files
+    crucible dataset create --project-id my-project --name "Planned experiment"
+
     # Preview what would be uploaded (dry run)
     crucible dataset create -i file1.dat --project-id my-project --dry-run
 
@@ -509,9 +512,9 @@ Examples:
     input_arg = parser.add_argument(
         '-i', '--input',
         nargs='+',
-        required=True,
+        default=None,
         metavar='FILE',
-        help='Input file(s) to upload (supports wildcards like *.dat)'
+        help='Optional input file(s) to upload or catalog (supports wildcards like *.dat)'
     )
     if ARGCOMPLETE_AVAILABLE:
         input_arg.completer = FilesCompleter()
@@ -669,7 +672,7 @@ Examples:
         '--dry-run',
         action='store_true',
         dest='dry_run',
-        help='Show what would be uploaded without actually uploading'
+        help='Show what would be created without making API changes'
     )
 
     # Catalog-only (non-GCS) files
@@ -1896,6 +1899,22 @@ def _execute_create(args):
     """Execute the 'dataset create' subcommand."""
     from crucible.parsers import get_parser, BaseParser
     from .helpers import resolve_project_context
+
+    if not args.input:
+        file_options = [
+            option for option, enabled in (
+                ('--type', args.dataset_type is not None),
+                ('--ingestor', args.ingestor is not None),
+                ('--no-upload', args.no_upload),
+                ('--backend', args.backend is not None),
+                ('--access-note', args.access_note is not None),
+            )
+            if enabled
+        ]
+        if file_options:
+            logger.error(f"{', '.join(file_options)} require --input FILE.")
+            sys.exit(1)
+
     project_id, project_source = resolve_project_context(args, args.project_id)
     if project_id is None:
         logger.error("Project ID required. Specify with --project-id or set current_project in config.")
@@ -1914,7 +1933,7 @@ def _execute_create(args):
     # Expand wildcards in input files
     import glob
     expanded_files = []
-    for pattern in args.input:
+    for pattern in args.input or []:
         matches = glob.glob(pattern)
         if matches:
             expanded_files.extend(matches)
@@ -1982,48 +2001,66 @@ def _execute_create(args):
         logger.error("--no-upload is only supported for generic uploads (omit -t/--type).")
         sys.exit(1)
 
-    # Determine parser class
-    if args.dataset_type is None:
-        from crucible.parsers import get_all_parsers
-        all_parsers = get_all_parsers()
-        non_base = sorted(k for k in all_parsers if k != 'base')
-        if non_base:
-            logger.info(f"Tip: No parser type specified (-t). Using generic upload (BaseParser).")
-            logger.info(f"     Available parsers: {', '.join(non_base)}")
-            logger.info(f"     Run 'crucible dataset parsers' to see all options.\n")
-        ParserClass = BaseParser
-    else:
-        try:
-            ParserClass = get_parser(args.dataset_type)
-        except ValueError as e:
-            logger.error(f"Error: {e}")
-            sys.exit(1)
+    parser = None
+    if input_files:
+        if args.dataset_type is None:
+            from crucible.parsers import get_all_parsers
+            all_parsers = get_all_parsers()
+            non_base = sorted(k for k in all_parsers if k != 'base')
+            if non_base:
+                logger.info("Tip: No parser type specified (-t). Using generic upload (BaseParser).")
+                logger.info(f"     Available parsers: {', '.join(non_base)}")
+                logger.info("     Run 'crucible dataset parsers' to see all options.\n")
+            ParserClass = BaseParser
+        else:
+            try:
+                ParserClass = get_parser(args.dataset_type)
+            except ValueError as e:
+                logger.error(f"Error: {e}")
+                sys.exit(1)
 
-    # Initialize parser
-    try:
-        parser = ParserClass(
-            files_to_upload=[str(f) for f in input_files],
-            project_id=project_id,
-            metadata=metadata_dict,
-            keywords=keywords_list,
-            mfid=dataset_mfid,
+        try:
+            parser = ParserClass(
+                files_to_upload=[str(f) for f in input_files],
+                project_id=project_id,
+                metadata=metadata_dict,
+                keywords=keywords_list,
+                mfid=dataset_mfid,
+                measurement=args.measurement,
+                dataset_name=args.dataset_name,
+                session_name=args.session_name,
+                public=args.public,
+                instrument_name=args.instrument_name,
+                data_format=args.data_format,
+                data_type=args.data_type,
+                timestamp=timestamp,
+            )
+        except Exception as e:
+            from .helpers import fail
+            fail("parsing file", e, args)
+
+        if args.ingestor is not None and args.measurement is None:
+            parser.measurement = None
+
+        dataset_record = parser.to_dataset()
+        record_metadata = parser.scientific_metadata
+        record_keywords = parser.keywords
+    else:
+        from crucible.models import Dataset
+        dataset_record = Dataset(
+            unique_id=dataset_mfid,
             measurement=args.measurement,
+            project_id=project_id,
             dataset_name=args.dataset_name,
             session_name=args.session_name,
+            timestamp=timestamp,
             public=args.public,
             instrument_name=args.instrument_name,
             data_format=args.data_format,
             data_type=args.data_type,
-            timestamp=timestamp,
         )
-    except Exception as e:
-        from .helpers import fail
-        fail("parsing file", e, args)
-
-    # If a custom ingestor is used and the user didn't explicitly set -m,
-    # clear the parser's default measurement so the server assigns it
-    if args.ingestor is not None and args.measurement is None:
-        parser.measurement = None
+        record_metadata = metadata_dict or {}
+        record_keywords = keywords_list or []
 
     # Display dataset information
     _p = term.field_printer(14)
@@ -2035,36 +2072,37 @@ def _execute_create(args):
     }.get(project_source)
     proj_label = f"{project_id} {term.dim(f'({project_context})')}" if project_context else project_id
     _p("Project",     proj_label)
-    _p("Parser",      ParserClass.__name__)
-    _p("Name",        parser.dataset_name)
-    _p("Measurement", parser.measurement or term.dim("(server assigns)"))
-    _p("Data format", parser.data_format)
-    _p("Data type",   parser.data_type)
-    _p("Session",     parser.session_name)
-    _p("Timestamp",   parser.timestamp)
-    _p("Public",      term.fmt_bool(parser.public))
-    _p("Instrument",  parser.instrument_name)
+    if parser is not None:
+        _p("Parser", ParserClass.__name__)
+    _p("Name",        dataset_record.dataset_name)
+    _p("Measurement", dataset_record.measurement or term.dim("(server assigns)"))
+    _p("Data format", dataset_record.data_format)
+    _p("Data type",   dataset_record.data_type)
+    _p("Session",     dataset_record.session_name)
+    _p("Timestamp",   dataset_record.timestamp)
+    _p("Public",      term.fmt_bool(dataset_record.public))
+    _p("Instrument",  dataset_record.instrument_name)
     _p("MFID",        dataset_mfid or term.dim("(server assigns)"))
-    if args.no_upload:
+    if input_files and args.no_upload:
         _p("Backend", args.backend or 'local')
         if args.access_note:
             _p("Access note", args.access_note)
-    else:
+    elif input_files:
         _p("Ingestor", args.ingestor or term.dim("(server detects)"))
 
-    if parser.files_to_upload:
+    if parser is not None and parser.files_to_upload:
         label = 'Files (cataloged, not uploaded)' if args.no_upload else 'Files'
         print(f"\n  {term.dim(f'{label} ({len(parser.files_to_upload)})')}")
         for f in parser.files_to_upload:
             print(f"    {Path(f).name}")
 
-    if parser.keywords:
-        print(f"\n  {term.dim(f'Keywords ({len(parser.keywords)})')}")
-        print(f"    {', '.join(parser.keywords)}")
+    if record_keywords:
+        print(f"\n  {term.dim(f'Keywords ({len(record_keywords)})')}")
+        print(f"    {', '.join(record_keywords)}")
 
-    if parser.scientific_metadata:
-        print(f"\n  {term.dim(f'Scientific Metadata ({len(parser.scientific_metadata)} fields)')}")
-        for key, value in parser.scientific_metadata.items():
+    if record_metadata:
+        print(f"\n  {term.dim(f'Scientific Metadata ({len(record_metadata)} fields)')}")
+        for key, value in record_metadata.items():
             if key == 'dump_files':
                 print(f"    {key}: {len(value)} files")
             elif isinstance(value, (list, dict)) and len(str(value)) > 80:
@@ -2075,7 +2113,7 @@ def _execute_create(args):
     # Upload or dry run
     if args.dry_run:
         print("")
-        logger.info("Dry run - not uploading. Remove --dry-run to upload.")
+        logger.info("Dry run - dataset not created. Remove --dry-run to create it.")
     else:
         print("")
         try:
@@ -2098,13 +2136,22 @@ def _execute_create(args):
                     files=remote_files,
                 )
             else:
-                result = parser.upload_dataset(
-                    ingestor=args.ingestor,
-                    verbose=getattr(args, 'debug', False),
-                    wait_for_ingestion_response=True
-                )
+                if parser is None:
+                    from crucible.client import CrucibleClient
+                    result = CrucibleClient().datasets.create(
+                        dataset_record,
+                        scientific_metadata=record_metadata,
+                        keywords=record_keywords,
+                        files=[],
+                    )
+                else:
+                    result = parser.upload_dataset(
+                        ingestor=args.ingestor,
+                        verbose=getattr(args, 'debug', False),
+                        wait_for_ingestion_response=True
+                    )
 
-            term.success("Upload completed", args)
+            term.success("Dataset created" if parser is None else "Upload completed", args)
             created = result.get('created_record', {}) if result else {}
             if created:
                 from crucible.client import CrucibleClient

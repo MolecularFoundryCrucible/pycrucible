@@ -65,6 +65,13 @@ result = client.datasets.create(
 dataset_mfid = result["dataset_mfid"]
 ```
 
+Files are optional. The CLI can create a record that receives its files later:
+
+```bash
+crucible dataset create --project-id my-project --name "Planned experiment"
+crucible dataset add-file DATASET_MFID -i results.dat
+```
+
 You can upload multiple files in one call:
 
 ```python
