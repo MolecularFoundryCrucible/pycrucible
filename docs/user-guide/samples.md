@@ -21,7 +21,7 @@
 | Relationship | Key(s) | Description |
 |---|---|---|
 | **Scientific metadata** | `scientific_metadata` in `create()`; `metadata` in `update_scientific_metadata()` / `replace_scientific_metadata()` | A free-form JSON object for sample-specific properties (e.g. solubility, physical location). |
-| **Datasets** | `dataset_mfid` in `add_dataset(sample_mfid, dataset_mfid)` | A sample can be linked to one or more datasets, and a dataset to one or more samples, capturing which material was measured. |
+| **Datasets** | `dataset_mfid` in `link_dataset(sample_mfid, dataset_mfid)` | A sample can be linked to one or more datasets, and a dataset to one or more samples, capturing which material was measured. |
 | **Parent/child samples** | `parent_mfid`, `child_mfid` in `link()`; parent and child records are also accepted in `create()` | Samples form hierarchies to represent provenance, such as boule to wafer to thin film. |
 
 # Working with Samples
@@ -149,10 +149,10 @@ children = client.samples.list_children(sample_mfid)
 
 ```python
 # Link a dataset to a sample
-client.samples.add_dataset(sample_mfid=sample_mfid, dataset_mfid=dataset_mfid)
+client.samples.link_dataset(sample_mfid=sample_mfid, dataset_mfid=dataset_mfid)
 
 # Remove the link
-client.samples.remove_dataset(sample_mfid=sample_mfid, dataset_mfid=dataset_mfid)
+client.samples.unlink_dataset(sample_mfid=sample_mfid, dataset_mfid=dataset_mfid)
 ```
 
 ## Viewing the sample graph

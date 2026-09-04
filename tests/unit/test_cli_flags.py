@@ -1,10 +1,11 @@
 """Unit coverage for canonical CLI flags and compatibility aliases."""
 
 import argparse
+from unittest.mock import MagicMock
 
 import pytest
 
-from crucible.cli import dataset, project, sample, upload
+from crucible.cli import dataset, file as file_cli, project, sample, upload
 
 
 def make_parser(module):
@@ -86,6 +87,89 @@ def test_legacy_upload_project_flag_remains_compatible(capsys):
         'Warning: -pid is deprecated; use --project-id instead.'
         in capsys.readouterr().err
     )
+
+
+def test_dataset_create_accepts_no_input():
+    args = make_parser(dataset).parse_args([
+        'dataset', 'create', '--project-id', 'project-one', '--name', 'Planned experiment',
+    ])
+
+    assert args.input is None
+
+
+@pytest.mark.parametrize('flag', ['--yes', '-y'])
+def test_file_delete_accepts_confirmation_flag(flag):
+    args = make_parser(file_cli).parse_args([
+        'file', 'delete', '0tf7evvtg5wb90005k1j97ak94', flag,
+    ])
+
+    assert args.yes is True
+
+
+@pytest.mark.parametrize(
+    'option',
+    [
+        ['--type', 'lammps'],
+        ['--ingestor', 'ExampleIngestor'],
+        ['--no-upload'],
+        ['--backend', 'globus'],
+        ['--access-note', 'Shared path'],
+    ],
+)
+def test_dataset_create_rejects_file_options_without_input(option, caplog):
+    args = make_parser(dataset).parse_args([
+        'dataset', 'create', '--project-id', 'project-one', *option,
+    ])
+
+    with pytest.raises(SystemExit) as exit_info:
+        args.func(args)
+
+    assert exit_info.value.code == 1
+    assert 'require --input FILE' in caplog.text
+
+
+def test_dataset_create_without_files_uses_direct_client(monkeypatch):
+    client = MagicMock()
+    client.projects.get.return_value = {'project_id': 'project-one'}
+    client.datasets.create.return_value = {'created_record': {}}
+    monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
+    args = make_parser(dataset).parse_args([
+        'dataset', 'create', '--project-id', 'project-one', '--name', 'Planned experiment',
+        '--metadata', '{"temperature": 300}', '--keywords', 'planned,draft',
+    ])
+
+    args.func(args)
+
+    created_dataset = client.datasets.create.call_args.args[0]
+    assert created_dataset.dataset_name == 'Planned experiment'
+    assert created_dataset.project_id == 'project-one'
+    client.datasets.create.assert_called_once_with(
+        created_dataset,
+        scientific_metadata={'temperature': 300},
+        keywords=['planned', 'draft'],
+        files=[],
+    )
+
+
+def test_dataset_add_thumbnail_dispatches_local_image(monkeypatch, tmp_path, capsys):
+    image_path = tmp_path / 'preview.png'
+    image_path.write_bytes(b'png bytes')
+    client = MagicMock()
+    monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
+    args = make_parser(dataset).parse_args([
+        'dataset', 'add-thumbnail',
+        '0tkn2knjast3h0008nyq9zps2c', str(image_path),
+        '--name', 'overview.png',
+    ])
+
+    args.func(args)
+
+    client.datasets.add_thumbnail.assert_called_once_with(
+        '0tkn2knjast3h0008nyq9zps2c',
+        str(image_path),
+        thumbnail_name='overview.png',
+    )
+    assert 'Added thumbnail overview.png' in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(

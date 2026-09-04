@@ -376,9 +376,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             'post', f'/datasets/{dataset_mfid}/keywords', params={'keyword': keyword})
 
     # Dataset Linking Methods
-    @_deprecated_parameter('dataset_id', 'dataset_mfid')
-    @_deprecated_parameter('sample_id', 'sample_mfid')
-    def add_sample(self, dataset_mfid: str, sample_mfid: str) -> Dict:
+    def link_sample(self, dataset_mfid: str, sample_mfid: str) -> Dict:
         """Link a sample to a dataset.
 
         Args:
@@ -390,9 +388,7 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         """
         return self._request('post', f"/datasets/{dataset_mfid}/samples/{sample_mfid}")
 
-    @_deprecated_parameter('dataset_id', 'dataset_mfid')
-    @_deprecated_parameter('sample_id', 'sample_mfid')
-    def remove_sample(self, dataset_mfid: str, sample_mfid: str) -> Dict:
+    def unlink_sample(self, dataset_mfid: str, sample_mfid: str) -> Dict:
         """Remove the link between a dataset and a sample.
 
         **Requires admin permissions.**
@@ -406,11 +402,20 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         """
         return self._request('delete', f"/datasets/{dataset_mfid}/samples/{sample_mfid}")
 
-    @_deprecated_parameter('parent_dataset_id', 'parent_mfid')
-    @_deprecated_parameter('parent_dataset_mfid', 'parent_mfid')
-    @_deprecated_parameter('child_dataset_id', 'child_mfid')
-    @_deprecated_parameter('child_dataset_mfid', 'child_mfid')
-    def remove_child(self, parent_mfid: str, child_mfid: str) -> Dict:
+    def link(self, parent_mfid: str, child_mfid: str) -> Dict:
+        """Link two datasets with a parent-child relationship.
+
+        Args:
+            parent_mfid (str): Parent dataset MFID
+            child_mfid (str): Child dataset MFID
+
+        Returns:
+            Dict: Information about the created link
+        """
+        return self._request(
+            'post', f"/datasets/{parent_mfid}/children/{child_mfid}")
+
+    def unlink(self, parent_mfid: str, child_mfid: str) -> Dict:
         """Remove the parent-child link between two datasets.
 
         Args:
@@ -423,23 +428,37 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         return self._request(
             'delete', f"/datasets/{parent_mfid}/children/{child_mfid}")
 
+    @_deprecated("client.datasets.link_sample()")
+    @_deprecated_parameter('dataset_id', 'dataset_mfid')
+    @_deprecated_parameter('sample_id', 'sample_mfid')
+    def add_sample(self, dataset_mfid: str, sample_mfid: str) -> Dict:
+        """Deprecated: use link_sample(dataset_mfid, sample_mfid) instead."""
+        return self.link_sample(dataset_mfid, sample_mfid)
+
+    @_deprecated("client.datasets.unlink_sample()")
+    @_deprecated_parameter('dataset_id', 'dataset_mfid')
+    @_deprecated_parameter('sample_id', 'sample_mfid')
+    def remove_sample(self, dataset_mfid: str, sample_mfid: str) -> Dict:
+        """Deprecated: use unlink_sample(dataset_mfid, sample_mfid) instead."""
+        return self.unlink_sample(dataset_mfid, sample_mfid)
+
+    @_deprecated("client.datasets.unlink()")
+    @_deprecated_parameter('parent_dataset_id', 'parent_mfid')
+    @_deprecated_parameter('parent_dataset_mfid', 'parent_mfid')
+    @_deprecated_parameter('child_dataset_id', 'child_mfid')
+    @_deprecated_parameter('child_dataset_mfid', 'child_mfid')
+    def remove_child(self, parent_mfid: str, child_mfid: str) -> Dict:
+        """Deprecated: use unlink(parent_mfid, child_mfid) instead."""
+        return self.unlink(parent_mfid, child_mfid)
+
+    @_deprecated("client.datasets.link()")
     @_deprecated_parameter('parent_dataset_id', 'parent_mfid')
     @_deprecated_parameter('parent_dataset_mfid', 'parent_mfid')
     @_deprecated_parameter('child_dataset_id', 'child_mfid')
     @_deprecated_parameter('child_dataset_mfid', 'child_mfid')
     def link_parent_child(self, parent_mfid: str, child_mfid: str) -> Dict:
-        """Link a derived dataset to a parent dataset.
-
-        Args:
-            parent_mfid (str): Parent dataset MFID
-            child_mfid (str): Derived dataset MFID
-
-        Returns:
-            Dict: Information about the created link
-        """
-        new_link = self._request(
-            'post', f"/datasets/{parent_mfid}/children/{child_mfid}")
-        return new_link
+        """Deprecated: use link(parent_mfid, child_mfid) instead."""
+        return self.link(parent_mfid, child_mfid)
 
     @_deprecated_parameter('parent_dataset_id', 'parent_mfid')
     @_deprecated_parameter('parent_dataset_mfid', 'parent_mfid')
@@ -759,34 +778,63 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
     @_deprecated_parameter('dsid', 'dataset_mfid')
     def get_thumbnails(self, dataset_mfid: str,
                        limit: int = DEFAULT_LIMIT) -> List[Dict]:
-        """Get thumbnails for a dataset."""
+        """Get all thumbnails for a dataset.
+
+        The ``limit`` parameter is retained for compatibility. The API route
+        is not paginated and returns every thumbnail.
+        """
         return self._request('get', f'/datasets/{dataset_mfid}/thumbnails')
 
-    @_deprecated_parameter('dsid', 'dataset_mfid')
-    def add_thumbnail(self, dataset_mfid: str, image,
-                      thumbnail_name: Optional[str] = None) -> Dict:
-        """Add a thumbnail to a dataset."""
+    @staticmethod
+    def _encode_thumbnail(image):
+        """Return raw base64 image data and an inferred local filename."""
         import base64
         from ..utils import data2thumbnail, is_base64
 
         if is_base64(image):
-            thumbnail_data = {
-                'thumbnail_name': thumbnail_name or f"{dataset_mfid}_thumbnail",
-                'thumbnail_b64str': image,
-            }
-            return self._request(
-                'post', f'/datasets/{dataset_mfid}/thumbnails', json=thumbnail_data)
+            if isinstance(image, bytes):
+                image = image.decode('ascii')
+            return image, None
 
-        png_path = data2thumbnail(image)
-        if thumbnail_name is None:
-            thumbnail_name = os.path.basename(png_path)
-
-        with open(png_path, 'rb') as f:
+        image_path = data2thumbnail(image)
+        with open(image_path, 'rb') as f:
             thumbnail_b64str = base64.b64encode(f.read()).decode('utf-8')
+        return thumbnail_b64str, os.path.basename(image_path)
 
-        thumbnail_data = {'thumbnail_name': thumbnail_name, 'thumbnail_b64str': thumbnail_b64str}
+    @_deprecated_parameter('dsid', 'dataset_mfid')
+    def add_thumbnail(self, dataset_mfid: str, image,
+                      thumbnail_name: Optional[str] = None) -> Dict:
+        """Encode and add a thumbnail, returning the API thumbnail record."""
+        thumbnail_b64str, inferred_name = self._encode_thumbnail(image)
+        thumbnail_data = {
+            'thumbnail_name': thumbnail_name or inferred_name or f"{dataset_mfid}_thumbnail",
+            'thumbnail_b64str': thumbnail_b64str,
+        }
         return self._request(
             'post', f'/datasets/{dataset_mfid}/thumbnails', json=thumbnail_data)
+
+    @_deprecated_parameter('dsid', 'dataset_mfid')
+    def update_thumbnail(self, dataset_mfid: str, thumbnail_id: int,
+                         image=None, thumbnail_name: Optional[str] = None) -> Dict:
+        """Rename or replace a thumbnail and return the updated API record."""
+        if image is None and thumbnail_name is None:
+            raise ValueError("Provide image, thumbnail_name, or both.")
+        if thumbnail_name is not None and (
+                not isinstance(thumbnail_name, str) or not thumbnail_name.strip()):
+            raise ValueError("thumbnail_name must be a nonblank string.")
+
+        thumbnail_data = {}
+        if thumbnail_name is not None:
+            thumbnail_data['thumbnail_name'] = thumbnail_name
+        if image is not None:
+            thumbnail_b64str, _ = self._encode_thumbnail(image)
+            thumbnail_data['thumbnail_b64str'] = thumbnail_b64str
+
+        return self._request(
+            'patch',
+            f'/datasets/{dataset_mfid}/thumbnails/{thumbnail_id}',
+            json=thumbnail_data,
+        )
 
     @_deprecated_parameter('dsid', 'dataset_mfid')
     def delete_thumbnail(self, dataset_mfid: str, thumbnail_id: int) -> Dict:

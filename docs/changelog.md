@@ -4,6 +4,8 @@
 
 ### Added
 
+- `client.datasets.update_thumbnail()` renames or replaces an existing dataset thumbnail.
+- `crucible dataset add-thumbnail` adds a local image as a thumbnail for an existing dataset.
 - The interactive shell displays a centered compact pixel-art Crucible banner on a light-blue panel on terminals wide enough to show it.
 - Sample responses expose a typed project reference when supplied by the API, while retaining the flat project ID fallback.
 - Dataset responses expose typed project and instrument references with canonical MFIDs while retaining legacy flat fields.
@@ -14,6 +16,10 @@
 
 ### Changed
 
+- Dataset thumbnail create, list, and update responses expose the API-provided authoritative MIME type.
+- Instrument search results now show the user-facing instrument ID instead of manufacturer metadata.
+- `crucible dataset create` can create a dataset record without `--input`; file-dependent options still require at least one input file.
+- Dataset and sample relationship methods now consistently use `link`, `unlink`, `link_sample`, `unlink_sample`, `link_dataset`, and `unlink_dataset`; previous method names remain as deprecated wrappers.
 - Python resource namespaces now use `publish()` and `unpublish()` for public access; `set_public()` and `unset_public()` remain as deprecated compatibility aliases.
 - The interactive shell now remembers the project selected by `use PROJECT_ID`, `unuse` clears it, and project context sources are visible; `CRUCIBLE_CURRENT_PROJECT` is deprecated because it can silently redirect operations.
 - The interactive shell status bar now renders the Crucible dark blue, light blue, and orange brand palette in true color on capable terminals while keeping autocomplete menus visually plain.
@@ -41,6 +47,9 @@
 
 ### Fixed
 
+- `crucible file delete` now requires interactive confirmation or an explicit `--yes` before permanently deleting a file.
+- Dataset file tutorials now use the API v3 record-first workflow and document recursive uploads, additions, explicit replacement, and re-uploading without recreating the dataset.
+- Documentation navigation tabs now remain visible while scrolling using MkDocs Material's native sticky-tabs behavior.
 - Instrument creation no longer sends inherited response-only fields rejected by API v3.
 
 ## 3.2.0

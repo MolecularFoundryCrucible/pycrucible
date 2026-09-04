@@ -811,6 +811,34 @@ def test_table_fits_terminal_and_preserves_protected_identifiers(monkeypatch, ca
     assert MFID in lines[1]
 
 
+def test_instrument_search_displays_slug_instead_of_manufacturer(monkeypatch, capsys):
+    results = [{
+        'unique_id': MFID,
+        'instrument_id': 'xrd-beamline',
+        'instrument_name': 'XRD Instrument',
+        'instrument_type': 'diffractometer',
+        'manufacturer': 'Manufacturer omitted from search',
+    }]
+    operations = SimpleNamespace(search=MagicMock(return_value=results))
+    monkeypatch.setattr(
+        'crucible.client.CrucibleClient',
+        lambda: SimpleNamespace(instruments=operations),
+    )
+
+    instrument_cli._execute_search(SimpleNamespace(
+        query='xrd',
+        limit=20,
+        status=None,
+        json=False,
+        debug=False,
+    ))
+
+    output = capsys.readouterr().out
+    assert 'INSTRUMENT ID' in output
+    assert 'xrd-beamline' in output
+    assert 'Manufacturer omitted from search' not in output
+
+
 def test_table_preserves_full_username_when_space_permits(monkeypatch, capsys):
     username = 'u' * 24
     monkeypatch.setattr(term, '_table_output_width', lambda: 80)
