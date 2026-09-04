@@ -204,6 +204,14 @@ client.datasets.add_file(dataset_mfid, "results.dat")
 
 Deleting a file is irreversible. Verify the dataset MFID, file MFID, and filename before calling `delete()`.
 
+The CLI follows the same sequence and asks for confirmation before deleting the old file:
+
+```bash
+crucible dataset list-files DATASET_MFID
+crucible file delete FILE_MFID
+crucible dataset add-file DATASET_MFID -i results.dat
+```
+
 ### Re-uploading to an existing dataset
 
 Keep the dataset MFID and add the local files to that record again. Do not call `datasets.create()` again, because that creates another dataset record:

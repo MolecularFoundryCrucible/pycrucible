@@ -177,7 +177,7 @@ File commands operate on individual file MFIDs. Dataset-scoped file operations r
 | `file download ID` | Download one file |
 | `file ingestion ID` | Show ingestion requests for a file |
 | `file request-ingestion ID` | Request or repeat ingestion for a cataloged file |
-| `file delete ID` | Delete a file |
+| `file delete ID [--yes]` | Permanently delete a file after confirmation |
 
 ## Ingestion commands
 
@@ -276,7 +276,7 @@ The deletion-request workflow is separate from direct permanent deletion. Review
 
 Configuration values can come from environment variables, the platform-specific config file, or defaults. Avoid displaying `api_key` in shared terminals or logs.
 
-`dataset delete` and `cache clear` prompt before removing data. Use `--yes` only when the operation has already been explicitly approved, such as in a controlled noninteractive workflow.
+`dataset delete`, `file delete`, and `cache clear` prompt before removing data. Use `--yes` only when the operation has already been explicitly approved, such as in a controlled noninteractive workflow.
 
 ## General utility commands
 

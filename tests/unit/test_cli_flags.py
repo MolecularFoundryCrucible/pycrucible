@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from crucible.cli import dataset, project, sample, upload
+from crucible.cli import dataset, file as file_cli, project, sample, upload
 
 
 def make_parser(module):
@@ -95,6 +95,15 @@ def test_dataset_create_accepts_no_input():
     ])
 
     assert args.input is None
+
+
+@pytest.mark.parametrize('flag', ['--yes', '-y'])
+def test_file_delete_accepts_confirmation_flag(flag):
+    args = make_parser(file_cli).parse_args([
+        'file', 'delete', '0tf7evvtg5wb90005k1j97ak94', flag,
+    ])
+
+    assert args.yes is True
 
 
 @pytest.mark.parametrize(

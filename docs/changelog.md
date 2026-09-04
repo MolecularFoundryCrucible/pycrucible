@@ -47,6 +47,7 @@
 
 ### Fixed
 
+- `crucible file delete` now requires interactive confirmation or an explicit `--yes` before permanently deleting a file.
 - Dataset file tutorials now use the API v3 record-first workflow and document recursive uploads, additions, explicit replacement, and re-uploading without recreating the dataset.
 - Documentation navigation tabs now remain visible while scrolling using MkDocs Material's native sticky-tabs behavior.
 - Instrument creation no longer sends inherited response-only fields rejected by API v3.
