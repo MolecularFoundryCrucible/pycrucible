@@ -93,4 +93,5 @@ nav:
     - Models: api-reference/models.md
   - Development:
     - Permission Alignment: development/permission-alignment.md
+    - MFID UUIDv7 Compatibility: development/mfid-uuidv7-compatibility.md
   - Changelog: changelog.md
