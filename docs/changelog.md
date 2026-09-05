@@ -4,6 +4,7 @@
 
 ### Added
 
+- Dataset and sample lists accept a project ID or canonical project MFID with assigned, shared, or combined project scope in the Python client and CLI.
 - `client.datasets.update_thumbnail()` renames or replaces an existing dataset thumbnail.
 - `crucible dataset add-thumbnail` adds a local image as a thumbnail for an existing dataset.
 - The interactive shell displays a centered compact pixel-art Crucible banner on a light-blue panel on terminals wide enough to show it.

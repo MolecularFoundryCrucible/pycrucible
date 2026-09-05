@@ -97,6 +97,28 @@ def test_dataset_create_accepts_no_input():
     assert args.input is None
 
 
+@pytest.mark.parametrize('module', [dataset, sample])
+def test_resource_list_accepts_project_mfid_and_scope(module):
+    args = make_parser(module).parse_args([
+        module.__name__.rsplit('.', 1)[-1], 'list',
+        '--project-mfid', '0tkn2knjast3h0008nyq9zps2c',
+        '--project-scope', 'shared',
+    ])
+
+    assert args.project_mfid == '0tkn2knjast3h0008nyq9zps2c'
+    assert args.project_scope == 'shared'
+
+
+@pytest.mark.parametrize('module', [dataset, sample])
+def test_resource_list_rejects_conflicting_project_selectors(module):
+    with pytest.raises(SystemExit):
+        make_parser(module).parse_args([
+            module.__name__.rsplit('.', 1)[-1], 'list',
+            '--project-id', 'project-one',
+            '--project-mfid', '0tkn2knjast3h0008nyq9zps2c',
+        ])
+
+
 @pytest.mark.parametrize('flag', ['--yes', '-y'])
 def test_file_delete_accepts_confirmation_flag(flag):
     args = make_parser(file_cli).parse_args([

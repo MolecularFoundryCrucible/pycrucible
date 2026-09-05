@@ -88,6 +88,9 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
              offset: int = 0,
              accessible_to_user: Optional[Union[str, Sequence[str]]] = None,
              accessible_to_project: Optional[Union[str, Sequence[str]]] = None,
+             project_id: Optional[str] = None,
+             project_mfid: Optional[str] = None,
+             project_scope: Optional[str] = None,
              **kwargs) -> List[Dict]:
         """List samples with optional filtering and automatic pagination.
 
@@ -107,6 +110,10 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
                                 must include every result
             accessible_to_project: Project reference or references whose direct access
                                    must include every result
+            project_id: Project slug used to scope results by project relationship
+            project_mfid: Canonical project MFID used to scope results by project relationship
+            project_scope: Project relationship to include: assigned, shared, or all.
+                           Requires project_id or project_mfid and defaults to assigned.
             **kwargs: Query parameters for filtering samples
 
         Returns:
@@ -117,7 +124,12 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             accessible_to_user, accessible_to_project)
         if parent_mfid and selectors:
             raise ValueError("Access selectors are supported only by the top-level sample list")
+        project_params = self._project_scope_params(
+            project_id, project_mfid, project_scope)
+        if parent_mfid and dataset_mfid is None and project_params:
+            raise ValueError("Project scope is supported only by the top-level sample list")
         params.update(selectors)
+        params.update(project_params)
         if dataset_mfid is not None:
             params['dataset_mfid'] = dataset_mfid
         if include_metadata:
@@ -140,9 +152,13 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
         raw = self._paginate(endpoint, params, limit, offset)
         return [self._parse(s) for s in raw]
 
-    def count(self, **kwargs) -> int:
+    def count(self, project_id: Optional[str] = None,
+              project_mfid: Optional[str] = None,
+              project_scope: Optional[str] = None, **kwargs) -> int:
         """Return the total number of samples matching the given filters without fetching items."""
         params = {k: v for k, v in kwargs.items() if v is not None}
+        params.update(self._project_scope_params(
+            project_id, project_mfid, project_scope))
         result = self._request('get', '/samples', params={**params, 'limit': 1})
         return result['total']
 

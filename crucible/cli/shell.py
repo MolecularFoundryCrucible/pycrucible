@@ -275,8 +275,10 @@ try:
             self._project_search_cache[query] = results
             return results
 
-        def _yield_project_completions(self, prefix, use_search=True):
-            if use_search and len(prefix) >= 3:
+        def _yield_project_completions(self, prefix, use_search=True, use_mfid=False):
+            if use_mfid and len(prefix) < 3:
+                return
+            if (use_search or use_mfid) and len(prefix) >= 3:
                 candidates = self._search_projects(prefix)
             else:
                 prefix_lower = prefix.lower()
@@ -286,13 +288,15 @@ try:
                     if project_id.lower().startswith(prefix_lower)
                 ]
             for project_id, title, unique_id in candidates:
-                metadata = title
-                if unique_id:
-                    metadata = f'{metadata}  {unique_id}'
+                value = unique_id if use_mfid else project_id
+                if not value:
+                    continue
+                metadata_id = project_id if use_mfid else unique_id
+                metadata = f'{title}  {metadata_id}' if metadata_id else title
                 yield Completion(
-                    project_id + ' ',
+                    value + ' ',
                     start_position=-len(prefix),
-                    display=_shell_html(f'<b>{_html.escape(project_id)}</b>'),
+                    display=_shell_html(f'<b>{_html.escape(value)}</b>'),
                     display_meta=_shell_html(
                         f'<ansibrightblack>{_html.escape(metadata)}</ansibrightblack>'
                     ),
@@ -907,6 +911,7 @@ try:
             prev = (words[-1] if trailing_space else words[-2]) if len(words) >= 2 else ''
 
             _PROJECT_FLAGS = ('--project-id', '--project', '-pid')
+            _PROJECT_MFID_FLAGS = ('--project-mfid',)
             if subcommand in {'list', 'create', 'search'}:
                 _PROJECT_FLAGS += ('-p',)
             _USER_FLAGS = ('--user', '-u', '--owner', '--lead', '-e', '--orcid')
@@ -950,6 +955,8 @@ try:
                     yield from self._yield_user_completions(current_word)
                 elif prev in _PROJECT_FLAGS:
                     yield from self._yield_project_completions(current_word)
+                elif prev in _PROJECT_MFID_FLAGS:
+                    yield from self._yield_project_completions(current_word, use_mfid=True)
                 elif prev in _INSTRUMENT_MFID_FLAGS:
                     yield from self._yield_instrument_completions(current_word, use_mfid=True)
                 elif prev in _ENTITY_FLAGS:
@@ -972,6 +979,10 @@ try:
 
             if not current_word and prev in _PROJECT_FLAGS:
                 yield from self._yield_project_completions('')
+                return
+
+            if not current_word and prev in _PROJECT_MFID_FLAGS:
+                yield from self._yield_project_completions('', use_mfid=True)
                 return
 
             if not current_word and prev in _INSTRUMENT_MFID_FLAGS:

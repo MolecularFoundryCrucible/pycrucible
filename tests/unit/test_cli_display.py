@@ -626,6 +626,84 @@ def test_missing_public_value_is_not_rendered_as_false(show, record, capsys):
     assert public_line.rstrip().endswith('-')
 
 
+@pytest.mark.parametrize(
+    ('module', 'namespace', 'resource_attr', 'record', 'type_label'),
+    [
+        (
+            dataset_cli,
+            {
+                'measurement': None,
+                'keyword': None,
+                'session': None,
+                'data_format': None,
+                'data_type': None,
+                'instrument_name': None,
+                'instrument_mfid': None,
+                'include': None,
+                'exclude': None,
+            },
+            'datasets',
+            {
+                'unique_id': MFID,
+                'dataset_name': 'Shared Dataset',
+                'measurement': 'XRD',
+                'project': None,
+                'project_relation': 'shared',
+            },
+            'Measurement',
+        ),
+        (
+            sample_cli,
+            {
+                'name': None,
+                'sample_type': None,
+                'include_metadata': False,
+                'include': None,
+                'exclude': None,
+            },
+            'samples',
+            {
+                'unique_id': MFID,
+                'sample_name': 'Shared Sample',
+                'sample_type': 'wafer',
+                'project': None,
+                'project_relation': 'shared',
+            },
+            'Type',
+        ),
+    ],
+)
+def test_scoped_resource_lists_show_relation_and_unassigned_project(
+        module, namespace, resource_attr, record, type_label, monkeypatch, capsys):
+    operation = SimpleNamespace(list=MagicMock(return_value=[record]))
+    client = SimpleNamespace(**{resource_attr: operation})
+    monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
+    args = SimpleNamespace(
+        project_id=None,
+        project_mfid=MFID,
+        project_scope='all',
+        limit=10,
+        json=False,
+        group_by='none',
+        debug=False,
+        **namespace,
+    )
+
+    module._execute_list(args)
+
+    operation.list.assert_called_once_with(
+        limit=10,
+        project_mfid=MFID,
+        project_scope='all',
+        **({'include_metadata': False} if resource_attr == 'samples' else {}),
+    )
+    output = capsys.readouterr().out
+    assert 'PROJECT' in output
+    assert 'RELATION' in output
+    assert 'shared' in output
+    assert type_label.upper() in output
+
+
 def test_dataset_detail_prefers_embedded_reference_labels(capsys):
     dataset_cli._show_dataset(
         {

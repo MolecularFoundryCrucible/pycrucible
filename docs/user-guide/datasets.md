@@ -114,6 +114,15 @@ Dataset responses include lightweight `instrument` and `project` references when
 # All datasets in a project
 datasets = client.datasets.list(project_id="my-project", limit=50)
 
+# Datasets shared with a project but assigned elsewhere or unassigned
+shared = client.datasets.list(project_id="my-project", project_scope="shared")
+
+# Assigned and shared datasets using the project's canonical MFID
+visible = client.datasets.list(
+    project_mfid="0tkn2knjast3h0008nyq9zps2c",
+    project_scope="all",
+)
+
 # Filter by measurement type
 datasets = client.datasets.list(project_id="my-project", measurement="SEM imaging")
 
@@ -129,6 +138,8 @@ datasets = client.datasets.list(
     accessible_to_project="my-project",
 )
 ```
+
+Pass the project slug as `project_id` or the canonical project MFID as `project_mfid`. Both may be supplied when they identify the same project; conflicting identifiers produce an API validation error. `project_scope` accepts `assigned`, `shared`, or `all` and defaults to `assigned`. Scoped collection results expose `project_relation` as `assigned` or `shared`; `project` may be `None` when a shared resource has no primary project.
 
 The `sample_mfid` relationship filter uses the normal paginated dataset collection and can be combined with compatible dataset filters such as project, instrument, and access selectors. Results follow cursor pagination and include only datasets the caller may read.
 

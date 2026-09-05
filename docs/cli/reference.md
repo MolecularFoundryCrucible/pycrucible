@@ -20,7 +20,7 @@ Running `crucible` without a command starts the interactive shell. See the [CLI 
 
 | Command | Description |
 |---|---|
-| `dataset list` | List datasets with project, canonical instrument MFID, measurement, keyword, session, format, type, instrument name, and name-pattern filters |
+| `dataset list` | List assigned or shared datasets by project ID or canonical project MFID, with instrument, metadata, and name-pattern filters |
 | `dataset get MFID` | Show a dataset, its files, and linked resources |
 | `dataset create [--input FILE ...]` | Create a dataset, optionally uploading or cataloging files |
 | `dataset update MFID` | Update model fields or scientific metadata |
@@ -68,13 +68,15 @@ crucible dataset create --project-id my-project --name "Planned experiment"
 
 The `--type`, `--ingestor`, `--no-upload`, `--backend`, and `--access-note` options require at least one `--input` file.
 
+Use `dataset list --project-id PROJECT --project-scope shared` to show resources shared with a project but assigned elsewhere or unassigned. Use `--project-scope all` to combine assigned and shared resources. `--project-mfid` accepts the canonical project MFID instead of a project ID. The interactive shell completes both identifiers through project search. Human-readable scoped results include the resource's actual project and its `assigned` or `shared` relation.
+
 Fields normally updated through `dataset update --set` include `dataset_name`, `measurement`, `data_type`, `session_name`, `data_format`, `timestamp`, and `public`. Use `reassign-project` and `transfer-ownership` for project and owner changes. Instrument reassignment remains unavailable and is not exposed as ordinary metadata editing.
 
 ## Sample commands
 
 | Command | Description |
 |---|---|
-| `sample list` | List samples with project, name, type, and name-pattern filters |
+| `sample list` | List assigned or shared samples by project ID or canonical project MFID, with name, type, and name-pattern filters |
 | `sample get MFID` | Show a sample and its linked resources |
 | `sample create` | Create a sample |
 | `sample update MFID` | Update sample fields or scientific metadata |
@@ -95,6 +97,8 @@ Fields normally updated through `dataset update --set` include `dataset_name`, `
 | `sample unpublish MFID` | Remove public access from a sample |
 
 Fields normally updated through `sample update` include `sample_name`, `sample_type`, `description`, `timestamp`, and `public`. Use `reassign-project` and `transfer-ownership` for project and owner changes.
+
+`sample list` uses the same `--project-id` or `--project-mfid` selectors and `--project-scope assigned|shared|all` behavior as dataset listing. Human-readable shared and combined results include the actual project and project relation.
 
 ## Project commands
 

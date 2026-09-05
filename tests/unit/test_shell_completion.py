@@ -85,6 +85,18 @@ def test_project_flag_values_use_project_search():
     client.projects.search.assert_called_once_with('pro', limit=20)
 
 
+def test_project_mfid_flag_values_use_project_search():
+    client = make_client()
+
+    completions = complete(
+        make_completer(client),
+        'sample list --project-mfid pro',
+    )
+
+    assert MFID in completions
+    client.projects.search.assert_called_once_with('pro', limit=20)
+
+
 def test_project_positionals_use_project_search():
     client = make_client()
 
@@ -173,3 +185,12 @@ def test_fixed_flag_choices_are_completed():
     )
 
     assert completions == ['maintenance']
+
+
+def test_project_scope_choices_are_completed():
+    completions = complete(
+        make_completer(),
+        'dataset list --project-scope s',
+    )
+
+    assert completions == ['shared']

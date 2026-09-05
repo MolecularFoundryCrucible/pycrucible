@@ -22,6 +22,7 @@ except ImportError:
     ARGCOMPLETE_AVAILABLE = False
 
 from ..config import config as _config
+from ..constants import PROJECT_SCOPES
 
 
 def register_subcommand(subparsers):
@@ -75,6 +76,8 @@ def _register_list(subparsers):
         epilog="""
 Examples:
     crucible sample list --project-id my-project
+    crucible sample list --project-id my-project --project-scope shared
+    crucible sample list --project-mfid 0tkn2knjast3h0008nyq9zps2c --project-scope all
     crucible sample list --project-id my-project --type wafer
     crucible sample list --project-id my-project --group-by type
     crucible sample list --project-id my-project --include "Silicon*" "Wafer*"
@@ -83,12 +86,19 @@ Examples:
     )
 
     from .helpers import DeprecatedAliasAction
-    parser.add_argument(
+    project_group = parser.add_mutually_exclusive_group()
+    project_group.add_argument(
         '--project-id', '-p',
         required=False,
         default=None,
         metavar='ID',
         help='Crucible project ID (uses the saved current project if omitted)'
+    )
+    project_group.add_argument(
+        '--project-mfid',
+        default=None,
+        metavar='MFID',
+        help='Canonical project MFID'
     )
     parser.add_argument(
         '-pid',
@@ -99,6 +109,13 @@ Examples:
         default=argparse.SUPPRESS,
         metavar='ID',
         help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        '--project-scope',
+        choices=PROJECT_SCOPES,
+        default=None,
+        metavar='SCOPE',
+        help='Project relationship to include: assigned, shared, or all (default: assigned)'
     )
 
     parser.add_argument(
@@ -689,9 +706,16 @@ def _execute_list(args):
     from crucible.config import config
     from crucible.client import CrucibleClient
     from .helpers import resolve_project_context
-    project_id, _ = resolve_project_context(args, args.project_id)
-    if project_id is None:
-        logger.error("Error: Project ID required. Specify with --project-id or set current_project in config.")
+    project_id = args.project_id
+    project_mfid = getattr(args, 'project_mfid', None)
+    project_scope = getattr(args, 'project_scope', None)
+    if project_id is not None and project_mfid is not None:
+        logger.error("Error: Specify either --project-id or --project-mfid, not both.")
+        sys.exit(1)
+    if project_id is None and project_mfid is None:
+        project_id, _ = resolve_project_context(args)
+    if project_id is None and project_mfid is None:
+        logger.error("Error: Project ID or project MFID required. Specify --project-id, --project-mfid, or set current_project in config.")
         sys.exit(1)
 
     filters = {}
@@ -701,11 +725,18 @@ def _execute_list(args):
     if type_pattern and not any(c in type_pattern for c in ('*', '?', '[')):
         filters['sample_type'] = type_pattern
         type_pattern = None  # exact match handled by API; no client-side filter needed
+    project_filters = {}
+    if project_id is not None:
+        project_filters['project_id'] = project_id
+    if project_mfid is not None:
+        project_filters['project_mfid'] = project_mfid
+    if project_scope is not None:
+        project_filters['project_scope'] = project_scope
 
     try:
         import fnmatch
         client = CrucibleClient()
-        samples = client.samples.list(project_id=project_id, limit=args.limit,
+        samples = client.samples.list(limit=args.limit, **project_filters,
                                          include_metadata=getattr(args, 'include_metadata', False) or _config.include_metadata,
                                          **filters)
 
@@ -732,7 +763,9 @@ def _execute_list(args):
             print(json.dumps(samples, indent=2, default=str))
             return
 
-        title = f"Samples · {project_id} ({len(samples)})" if project_id else f"Samples ({len(samples)})"
+        project_label = project_id or project_mfid
+        scope_label = f" · {project_scope}" if project_scope else ''
+        title = f"Samples · {project_label}{scope_label} ({len(samples)})" if project_label else f"Samples ({len(samples)})"
         term.header(title)
         if filters:
             logger.info(f"Filters: {', '.join(f'{k}={v}' for k, v in filters.items())}")
@@ -750,18 +783,33 @@ def _execute_list(args):
                 uid = s.get('unique_id') or ''
                 _, referenced_project_id, _ = project_reference(s)
                 pid = referenced_project_id or project_id
-                return (
+                row = (
                     s.get('sample_name') or '(unnamed)',
                     term.mfid_link(uid, explorer_url(uid, pid, 'sample')) if uid else '-',
-                    s.get('sample_type') or '-',
                 )
+                if project_scope in ('shared', 'all'):
+                    row += (
+                        referenced_project_id or '-',
+                        s.get('project_relation') or '-',
+                    )
+                return row + (s.get('sample_type') or '-',)
+
+            contextual_headers = ['Name', 'MFID', 'Project', 'Relation', 'Type']
+            standard_headers = ['Name', 'MFID', 'Type']
+            headers = contextual_headers if project_scope in ('shared', 'all') else standard_headers
+            contextual_max = [30, 26, 25, 8, 20]
+            standard_max = [35, 26, 20]
+            max_widths = contextual_max if project_scope in ('shared', 'all') else standard_max
+            contextual_min = [4, 26, 7, 8, 4]
+            standard_min = [4, 26, 4]
+            min_widths = contextual_min if project_scope in ('shared', 'all') else standard_min
 
             _by_name = lambda s: (s.get('sample_name') or '').lower()
 
             if not group_by:
                 term.table([_make_row(s) for s in sorted(samples, key=_by_name)],
-                           ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20],
-                           min_widths=[4, 26, 4])
+                           headers, max_widths=max_widths,
+                           min_widths=min_widths)
             else:
                 from collections import defaultdict
                 groups = defaultdict(list)
@@ -772,8 +820,8 @@ def _execute_list(args):
                     label = key or '(none)'
                     term.subheader(f"{label} ({len(groups[key])})")
                     term.table([_make_row(s) for s in sorted(groups[key], key=_by_name)],
-                               ['Name', 'MFID', 'Type'], max_widths=[35, 26, 20],
-                               min_widths=[4, 26, 4])
+                               headers, max_widths=max_widths,
+                               min_widths=min_widths)
 
     except Exception as e:
         from .helpers import fail

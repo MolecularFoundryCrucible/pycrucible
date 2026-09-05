@@ -70,6 +70,15 @@ Sample responses include a lightweight `project` reference when the canonical re
 # All samples in a project
 samples = client.samples.list(project_id="my-project", limit=50)
 
+# Samples shared with a project but assigned elsewhere or unassigned
+shared = client.samples.list(project_id="my-project", project_scope="shared")
+
+# Assigned and shared samples using the project's canonical MFID
+visible = client.samples.list(
+    project_mfid="0tkn2knjast3h0008nyq9zps2c",
+    project_scope="all",
+)
+
 # Samples linked to a specific dataset
 samples = client.samples.list(dataset_mfid="0tkn2knjast3h0008nyq9zps2c")
 
@@ -79,6 +88,8 @@ samples = client.samples.list(
     accessible_to_project="my-project",
 )
 ```
+
+Pass the project slug as `project_id` or the canonical project MFID as `project_mfid`. Both may be supplied when they identify the same project; conflicting identifiers produce an API validation error. `project_scope` accepts `assigned`, `shared`, or `all` and defaults to `assigned`. Scoped collection results expose `project_relation` as `assigned` or `shared`; `project` may be `None` when a shared resource has no primary project.
 
 The `dataset_mfid` relationship filter uses the normal paginated sample collection and can be combined with compatible sample and access filters. Results follow cursor pagination and include only samples the caller may read.
 

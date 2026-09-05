@@ -234,6 +234,7 @@ except ImportError:
 
 #internal modules
 from ..config import config as _config
+from ..constants import PROJECT_SCOPES
 
 #%%
 
@@ -300,6 +301,8 @@ def _register_list(subparsers):
         epilog="""
 Examples:
     crucible dataset list --project-id my-project
+    crucible dataset list --project-id my-project --project-scope shared
+    crucible dataset list --project-mfid 0tkn2knjast3h0008nyq9zps2c --project-scope all
     crucible dataset list --project-id my-project -m XRD
     crucible dataset list --project-id my-project -k silicon --limit 20
     crucible dataset list --instrument-mfid 0tkn2knjast3h0008nyq9zps2c
@@ -311,12 +314,19 @@ Examples:
     )
 
     from .helpers import DeprecatedAliasAction
-    parser.add_argument(
+    project_group = parser.add_mutually_exclusive_group()
+    project_group.add_argument(
         '--project-id', '-p',
         required=False,
         default=None,
         metavar='ID',
         help='Crucible project ID (uses the saved current project if omitted)'
+    )
+    project_group.add_argument(
+        '--project-mfid',
+        default=None,
+        metavar='MFID',
+        help='Canonical project MFID'
     )
     parser.add_argument(
         '-pid',
@@ -327,6 +337,13 @@ Examples:
         default=argparse.SUPPRESS,
         metavar='ID',
         help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        '--project-scope',
+        choices=PROJECT_SCOPES,
+        default=None,
+        metavar='SCOPE',
+        help='Project relationship to include: assigned, shared, or all (default: assigned)'
     )
 
     parser.add_argument(
@@ -1818,13 +1835,22 @@ def _execute_list(args):
     from crucible.client import CrucibleClient
     from .helpers import resolve_project_context
     project_id = args.project_id
+    project_mfid = getattr(args, 'project_mfid', None)
+    project_scope = getattr(args, 'project_scope', None)
     instrument_mfid = getattr(args, 'instrument_mfid', None)
-    if project_id is None and instrument_mfid is None:
+    if project_id is not None and project_mfid is not None:
+        logger.error("Error: Specify either --project-id or --project-mfid, not both.")
+        sys.exit(1)
+    if (project_id is None and project_mfid is None and
+            (instrument_mfid is None or project_scope is not None)):
         project_id, _ = resolve_project_context(args)
-    if project_id is None and instrument_mfid is None:
+    if project_scope is not None and project_id is None and project_mfid is None:
+        logger.error("Error: --project-scope requires --project-id, --project-mfid, or a saved current project.")
+        sys.exit(1)
+    if project_id is None and project_mfid is None and instrument_mfid is None:
         logger.error(
-            "Error: Project ID or instrument MFID required. Specify --project-id, "
-            "--instrument-mfid, or set current_project in config.")
+            "Error: Project ID, project MFID, or instrument MFID required. Specify "
+            "--project-id, --project-mfid, --instrument-mfid, or set current_project in config.")
         sys.exit(1)
 
     # Build optional filters
@@ -1843,11 +1869,18 @@ def _execute_list(args):
         filters['instrument_name'] = args.instrument_name
     if instrument_mfid:
         filters['instrument_mfid'] = instrument_mfid
+    project_filters = {}
+    if project_id is not None:
+        project_filters['project_id'] = project_id
+    if project_mfid is not None:
+        project_filters['project_mfid'] = project_mfid
+    if project_scope is not None:
+        project_filters['project_scope'] = project_scope
 
     try:
         import fnmatch
         client = CrucibleClient()
-        datasets = client.datasets.list(project_id=project_id, limit=args.limit, **filters)
+        datasets = client.datasets.list(limit=args.limit, **project_filters, **filters)
 
         # Client-side glob filtering on name
         if getattr(args, 'include', None):
@@ -1865,8 +1898,10 @@ def _execute_list(args):
             print(json.dumps(datasets, indent=2, default=str))
             return
 
-        if project_id:
-            title = f"Datasets · {project_id} ({len(datasets)})"
+        project_label = project_id or project_mfid
+        if project_label:
+            scope_label = f" · {project_scope}" if project_scope else ''
+            title = f"Datasets · {project_label}{scope_label} ({len(datasets)})"
         elif instrument_mfid:
             title = f"Datasets · instrument {instrument_mfid} ({len(datasets)})"
         else:
@@ -1893,20 +1928,36 @@ def _execute_list(args):
                 uid = ds.get('unique_id') or ''
                 _, referenced_project_id, _ = project_reference(ds)
                 pid = referenced_project_id or project_id
-                return (
+                row = (
                     ds.get('dataset_name') or '(unnamed)',
                     term.mfid_link(uid, explorer_url(uid, pid, 'dataset')) if uid else '-',
+                )
+                if project_scope in ('shared', 'all'):
+                    row += (
+                        referenced_project_id or '-',
+                        ds.get('project_relation') or '-',
+                    )
+                return row + (
                     ds.get('measurement') or '-',
                     ds.get('session_name') or '-',
                 )
+
+            contextual_headers = ['Name', 'MFID', 'Project', 'Relation', 'Measurement', 'Session']
+            standard_headers = ['Name', 'MFID', 'Measurement', 'Session']
+            headers = contextual_headers if project_scope in ('shared', 'all') else standard_headers
+            contextual_max = [25, 26, 25, 8, 15, 18]
+            standard_max = [35, 26, 15, 20]
+            max_widths = contextual_max if project_scope in ('shared', 'all') else standard_max
+            contextual_min = [4, 26, 7, 8, 11, 7]
+            standard_min = [4, 26, 11, 7]
+            min_widths = contextual_min if project_scope in ('shared', 'all') else standard_min
 
             _by_name = lambda ds: (ds.get('dataset_name') or '').lower()
 
             if not group_by:
                 term.table([_make_row(ds) for ds in sorted(datasets, key=_by_name)],
-                           ['Name', 'MFID', 'Measurement', 'Session'],
-                           max_widths=[35, 26, 15, 20],
-                           min_widths=[4, 26, 11, 7])
+                           headers, max_widths=max_widths,
+                           min_widths=min_widths)
             else:
                 from collections import defaultdict
                 groups = defaultdict(list)
@@ -1917,9 +1968,8 @@ def _execute_list(args):
                     label = key or '(none)'
                     term.subheader(f"{label} ({len(groups[key])})")
                     term.table([_make_row(ds) for ds in sorted(groups[key], key=_by_name)],
-                               ['Name', 'MFID', 'Measurement', 'Session'],
-                               max_widths=[35, 26, 15, 20],
-                               min_widths=[4, 26, 11, 7])
+                               headers, max_widths=max_widths,
+                               min_widths=min_widths)
 
     except Exception as e:
         from .helpers import fail

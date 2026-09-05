@@ -95,6 +95,9 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
              accessible_to_user: Optional[Union[str, Sequence[str]]] = None,
              accessible_to_project: Optional[Union[str, Sequence[str]]] = None,
              instrument_mfid: Optional[str] = None,
+             project_id: Optional[str] = None,
+             project_mfid: Optional[str] = None,
+             project_scope: Optional[str] = None,
              **kwargs) -> List[Dict]:
         """List datasets with optional filtering and automatic pagination.
 
@@ -114,6 +117,10 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             accessible_to_project: Project reference or references whose direct access
                                    must include every result
             instrument_mfid: Canonical instrument MFID assigned to every result
+            project_id: Project slug used to scope results by project relationship
+            project_mfid: Canonical project MFID used to scope results by project relationship
+            project_scope: Project relationship to include: assigned, shared, or all.
+                           Requires project_id or project_mfid and defaults to assigned.
             **kwargs (Any): Query parameters for filtering. Supported fields include:
                 keyword, unique_id, public, dataset_name, owner_orcid, project_id,
                 instrument_name, timestamp, size, data_format, data_type, measurement,
@@ -127,6 +134,8 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         selectors = self._access_selector_params(
             accessible_to_user, accessible_to_project)
         params.update(selectors)
+        params.update(self._project_scope_params(
+            project_id, project_mfid, project_scope))
         if sample_mfid is not None:
             params['sample_mfid'] = sample_mfid
         if instrument_mfid is not None:
@@ -147,9 +156,13 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
         raw = self._paginate('/datasets', params, limit, offset)
         return [self._parse(d) for d in raw]
 
-    def count(self, **kwargs) -> int:
+    def count(self, project_id: Optional[str] = None,
+              project_mfid: Optional[str] = None,
+              project_scope: Optional[str] = None, **kwargs) -> int:
         """Return the total number of datasets matching the given filters without fetching items."""
         params = {k: v for k, v in kwargs.items() if v is not None}
+        params.update(self._project_scope_params(
+            project_id, project_mfid, project_scope))
         result = self._request('get', '/datasets', params={**params, 'limit': 1})
         return result['total']
 
