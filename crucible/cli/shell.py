@@ -31,15 +31,14 @@ _BRAND_DARK_BLUE = '#031e2d'
 _BRAND_LIGHT_BLUE = '#a8c4cd'
 _BRAND_ORANGE = '#ff6600'
 _BRAND_OFF_WHITE = '#eeeeee'
-_BANNER_MIN_WIDTH = 36
+_BANNER_MIN_WIDTH = 20
+_BANNER_HORIZONTAL_PADDING = 2
 _BANNER_VERTICAL_PADDING = 1
-_BANNER_PIXEL_WIDTH = 2
 _BANNER_PIXEL_COLORS = {
     '_': _BRAND_LIGHT_BLUE,
     '%': _BRAND_DARK_BLUE,
     '=': _BRAND_ORANGE,
     '.': _BRAND_OFF_WHITE,
-    ':': _BRAND_OFF_WHITE,
 }
 
 
@@ -123,19 +122,29 @@ try:
     def _shell_banner_rows(banner):
         lines = banner.splitlines()
         width = max(map(len, lines), default=0)
-        content = [f'_{line.ljust(width, "_")}_' for line in lines]
-        blank = '_' * (width + 2)
+        side = '_' * _BANNER_HORIZONTAL_PADDING
+        content = [f'{side}{line.ljust(width, "_")}{side}' for line in lines]
+        blank = '_' * (width + 2 * _BANNER_HORIZONTAL_PADDING)
         padding = [blank] * _BANNER_VERTICAL_PADDING
         return padding + content + padding
+
+    def _shell_banner_row_pairs(banner):
+        rows = _shell_banner_rows(banner)
+        if len(rows) % 2:
+            rows.append('_' * len(rows[0]))
+        return zip(rows[::2], rows[1::2])
 
     def _shell_banner_panel(banner):
         visible_pixels = frozenset('%=')
         return '\n'.join(
             ''.join(
-                ('██' if pixel in visible_pixels else ' ' * _BANNER_PIXEL_WIDTH)
-                for pixel in row
+                '█' if upper in visible_pixels and lower in visible_pixels
+                else '▀' if upper in visible_pixels
+                else '▄' if lower in visible_pixels
+                else ' '
+                for upper, lower in zip(upper_row, lower_row)
             )
-            for row in _shell_banner_rows(banner)
+            for upper_row, lower_row in _shell_banner_row_pairs(banner)
         )
 
     def _shell_banner_left_margin(panel, columns):
@@ -146,20 +155,25 @@ try:
         from prompt_toolkit.formatted_text import FormattedText
 
         fragments = []
-        rows = _shell_banner_rows(banner)
-        for row_index, row in enumerate(rows):
+        pairs = list(_shell_banner_row_pairs(banner))
+        for row_index, (upper_row, lower_row) in enumerate(pairs):
             if left_margin:
                 fragments.append(('', ' ' * left_margin))
-            for pixel in row:
-                color = _BANNER_PIXEL_COLORS.get(pixel)
-                style = f'bg:{color}' if color else ''
-                text = ' ' * _BANNER_PIXEL_WIDTH if color else pixel * _BANNER_PIXEL_WIDTH
+            for upper, lower in zip(upper_row, lower_row):
+                upper_color = _BANNER_PIXEL_COLORS[upper]
+                lower_color = _BANNER_PIXEL_COLORS[lower]
+                if upper_color == lower_color:
+                    style = f'bg:{lower_color}'
+                    text = ' '
+                else:
+                    style = f'fg:{upper_color} bg:{lower_color}'
+                    text = '▀'
                 if fragments and fragments[-1][0] == style:
                     previous_style, previous_text = fragments[-1]
                     fragments[-1] = (previous_style, previous_text + text)
                 else:
                     fragments.append((style, text))
-            if row_index < len(rows) - 1:
+            if row_index < len(pairs) - 1:
                 fragments.append(('', '\n'))
         return FormattedText(fragments)
 

@@ -294,24 +294,25 @@ def test_shell_leaves_color_depth_automatic_without_true_color(monkeypatch):
 
 def test_shell_banner_is_packaged_and_uses_requested_colors():
     banner = shell_cli._load_shell_banner()
-    fragments = shell_cli._shell_banner_fragments('_%=.:')
+    fragments = shell_cli._shell_banner_fragments('_%=.\n.=_%')
     styles = {style for style, _text in fragments}
 
-    assert len(banner.splitlines()) == 15
-    assert {len(line) for line in banner.splitlines()} == {15}
-    assert 'bg:#a8c4cd' in styles
-    assert 'bg:#031e2d' in styles
-    assert 'bg:#ff6600' in styles
-    assert 'bg:#eeeeee' in styles
-    assert 'bg:#ffffff' not in styles
+    assert len(banner.splitlines()) == 16
+    assert {len(line) for line in banner.splitlines()} == {16}
+    assert any('#a8c4cd' in style for style in styles)
+    assert any('#031e2d' in style for style in styles)
+    assert any('#ff6600' in style for style in styles)
+    assert any('#eeeeee' in style for style in styles)
+    assert all('#ffffff' not in style for style in styles)
+    assert any(text == '▀' for _style, text in fragments)
 
 
 def test_shell_banner_panel_has_consistent_width():
     panel = shell_cli._shell_banner_panel('%%\n%')
 
     lines = panel.splitlines()
-    assert lines == ['        ', '  ████  ', '  ██    ', '        ']
-    assert {shell_cli._vlen(line) for line in lines} == {8}
+    assert lines == ['  ▄▄  ', '  ▀   ']
+    assert {shell_cli._vlen(line) for line in lines} == {6}
 
 
 def test_shell_banner_panel_has_requested_edge_padding():
@@ -319,14 +320,14 @@ def test_shell_banner_panel_has_requested_edge_padding():
 
     assert set(rows[0]) == {'_'}
     assert set(rows[-1]) == {'_'}
-    assert all(row.startswith('_') for row in rows)
-    assert all(row.endswith('_') for row in rows)
+    assert all(row.startswith('__') for row in rows)
+    assert all(row.endswith('__') for row in rows)
 
 
 def test_shell_banner_is_centered_by_display_width():
     panel = shell_cli._shell_banner_panel('%%')
 
-    assert shell_cli._shell_banner_left_margin(panel, 14) == 3
+    assert shell_cli._shell_banner_left_margin(panel, 14) == 4
     assert shell_cli._shell_banner_left_margin(panel, 7) == 0
 
 
@@ -334,16 +335,16 @@ def test_shell_banner_centering_keeps_outer_margin_uncolored():
     fragments = list(shell_cli._shell_banner_fragments('%%', left_margin=3))
 
     assert fragments[0] == ('', '   ')
-    assert fragments[1][0] == 'bg:#a8c4cd'
+    assert '#a8c4cd' in fragments[1][0]
 
 
 def test_shell_banner_pixel_material_counts_match_source_pattern():
     banner = shell_cli._load_shell_banner()
 
-    assert banner.count('%') == 126
-    assert banner.count('=') == 19
-    assert banner.count('.') == 7
-    assert banner.count(':') == 2
+    assert banner.count('%') == 169
+    assert banner.count('=') == 21
+    assert banner.count('.') == 12
+    assert banner.count('_') == 54
 
 
 def test_shell_banner_is_skipped_on_narrow_terminals(monkeypatch):
@@ -353,7 +354,7 @@ def test_shell_banner_is_skipped_on_narrow_terminals(monkeypatch):
         lambda: pytest.fail('Narrow terminals should not load the banner.'),
     )
 
-    assert shell_cli._print_shell_banner(35) is False
+    assert shell_cli._print_shell_banner(19) is False
 
 
 def test_shell_toolbar_marks_custom_api_and_debug(monkeypatch):
