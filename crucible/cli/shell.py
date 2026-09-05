@@ -40,6 +40,10 @@ _BANNER_PIXEL_COLORS = {
     '=': _BRAND_ORANGE,
     '.': _BRAND_OFF_WHITE,
 }
+_SHELL_BANNERS = (
+    ('crucible_ascii.txt', True),
+    ('crucible_ascii_full.txt', False),
+)
 
 
 def _get_subparser_map(parser):
@@ -111,30 +115,32 @@ try:
             return ColorDepth.DEPTH_24_BIT
         return None
 
-    def _load_shell_banner():
+    def _load_shell_banner(filename='crucible_ascii.txt'):
         try:
             from importlib.resources import files
         except ImportError:
             from importlib.resources import read_text
-            return read_text('crucible.cli', 'crucible_ascii.txt').rstrip('\n')
-        return files('crucible.cli').joinpath('crucible_ascii.txt').read_text().rstrip('\n')
+            return read_text('crucible.cli', filename).rstrip('\n')
+        return files('crucible.cli').joinpath(filename).read_text().rstrip('\n')
 
-    def _shell_banner_rows(banner):
+    def _shell_banner_rows(banner, add_padding=True):
         lines = banner.splitlines()
         width = max(map(len, lines), default=0)
+        if not add_padding:
+            return [line.ljust(width, '_') for line in lines]
         side = '_' * _BANNER_HORIZONTAL_PADDING
         content = [f'{side}{line.ljust(width, "_")}{side}' for line in lines]
         blank = '_' * (width + 2 * _BANNER_HORIZONTAL_PADDING)
         padding = [blank] * _BANNER_VERTICAL_PADDING
         return padding + content + padding
 
-    def _shell_banner_row_pairs(banner):
-        rows = _shell_banner_rows(banner)
+    def _shell_banner_row_pairs(banner, add_padding=True):
+        rows = _shell_banner_rows(banner, add_padding=add_padding)
         if len(rows) % 2:
             rows.append('_' * len(rows[0]))
         return zip(rows[::2], rows[1::2])
 
-    def _shell_banner_panel(banner):
+    def _shell_banner_panel(banner, add_padding=True):
         visible_pixels = frozenset('%=')
         return '\n'.join(
             ''.join(
@@ -144,18 +150,20 @@ try:
                 else ' '
                 for upper, lower in zip(upper_row, lower_row)
             )
-            for upper_row, lower_row in _shell_banner_row_pairs(banner)
+            for upper_row, lower_row in _shell_banner_row_pairs(
+                banner, add_padding=add_padding)
         )
 
     def _shell_banner_left_margin(panel, columns):
         width = max((_vlen(line) for line in panel.splitlines()), default=0)
         return max((columns - width) // 2, 0)
 
-    def _shell_banner_fragments(banner, left_margin=0):
+    def _shell_banner_fragments(banner, left_margin=0, add_padding=True):
         from prompt_toolkit.formatted_text import FormattedText
 
         fragments = []
-        pairs = list(_shell_banner_row_pairs(banner))
+        pairs = list(_shell_banner_row_pairs(
+            banner, add_padding=add_padding))
         for row_index, (upper_row, lower_row) in enumerate(pairs):
             if left_margin:
                 fragments.append(('', ' ' * left_margin))
@@ -177,11 +185,11 @@ try:
                 fragments.append(('', '\n'))
         return FormattedText(fragments)
 
-    def _print_shell_banner(columns):
+    def _print_shell_banner(columns, banner=None, add_padding=True):
         if columns < _BANNER_MIN_WIDTH:
             return False
-        banner = _load_shell_banner()
-        panel = _shell_banner_panel(banner)
+        banner = banner if banner is not None else _load_shell_banner()
+        panel = _shell_banner_panel(banner, add_padding=add_padding)
         left_margin = _shell_banner_left_margin(panel, columns)
         if not term.color_enabled():
             prefix = ' ' * left_margin
@@ -189,9 +197,23 @@ try:
             return True
         from prompt_toolkit import print_formatted_text
         print_formatted_text(
-            _shell_banner_fragments(banner, left_margin=left_margin),
+            _shell_banner_fragments(
+                banner, left_margin=left_margin, add_padding=add_padding),
             color_depth=_shell_color_depth(),
         )
+        return True
+
+    def _print_shell_banners(columns):
+        if columns < _BANNER_MIN_WIDTH:
+            return False
+        for index, (filename, add_padding) in enumerate(_SHELL_BANNERS):
+            if index:
+                print()
+            _print_shell_banner(
+                columns,
+                banner=_load_shell_banner(filename),
+                add_padding=add_padding,
+            )
         return True
 
     class _CrucibleCompleter(Completer):
@@ -1561,7 +1583,7 @@ class CrucibleShell:
         info = self._verify_connection()
         self._init_state(info)
 
-        _print_shell_banner(shutil.get_terminal_size((80, 24)).columns)
+        _print_shell_banners(shutil.get_terminal_size((80, 24)).columns)
 
         _u     = info.get('user_info', {})
         _first = _u.get('first_name', '').strip() or \

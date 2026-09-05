@@ -307,6 +307,19 @@ def test_shell_banner_is_packaged_and_uses_requested_colors():
     assert any(text == '▀' for _style, text in fragments)
 
 
+def test_full_shell_banner_is_packaged_without_added_padding():
+    banner = shell_cli._load_shell_banner('crucible_ascii_full.txt')
+    rows = shell_cli._shell_banner_rows(banner, add_padding=False)
+    panel = shell_cli._shell_banner_panel(banner, add_padding=False)
+
+    assert len(rows) == 16
+    assert {len(row) for row in rows} == {16}
+    assert len(panel.splitlines()) == 8
+    assert {shell_cli._vlen(line) for line in panel.splitlines()} == {16}
+    assert set(rows[0]) == {'_'}
+    assert set(rows[-1]) == {'_'}
+
+
 def test_shell_banner_panel_has_consistent_width():
     panel = shell_cli._shell_banner_panel('%%\n%')
 
@@ -355,6 +368,29 @@ def test_shell_banner_is_skipped_on_narrow_terminals(monkeypatch):
     )
 
     assert shell_cli._print_shell_banner(19) is False
+
+
+def test_shell_startup_prints_both_banner_candidates(monkeypatch):
+    loaded = []
+    printed = []
+
+    def load(filename='crucible_ascii.txt'):
+        loaded.append(filename)
+        return '__\n__'
+
+    def show(columns, banner=None, add_padding=True):
+        printed.append((columns, banner, add_padding))
+        return True
+
+    monkeypatch.setattr(shell_cli, '_load_shell_banner', load)
+    monkeypatch.setattr(shell_cli, '_print_shell_banner', show)
+
+    assert shell_cli._print_shell_banners(80) is True
+    assert loaded == ['crucible_ascii.txt', 'crucible_ascii_full.txt']
+    assert printed == [
+        (80, '__\n__', True),
+        (80, '__\n__', False),
+    ]
 
 
 def test_shell_toolbar_marks_custom_api_and_debug(monkeypatch):
