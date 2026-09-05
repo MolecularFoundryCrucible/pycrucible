@@ -17,6 +17,7 @@
 
 ### Changed
 
+- The minimum supported Python version is now 3.9.
 - Dataset thumbnail create, list, and update responses expose the API-provided authoritative MIME type.
 - Instrument search results now show the user-facing instrument ID instead of manufacturer metadata.
 - `crucible dataset create` can create a dataset record without `--input`; file-dependent options still require at least one input file.
