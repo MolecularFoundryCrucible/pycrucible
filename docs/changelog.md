@@ -7,7 +7,7 @@
 - Dataset and sample lists accept a project ID or canonical project MFID with assigned, shared, or combined project scope in the Python client and CLI.
 - `client.datasets.update_thumbnail()` renames or replaces an existing dataset thumbnail.
 - `crucible dataset add-thumbnail` adds a local image as a thumbnail for an existing dataset.
-- The interactive shell displays two centered 16×16 Crucible mark candidates with square-proportioned half-block pixels for visual comparison.
+- The interactive shell displays a centered 16×16 Crucible mark with square-proportioned half-block pixels.
 - Sample responses expose a typed project reference when supplied by the API, while retaining the flat project ID fallback.
 - Dataset responses expose typed project and instrument references with canonical MFIDs while retaining legacy flat fields.
 - The CLI supports `--no-color` and the standard `NO_COLOR` environment variable.
