@@ -4,6 +4,7 @@
 
 ### Added
 
+- Dataset and sample creation accept canonical project MFIDs alongside matching project IDs, and dataset creation accepts canonical instrument MFIDs alongside matching instrument IDs.
 - Dataset and sample lists accept a project ID or canonical project MFID with assigned, shared, or combined project scope in the Python client and CLI.
 - `client.datasets.update_thumbnail()` renames or replaces an existing dataset thumbnail.
 - `crucible dataset add-thumbnail` adds a local image as a thumbnail for an existing dataset.

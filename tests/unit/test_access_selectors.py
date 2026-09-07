@@ -4,12 +4,61 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from crucible.models import Dataset, Sample
 from crucible.resources.datasets import DatasetOperations
 from crucible.resources.projects import ProjectOperations
 from crucible.resources.samples import SampleOperations
 
 
 PROJECT_MFID = '0tkn2knjast3h0008nyq9zps2c'
+INSTRUMENT_MFID = '0tk8pf1me0h3h0003fp91vr037'
+
+
+@pytest.mark.parametrize(
+    ('operations_class', 'resource', 'endpoint', 'expected'),
+    [
+        (
+            DatasetOperations,
+            Dataset(
+                dataset_name='test',
+                project_id='project-a',
+                project_mfid=PROJECT_MFID,
+                instrument_id='xrd-one',
+                instrument_mfid=INSTRUMENT_MFID,
+            ),
+            '/datasets',
+            {
+                'project_id': 'project-a',
+                'project_mfid': PROJECT_MFID,
+                'instrument_id': 'xrd-one',
+                'instrument_mfid': INSTRUMENT_MFID,
+            },
+        ),
+        (
+            SampleOperations,
+            Sample(
+                sample_name='test',
+                project_id='project-a',
+                project_mfid=PROJECT_MFID,
+            ),
+            '/samples',
+            {
+                'project_id': 'project-a',
+                'project_mfid': PROJECT_MFID,
+            },
+        ),
+    ],
+)
+def test_create_preserves_matching_id_and_mfid_selectors(
+        operations_class, resource, endpoint, expected):
+    operations = operations_class(MagicMock())
+    operations._request = MagicMock(return_value={'unique_id': PROJECT_MFID})
+
+    operations.create(resource)
+
+    payload = operations._request.call_args.kwargs['json']
+    assert operations._request.call_args.args[:2] == ('post', endpoint)
+    assert {key: payload[key] for key in expected} == expected
 
 
 @pytest.mark.parametrize(

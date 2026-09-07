@@ -560,6 +560,13 @@ Examples:
         help='Crucible project ID (uses the saved current project if omitted)'
     )
     parser.add_argument(
+        '--project-mfid',
+        required=False,
+        default=None,
+        metavar='MFID',
+        help='Canonical project MFID (advanced; may accompany a matching --project-id)'
+    )
+    parser.add_argument(
         '-pid',
         action=DeprecatedAliasAction,
         deprecated_options={'-pid'},
@@ -643,6 +650,18 @@ Examples:
         default=None,
         metavar='NAME',
         help='Instrument name (optional)'
+    )
+    parser.add_argument(
+        '--instrument-id',
+        default=None,
+        metavar='ID',
+        help='Registered instrument ID (optional)'
+    )
+    parser.add_argument(
+        '--instrument-mfid',
+        default=None,
+        metavar='MFID',
+        help='Canonical registered instrument MFID (advanced; may accompany a matching --instrument-id)'
     )
 
     # Data format
@@ -2026,19 +2045,16 @@ def _execute_create(args):
             logger.error(f"{', '.join(file_options)} require --input FILE.")
             sys.exit(1)
 
-    project_id, project_source = resolve_project_context(args, args.project_id)
-    if project_id is None:
-        logger.error("Project ID required. Specify with --project-id or set current_project in config.")
-        sys.exit(1)
-
-    # Validate the project exists before doing any expensive work
-    from crucible.client import CrucibleClient as _CC
-    try:
-        if _CC().projects.get(project_id) is None:
-            logger.error(f"Project '{project_id}' not found.")
-            sys.exit(1)
-    except Exception as e:
-        logger.error(f"Error validating project: {e}")
+    project_id = args.project_id
+    project_mfid = getattr(args, 'project_mfid', None)
+    instrument_id = getattr(args, 'instrument_id', None)
+    instrument_mfid = getattr(args, 'instrument_mfid', None)
+    if project_id is None and project_mfid is None:
+        project_id, project_source = resolve_project_context(args)
+    else:
+        project_source = 'argument'
+    if project_id is None and project_mfid is None:
+        logger.error("Project required. Specify --project-id or --project-mfid, or set the current project.")
         sys.exit(1)
 
     # Expand wildcards in input files
@@ -2134,6 +2150,7 @@ def _execute_create(args):
             parser = ParserClass(
                 files_to_upload=[str(f) for f in input_files],
                 project_id=project_id,
+                project_mfid=project_mfid,
                 metadata=metadata_dict,
                 keywords=keywords_list,
                 mfid=dataset_mfid,
@@ -2142,6 +2159,8 @@ def _execute_create(args):
                 session_name=args.session_name,
                 public=args.public,
                 instrument_name=args.instrument_name,
+                instrument_id=instrument_id,
+                instrument_mfid=instrument_mfid,
                 data_format=args.data_format,
                 data_type=args.data_type,
                 timestamp=timestamp,
@@ -2162,11 +2181,14 @@ def _execute_create(args):
             unique_id=dataset_mfid,
             measurement=args.measurement,
             project_id=project_id,
+            project_mfid=project_mfid,
             dataset_name=args.dataset_name,
             session_name=args.session_name,
             timestamp=timestamp,
             public=args.public,
             instrument_name=args.instrument_name,
+            instrument_id=instrument_id,
+            instrument_mfid=instrument_mfid,
             data_format=args.data_format,
             data_type=args.data_type,
         )
@@ -2181,7 +2203,8 @@ def _execute_create(args):
         'environment': 'from environment',
         'config file': 'current project',
     }.get(project_source)
-    proj_label = f"{project_id} {term.dim(f'({project_context})')}" if project_context else project_id
+    project_selector = project_id or project_mfid
+    proj_label = f"{project_selector} {term.dim(f'({project_context})')}" if project_context else project_selector
     _p("Project",     proj_label)
     if parser is not None:
         _p("Parser", ParserClass.__name__)
@@ -2192,7 +2215,7 @@ def _execute_create(args):
     _p("Session",     dataset_record.session_name)
     _p("Timestamp",   dataset_record.timestamp)
     _p("Public",      term.fmt_bool(dataset_record.public))
-    _p("Instrument",  dataset_record.instrument_name)
+    _p("Instrument",  dataset_record.instrument_id or dataset_record.instrument_mfid or dataset_record.instrument_name)
     _p("MFID",        dataset_mfid or term.dim("(server assigns)"))
     if input_files and args.no_upload:
         _p("Backend", args.backend or 'local')

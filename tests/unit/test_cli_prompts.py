@@ -326,6 +326,7 @@ def test_sample_create_reprompts_when_project_is_not_found(monkeypatch):
     sample_cli._execute_create(SimpleNamespace(
         name='Sample',
         project_id=None,
+        project_mfid=None,
         description=None,
         sample_type=None,
         timestamp=None,
@@ -360,6 +361,7 @@ def test_sample_create_uses_active_shell_project_without_prompt(monkeypatch):
     sample_cli._execute_create(SimpleNamespace(
         name='Sample',
         project_id=None,
+        project_mfid=None,
         description=None,
         sample_type=None,
         timestamp=None,

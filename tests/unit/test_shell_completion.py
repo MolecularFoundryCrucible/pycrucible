@@ -127,6 +127,18 @@ def test_instrument_mfid_flags_use_instrument_search():
     client.instruments.search.assert_called_once_with('xrd', limit=20)
 
 
+def test_dataset_create_instrument_id_uses_instrument_search():
+    client = make_client()
+
+    completions = complete(
+        make_completer(client),
+        'dataset create --instrument-id xrd',
+    )
+
+    assert 'xrd-one' in completions
+    client.instruments.search.assert_called_once_with('xrd', limit=20)
+
+
 def test_dataset_positionals_use_scoped_dataset_search():
     client = make_client()
 

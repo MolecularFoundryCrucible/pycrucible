@@ -5,6 +5,7 @@
 | `sample_name` | Human-readable name for the sample | create, update |
 | `sample_type` | Category or type of sample (used for filtering) | create, update |
 | `project_id` | Project this sample belongs to | create; later changes use `reassign_project()` |
+| `project_mfid` | Canonical project selector for creation | create |
 | `project` | Current project title, ID, and canonical identity when the relationship resolves | server-assigned |
 | `description` | Free-text description of the sample | create, update |
 | `timestamp` | Date associated with the sample (ISO 8601 format) | create, update |
@@ -42,6 +43,8 @@ sample = client.samples.create(
 
 sample_mfid = sample["unique_id"]
 ```
+
+Applications may provide `project_mfid` instead of `project_id`, or provide both when they identify the same project. Conflicting selectors produce an API validation error. The CLI keeps `--project-id` as its normal interactive input and exposes `--project-mfid` for integrations and automation.
 
 ## Retrieving a sample
 

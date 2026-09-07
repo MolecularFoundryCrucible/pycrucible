@@ -923,6 +923,7 @@ try:
             if subcommand in {'list', 'create', 'search'}:
                 _PROJECT_FLAGS += ('-p',)
             _USER_FLAGS = ('--user', '-u', '--owner', '--lead', '-e', '--orcid')
+            _INSTRUMENT_FLAGS = ('--instrument-id',)
             _INSTRUMENT_MFID_FLAGS = ('--instrument-mfid',)
             # Flags whose value is a dataset or sample MFID, by resource context.
             # Values here can't contain unquoted spaces (argparse flag values are
@@ -965,6 +966,8 @@ try:
                     yield from self._yield_project_completions(current_word)
                 elif prev in _PROJECT_MFID_FLAGS:
                     yield from self._yield_project_completions(current_word, use_mfid=True)
+                elif prev in _INSTRUMENT_FLAGS:
+                    yield from self._yield_instrument_completions(current_word)
                 elif prev in _INSTRUMENT_MFID_FLAGS:
                     yield from self._yield_instrument_completions(current_word, use_mfid=True)
                 elif prev in _ENTITY_FLAGS:
@@ -991,6 +994,10 @@ try:
 
             if not current_word and prev in _PROJECT_MFID_FLAGS:
                 yield from self._yield_project_completions('', use_mfid=True)
+                return
+
+            if not current_word and prev in _INSTRUMENT_FLAGS:
+                yield from self._yield_instrument_completions('')
                 return
 
             if not current_word and prev in _INSTRUMENT_MFID_FLAGS:

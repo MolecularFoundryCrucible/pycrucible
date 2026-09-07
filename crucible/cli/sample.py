@@ -265,6 +265,13 @@ Examples:
         help='Crucible project ID (uses the saved current project if omitted)'
     )
     parser.add_argument(
+        '--project-mfid',
+        required=False,
+        default=None,
+        metavar='MFID',
+        help='Canonical project MFID (advanced; may accompany a matching --project-id)'
+    )
+    parser.add_argument(
         '-pid',
         action=DeprecatedAliasAction,
         deprecated_options={'-pid'},
@@ -972,9 +979,13 @@ def _execute_create(args):
 
     name        = args.name
     project_id  = args.project_id
-    default_project, project_source = resolve_project_context(args, project_id)
-    if default_project:
-        project_id = default_project
+    project_mfid = getattr(args, 'project_mfid', None)
+    if project_id is None and project_mfid is None:
+        default_project, _ = resolve_project_context(args)
+        if default_project:
+            project_id = default_project
+    else:
+        default_project = None
     description = args.description
     sample_type = args.sample_type
     timestamp   = None
@@ -985,7 +996,7 @@ def _execute_create(args):
             logger.error(str(e))
             sys.exit(1)
 
-    interactive = name is None or project_id is None
+    interactive = name is None or (project_id is None and project_mfid is None)
     if interactive:
         term.header("Create Sample")
         print("")
@@ -1006,7 +1017,7 @@ def _execute_create(args):
     if name is None:
         name = prompt_required("Sample name", option='--name')
 
-    if project_id is None:
+    if project_id is None and project_mfid is None:
         if default_project:
             project_id = prompt_optional(
                 "Project ID",
@@ -1020,7 +1031,7 @@ def _execute_create(args):
                 validator=validate_project_id,
                 option='--project-id',
             )
-    else:
+    elif project_id is not None and interactive:
         try:
             project_id = validate_project_id(project_id)
         except Exception as e:
@@ -1055,6 +1066,7 @@ def _execute_create(args):
             Sample(
                 sample_name=name,
                 project_id=project_id,
+                project_mfid=project_mfid,
                 description=description,
                 sample_type=sample_type,
                 timestamp=timestamp,

@@ -207,7 +207,9 @@ class SampleOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMixi
             sample (Sample): Sample model instance with the desired fields. Use
                 `owner` with an ORCID, MFID, username, or email to
                 create for a specific owner. `owner_orcid` is deprecated for
-                creation. Providing both fields is invalid.
+                creation. Providing both owner fields is invalid. `project_id`
+                accepts the human-readable ID and `project_mfid` accepts the canonical
+                MFID. Matching selectors may be supplied together.
             scientific_metadata (dict, optional): Scientific metadata to attach after creation.
             parents (list, optional): Parent samples to link ({unique_id: ...}).
             children (list, optional): Child samples to link ({unique_id: ...}).

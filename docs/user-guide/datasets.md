@@ -4,10 +4,12 @@
 |---|---|---|
 | `dataset_name` | Human-readable name for the dataset | create, update |
 | `project_id` | Project this dataset belongs to | create; later changes use `reassign_project()` |
+| `project_mfid` | Canonical project selector for creation | create |
 | `measurement` | Industry-standard experiment type (e.g. `"Raman Spectroscopy"`) | create, update |
 | `data_type` | Institution-specific data organization descriptor (e.g. `"ScopeFoundry H5 file"`) | create, update |
 | `instrument_name` | Name of the instrument as registered in Crucible | create |
 | `instrument_id` | Instrument identifier | create |
+| `instrument_mfid` | Canonical registered instrument selector for creation | create |
 | `instrument` | Current instrument identity and display fields, including its canonical MFID | server-assigned |
 | `project` | Current project identity and display fields, including its canonical MFID | server-assigned |
 | `data_format` | File type or extension (e.g. `"h5"`, `"dat"`) | create, update |
@@ -65,12 +67,28 @@ dataset_mfid = result["dataset_mfid"]
 client.datasets.add_file(dataset_mfid, "xrd_run5.xy")
 ```
 
+Applications may use canonical MFIDs instead of human-readable IDs. The API also accepts both forms when they resolve to the same resource:
+
+```python
+dataset = Dataset(
+    dataset_name="XRD run 5",
+    project_id="my-project",
+    project_mfid="0tkn2knjast3h0008nyq9zps2c",
+    instrument_id="beamline-123",
+    instrument_mfid="0tk8pf1me0h3h0003fp91vr037",
+)
+```
+
+Conflicting ID and MFID selectors produce an API validation error. Nano forwards the supplied selectors without resolving one into the other.
+
 Files are optional. The CLI can create a record that receives its files later:
 
 ```bash
 crucible dataset create --project-id my-project --name "Planned experiment"
 crucible dataset add-file DATASET_MFID -i results.dat
 ```
+
+The CLI defaults to human-readable `--project-id` and `--instrument-id` selectors. Integrations can use `--project-mfid` and `--instrument-mfid`; matching ID and MFID flags may be combined.
 
 For convenience, `create()` can perform these operations in sequence when `files` is supplied. Files are not part of the API dataset-creation request, and a failure while adding one does not roll back the created dataset record:
 

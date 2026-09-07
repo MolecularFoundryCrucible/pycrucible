@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from crucible.cli import dataset, file as file_cli, project, sample, upload
+from crucible.parsers import BaseParser
 
 
 def make_parser(module):
@@ -97,6 +98,32 @@ def test_dataset_create_accepts_no_input():
     assert args.input is None
 
 
+def test_dataset_create_accepts_typed_project_and_instrument_selectors():
+    args = make_parser(dataset).parse_args([
+        'dataset', 'create',
+        '--project-id', 'project-one',
+        '--project-mfid', '0tkn2knjast3h0008nyq9zps2c',
+        '--instrument-id', 'xrd-one',
+        '--instrument-mfid', '0tk8pf1me0h3h0003fp91vr037',
+    ])
+
+    assert args.project_id == 'project-one'
+    assert args.project_mfid == '0tkn2knjast3h0008nyq9zps2c'
+    assert args.instrument_id == 'xrd-one'
+    assert args.instrument_mfid == '0tk8pf1me0h3h0003fp91vr037'
+
+
+def test_sample_create_accepts_matching_project_selectors():
+    args = make_parser(sample).parse_args([
+        'sample', 'create',
+        '--project-id', 'project-one',
+        '--project-mfid', '0tkn2knjast3h0008nyq9zps2c',
+    ])
+
+    assert args.project_id == 'project-one'
+    assert args.project_mfid == '0tkn2knjast3h0008nyq9zps2c'
+
+
 @pytest.mark.parametrize('module', [dataset, sample])
 def test_resource_list_accepts_project_mfid_and_scope(module):
     args = make_parser(module).parse_args([
@@ -171,6 +198,65 @@ def test_dataset_create_without_files_uses_direct_client(monkeypatch):
         keywords=['planned', 'draft'],
         files=[],
     )
+
+
+def test_dataset_create_with_mfids_does_not_apply_project_default(monkeypatch):
+    client = MagicMock()
+    client.datasets.create.return_value = {'created_record': {}}
+    monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
+    args = make_parser(dataset).parse_args([
+        'dataset', 'create', '--name', 'Planned experiment',
+        '--project-mfid', '0tkn2knjast3h0008nyq9zps2c',
+        '--instrument-mfid', '0tk8pf1me0h3h0003fp91vr037',
+    ])
+
+    args.func(args)
+
+    created_dataset = client.datasets.create.call_args.args[0]
+    assert created_dataset.project_id is None
+    assert created_dataset.project_mfid == '0tkn2knjast3h0008nyq9zps2c'
+    assert created_dataset.instrument_mfid == '0tk8pf1me0h3h0003fp91vr037'
+
+
+def test_parser_preserves_creation_selectors():
+    parsed = BaseParser(
+        project_id='project-one',
+        project_mfid='0tkn2knjast3h0008nyq9zps2c',
+        instrument_id='xrd-one',
+        instrument_mfid='0tk8pf1me0h3h0003fp91vr037',
+    ).to_dataset()
+
+    assert parsed.project_id == 'project-one'
+    assert parsed.project_mfid == '0tkn2knjast3h0008nyq9zps2c'
+    assert parsed.instrument_id == 'xrd-one'
+    assert parsed.instrument_mfid == '0tk8pf1me0h3h0003fp91vr037'
+
+
+def test_parser_new_selectors_preserve_legacy_positional_arguments():
+    parsed = BaseParser([], 'project-one', '0000-0001-6402-3752')
+
+    assert parsed.project_id == 'project-one'
+    assert parsed.owner_orcid == '0000-0001-6402-3752'
+
+
+def test_sample_create_with_project_mfid_does_not_apply_project_default(monkeypatch):
+    client = MagicMock()
+    client.samples.create.return_value = {
+        'unique_id': '0td7evvtg5wb90005k1j97ak94',
+        'sample_name': 'Sample',
+    }
+    monkeypatch.setattr('crucible.client.CrucibleClient', lambda: client)
+    monkeypatch.setattr(sample, '_show_sample', MagicMock())
+    args = make_parser(sample).parse_args([
+        'sample', 'create', '--name', 'Sample',
+        '--project-mfid', '0tkn2knjast3h0008nyq9zps2c',
+    ])
+
+    args.func(args)
+
+    created_sample = client.samples.create.call_args.args[0]
+    assert created_sample.project_id is None
+    assert created_sample.project_mfid == '0tkn2knjast3h0008nyq9zps2c'
 
 
 def test_dataset_add_thumbnail_dispatches_local_image(monkeypatch, tmp_path, capsys):

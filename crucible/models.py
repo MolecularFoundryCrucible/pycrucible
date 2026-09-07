@@ -73,6 +73,7 @@ class Sample(CrucibleResource):
     owner_orcid: Optional[str] = None
     owner: Optional[Union[str, PublicUser]] = None
     project_id: Optional[str] = None
+    project_mfid: Optional[str] = None
     project: Optional[ProjectReference] = None
     project_relation: Optional[Literal['assigned', 'shared']] = None
     description: Optional[str] = None
@@ -88,8 +89,10 @@ class Dataset(CrucibleResource):
     owner_orcid: Optional[str] = None
     owner: Optional[Union[str, PublicUser]] = None
     project_id: Optional[str] = None
+    project_mfid: Optional[str] = None
     instrument_name: Optional[str] = None
     instrument_id: Optional[str] = None
+    instrument_mfid: Optional[str] = None
     instrument: Optional[InstrumentReference] = None
     project: Optional[ProjectReference] = None
     project_relation: Optional[Literal['assigned', 'shared']] = None
@@ -304,4 +307,3 @@ class DeletionAuditLog(BaseModel):
     deleted_at: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra='allow')
-

@@ -182,7 +182,9 @@ class DatasetOperations(ProjectAssignmentMixin, OwnershipMixin, AccessControlMix
             dataset (Dataset): Dataset object with dataset details. Use `owner` with
                 an ORCID, MFID, username, or email to create for a
                 specific owner. `owner_orcid` is deprecated for creation. Providing
-                both fields is invalid.
+                both owner fields is invalid. `project_id` and `instrument_id` accept
+                human-readable IDs; `project_mfid` and `instrument_mfid` accept
+                canonical MFIDs. Matching ID and MFID selectors may be supplied together.
             scientific_metadata (dict, optional): Scientific metadata
             keywords (list, optional): Keywords to associate with dataset
             files (list, optional): Files to attach. Each item is either a local
